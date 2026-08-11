@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Space+Grotesk:wght@700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #14120f; --ink: #f4f1ea; --muted: #a39c8c; --line: #2c2924;
+  --teal: #4d9e8a; --amber: #e8a33d;
+}
+* { box-sizing: border-box; }
+html, body { padding: 0; margin: 0; }
+body { font-family: 'Inter', sans-serif; color: var(--ink); background: var(--bg); }
+
+.portal-shell { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; gap: 44px; }
+.portal-title { font-family: 'Fraunces', serif; font-size: clamp(26px, 4vw, 38px); font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+.portal-sub { color: var(--muted); font-size: 14px; margin-top: 10px; max-width: 460px; }
+.portal-tiles { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; }
+.portal-tile { width: 260px; border: 1px solid var(--line); border-radius: 18px; padding: 30px 26px; text-decoration: none; color: inherit; background: rgba(255,255,255,0.02); transition: transform 0.2s cubic-bezier(0.2,0.7,0.3,1), border-color 0.2s; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.portal-tile:hover { transform: translateY(-3px); }
+.portal-tile-dd { border-color: rgba(77,158,138,0.35); }
+.portal-tile-dd:hover { border-color: var(--teal); }
+.portal-tile-gh { border-color: rgba(232,163,61,0.35); }
+.portal-tile-gh:hover { border-color: var(--amber); }
+.portal-tile-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.portal-tile-dd .portal-tile-icon { background: rgba(77,158,138,0.15); color: var(--teal); }
+.portal-tile-gh .portal-tile-icon { background: rgba(232,163,61,0.15); color: var(--amber); }
+.portal-tile-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+.portal-tile-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; text-align: left; }
+.portal-foot { font-size: 11.5px; color: var(--muted); letter-spacing: 0.02em; }
