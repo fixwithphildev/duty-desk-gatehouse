@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Plus, CheckCircle2 } from "lucide-react";
-import { Badge, Drawer, Field } from "@/components/ui";
+import { Badge, Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { statusTone } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { startPatrolAction, completePatrolAction } from "./actions";

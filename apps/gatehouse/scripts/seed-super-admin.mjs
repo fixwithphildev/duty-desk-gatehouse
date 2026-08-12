@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // One-time script to create the first Super Admin account on this platform.
-// Run with: npm run seed:super-admin
-// Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from apps/duty-desk/.env.local.
+// Run with: npm run seed:super-admin -- --username p.atabo --name "Philip Atabo"
+// (or with no flags, in a real interactive terminal, to be prompted instead)
+// Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from apps/gatehouse/.env.local.
 
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
@@ -10,6 +11,16 @@ import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { readFileSync, existsSync } from "node:fs";
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const out = {};
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--username") out.username = args[++i];
+    if (args[i] === "--name") out.displayName = args[++i];
+  }
+  return out;
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = join(__dirname, "..", ".env.local");
@@ -45,17 +56,22 @@ async function main() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     console.error("Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY.");
-    console.error("Create apps/duty-desk/.env.local from .env.example first (see SETUP.md).");
+    console.error("Create apps/gatehouse/.env.local from .env.example first (see SETUP.md).");
     process.exit(1);
   }
 
   const supabase = createClient(url, key, { auth: { persistSession: false } });
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
   console.log("\n=== Gatehouse — create the first Super Admin account ===\n");
-  const username = (await rl.question("Username (e.g. p.atabo): ")).trim();
-  const displayName = (await rl.question("Display name (e.g. Philip Atabo): ")).trim();
-  rl.close();
+  const argv = parseArgs();
+  let username = argv.username;
+  let displayName = argv.displayName;
+  if (!username || !displayName) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    if (!username) username = (await rl.question("Username (e.g. p.atabo): ")).trim();
+    if (!displayName) displayName = (await rl.question("Display name (e.g. Philip Atabo): ")).trim();
+    rl.close();
+  }
 
   if (!username || !displayName) {
     console.error("Username and display name are required.");

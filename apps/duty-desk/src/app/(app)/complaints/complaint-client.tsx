@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
-import { Drawer, Field } from "@/components/ui";
+import { Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { DD_COMPLAINT_CATEGORIES, DD_COMPLAINT_STATUSES, DD_PRIORITIES, priorityTone } from "@/lib/checklist-data";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createComplaintAction, updateComplaintStatusAction } from "./actions";

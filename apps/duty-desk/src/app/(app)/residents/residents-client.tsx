@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
-import { Drawer, Field } from "@/components/ui";
+import { Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { addResidentAction } from "./actions";
 import type { ResidentRow } from "@/lib/data/residents";

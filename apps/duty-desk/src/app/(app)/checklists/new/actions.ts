@@ -11,12 +11,16 @@ export async function submitChecklistAction(input: {
   apartment: string;
   type: ChecklistType;
   items: ChecklistItemInput[];
+  // The officer's explicit Ready/Not Ready call, not a purely automatic
+  // derivation — see checklist-form.tsx. Flagged items still always create
+  // a maintenance ticket below regardless of this value, so letting a guest
+  // check in despite a flagged item is still fully traceable.
+  overallReady: boolean;
 }): Promise<never> {
   const session = await requireRole(DD_CAN_EDIT_CHECKLISTS);
   const apartment = input.apartment.trim();
   if (!apartment) throw new Error("Apartment number is required.");
 
-  const overallReady = !input.items.some((i) => i.condition === "Damaged" || i.condition === "Missing");
   const typeLabel = input.type === "check_in_prep" ? "Check-in Prep" : "Check-out Inspection";
 
   const { data: checklist, error } = await supabaseAdmin
@@ -26,7 +30,7 @@ export async function submitChecklistAction(input: {
       type: input.type,
       prepared_by: session.staffId,
       status: "submitted",
-      overall_ready: overallReady,
+      overall_ready: input.overallReady,
     })
     .select()
     .single();

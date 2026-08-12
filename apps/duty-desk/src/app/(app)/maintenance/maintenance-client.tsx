@@ -2,7 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { Plus, Paperclip } from "lucide-react";
-import { Badge, Drawer, Field } from "@/components/ui";
+import { Badge, Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { DD_PRIORITIES, DD_TICKET_DEPTS, DD_TICKET_STATUSES, priorityTone } from "@/lib/checklist-data";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createTicketAction, updateTicketStatusAction } from "./actions";

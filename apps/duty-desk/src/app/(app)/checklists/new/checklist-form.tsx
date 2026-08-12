@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import { Field } from "@/components/ui";
 import { DD_ALL_ITEMS, DD_CATEGORIES, DD_CHECKLIST_TYPES, DD_CONDITIONS } from "@/lib/checklist-data";
 import type { ChecklistItemInput, ChecklistType, Condition } from "@/lib/types";
@@ -20,6 +20,10 @@ export function ChecklistForm({ preparedByName }: { preparedByName: string }) {
   const [apartment, setApartment] = useState("");
   const [type, setType] = useState<ChecklistType>("check_in_prep");
   const [values, setValues] = useState<Record<string, ItemValue>>({});
+  // The officer's explicit final call. null = "hasn't overridden the
+  // suggestion yet" — it tracks the auto-suggestion until they click either
+  // button themselves.
+  const [manualReady, setManualReady] = useState<"Ready" | "Not Ready" | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +32,9 @@ export function ChecklistForm({ preparedByName }: { preparedByName: string }) {
 
   const flaggedCount = Object.values(values).filter((v) => v.condition === "Damaged" || v.condition === "Missing").length;
   const answeredCount = Object.keys(values).filter((k) => values[k].condition || values[k].available).length;
+  const autoSuggested: "Ready" | "Not Ready" = flaggedCount > 0 ? "Not Ready" : "Ready";
+  const effectiveReady = manualReady ?? autoSuggested;
+  const overridingDespiteIssues = effectiveReady === "Ready" && flaggedCount > 0;
 
   const handleSubmit = () => {
     setError(null);
@@ -45,7 +52,7 @@ export function ChecklistForm({ preparedByName }: { preparedByName: string }) {
     });
     startTransition(async () => {
       try {
-        await submitChecklistAction({ apartment, type, items });
+        await submitChecklistAction({ apartment, type, items, overallReady: effectiveReady === "Ready" });
       } catch (e) {
         if (isRedirectError(e)) throw e;
         setError(errorMessage(e));
@@ -157,9 +164,39 @@ export function ChecklistForm({ preparedByName }: { preparedByName: string }) {
         </div>
       ))}
 
+      <div className="card">
+        <div className="card-head"><span>Final status</span></div>
+        <p className="gate-copy" style={{ marginTop: -8 }}>
+          {flaggedCount > 0
+            ? `${flaggedCount} item(s) flagged Damaged/Missing will open maintenance tickets automatically, regardless of the choice below.`
+            : "No issues flagged."}
+        </p>
+        <div className="seg">
+          {(["Ready", "Not Ready"] as const).map((choice) => (
+            <button
+              key={choice}
+              type="button"
+              className={`seg-btn tone-${choice === "Ready" ? "teal" : "red"} ${effectiveReady === choice ? "seg-active" : ""}`}
+              onClick={() => setManualReady(choice)}
+            >
+              {choice}
+            </button>
+          ))}
+        </div>
+        {overridingDespiteIssues ? (
+          <div className="login-error" style={{ marginTop: 14, marginBottom: 0, display: "flex", gap: 9, alignItems: "flex-start" }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>
+              You're marking this apartment Ready even though {flaggedCount} item(s) are flagged Damaged/Missing. This will still be
+              recorded under your name and a maintenance ticket will still be created — but check-in will proceed.
+            </span>
+          </div>
+        ) : null}
+      </div>
+
       <div className="submit-bar">
         <div className="mono submit-summary">
-          {flaggedCount > 0 ? `${flaggedCount} item(s) will open maintenance tickets automatically.` : "No issues flagged — apartment will be marked Ready."}
+          Submitting as: <strong>{effectiveReady}</strong>
         </div>
         <button type="button" className="btn btn-primary" disabled={!apartment.trim() || pending} onClick={handleSubmit}>
           {pending ? "Submitting…" : "Submit checklist & lock"}

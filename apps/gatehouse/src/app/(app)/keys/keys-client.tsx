@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Plus, DoorOpen, AlertOctagon } from "lucide-react";
-import { Badge, Drawer, Field } from "@/components/ui";
+import { Badge, Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { statusTone } from "@/lib/types";
 import { GH_KEY_TYPES } from "@/lib/constants";
 import type { KeyRecordRow } from "@/lib/data/keys";

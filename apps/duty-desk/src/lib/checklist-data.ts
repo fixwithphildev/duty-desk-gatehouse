@@ -5,16 +5,72 @@ export interface ChecklistCategory {
   items: string[];
 }
 
+// Matches the real "Destination Apartment Checklist" paper form (73 numbered
+// lines). Three of those lines — Remotes, Toiletries, Towels — are group
+// headers on paper that each cover several individual Yes/No checks, so
+// digitized one-checkbox-per-check this comes out to 84 items, not 73.
 const QTY_ITEMS = new Set([
-  "Frying Pan", "Pots", "Tea Cups", "Mugs", "Dinner Plates", "Soup Bowls", "Available Pillows", "Hangers",
+  "Available Pillows", "Balcony Chairs", "Hangers", "Laundry Bags", "White Bedside Stool", "Extension Boxes",
+  "Dinner Plates", "Dinner Mini Plates", "Soup Bowls", "Dinner Spoons", "Dinner Forks", "Tea Spoons",
+  "Dinner Knives", "Mugs", "Tea Cups", "Water Glass", "Highball (Wine) Cups", "Washing Hand Bowls",
+  "Washing Hand Bowls (Bathroom)", "Pots", "Frying Pan", "Set of Cooking Ladles", "Set of Kitchen Knives",
 ]);
 
 export const DD_CATEGORIES: ChecklistCategory[] = [
-  { key: "room", label: "Room & Living", kind: "condition", items: ["Bed Condition", "Apartment Fragrance", "Condition of the Couch", "TV Condition", "Available Pillows", "Curtains / Blinds", "AC Units Condition", "Balcony Condition"] },
-  { key: "kitchen", label: "Kitchen & Dining", kind: "condition", items: ["Frying Pan", "Pots", "Tea Cups", "Mugs", "Dinner Plates", "Soup Bowls", "Gas Availability", "Refrigerator Condition"] },
-  { key: "bathroom", label: "Bathroom", kind: "condition", items: ["Bath Robe", "Shower Heads", "Toilet Seats", "Taps"] },
-  { key: "electronics", label: "Electronics & Remotes", kind: "yesno", items: ["TV Remotes", "A/C Remote (Bedroom)", "MiFi Available"] },
-  { key: "toiletries", label: "Toiletries & Utilities", kind: "yesno", items: ["Tissue", "Body Towels", "Bottle Water Available"] },
+  {
+    key: "room",
+    label: "Room & Living",
+    kind: "condition",
+    items: [
+      "Bed Condition", "Apartment Fragrance", "Art Works", "Condition of the Couch", "TV Position",
+      "TV Console Condition", "Available Pillows", "Beddings Cleanliness", "Dining Chairs Condition",
+      "Working Pop Lights", "Washing Machine", "White Bedside Stool", "Balcony Table", "Balcony Chairs",
+      "Bedside Drawer Charger", "AC Units Condition", "Sitting Room Fancy Chair", "Workstation Table",
+      "Workstation Chair", "Available Rug / Cleanliness", "Wall Console", "Dining Table", "Hangers",
+      "Floor Skirting", "Laundry Bags", "Décor", "Curtains / Blinds", "Hallway Lights", "Hallway Rugs",
+      "Wall Cleanliness", "Surroundings / Garden", "All Doors Condition", "Balcony Cleanliness",
+      "Balcony Glass Cleanliness", "Recess Light", "Extension Boxes", "Studio Work Station",
+    ],
+  },
+  {
+    key: "kitchen",
+    label: "Kitchen & Dining",
+    kind: "condition",
+    items: [
+      "Refrigerator Condition", "Microwave Condition", "Electric Kettle", "Gas Availability",
+      "Dinner Plates", "Dinner Mini Plates", "Soup Bowls", "Dinner Spoons", "Dinner Forks", "Tea Spoons",
+      "Dinner Knives", "Mugs", "Tea Cups", "Water Glass", "Highball (Wine) Cups", "Washing Hand Bowls",
+      "Pots", "Frying Pan", "Set of Cooking Ladles", "Set of Kitchen Knives", "Kitchen Heat Extractor",
+      "Blender", "Kitchen Cabinet",
+    ],
+  },
+  {
+    key: "bathroom",
+    label: "Bathroom",
+    kind: "condition",
+    items: [
+      "Bath Robe", "Bath Glass Cleanliness", "Shower Heads", "Shower Cubicle", "Toilet Seats", "Taps",
+      "Bathroom Shelves", "Washing Hand Bowls (Bathroom)",
+    ],
+  },
+  {
+    key: "electronics",
+    label: "Electronics & Remotes",
+    kind: "yesno",
+    items: [
+      "MiFi Available", "Window Blind Remote", "TV Remotes", "IPTV Available",
+      "A/C Remote (Sitting Room)", "A/C Remote (Bedroom)", "IPTV Remote",
+    ],
+  },
+  {
+    key: "toiletries",
+    label: "Toiletries & Utilities",
+    kind: "yesno",
+    items: [
+      "Tissue", "Shampoo", "Bath Gel / Soap", "Body Towels", "Shaving Kit", "Hand Towel",
+      "Dental Kit", "Shower Cap", "Bottle Water Available",
+    ],
+  },
 ];
 
 export interface ChecklistItemDef {

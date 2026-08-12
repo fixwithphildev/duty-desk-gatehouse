@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Plus, AlertOctagon, CheckCircle2 } from "lucide-react";
-import { Badge, Drawer, Field } from "@/components/ui";
+import { Badge, Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { GH_SEVERITIES, severityTone } from "@/lib/types";
 import { GH_ALERT_TYPES } from "@/lib/constants";
 import type { AlertRow } from "@/lib/data/alerts";

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { CheckCircle2, Plus } from "lucide-react";
-import { Badge, Drawer, Field } from "@/components/ui";
+import { Badge, Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createTaskAction, markTaskDoneAction } from "./actions";
 import type { TaskRow } from "@/lib/data/tasks";

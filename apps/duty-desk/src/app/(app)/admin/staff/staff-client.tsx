@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Plus, KeyRound, Ban, CheckCircle2, Unlock } from "lucide-react";
-import { Badge, Drawer, Field } from "@/components/ui";
+import { Badge, Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { DD_ROLE_LABELS, assignableRolesFor, canManageAccount, type DDRole, type StaffAccount } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createStaffAction, setAccountDisabledAction, resetUsercodeAction, unlockAccountAction } from "./actions";

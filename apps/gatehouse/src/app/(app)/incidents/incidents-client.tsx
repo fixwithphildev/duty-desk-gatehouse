@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
-import { Badge, Drawer, Field } from "@/components/ui";
+import { Badge, Field } from "@/components/ui";
+import { Drawer } from "@/components/drawer";
 import { GH_SEVERITIES, severityTone } from "@/lib/types";
 import { GH_INCIDENT_CATEGORIES, GH_INCIDENT_STATUSES } from "@/lib/constants";
 import type { IncidentRow } from "@/lib/data/incidents";
