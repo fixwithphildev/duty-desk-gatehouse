@@ -36,9 +36,12 @@ export async function submitChecklistAction(input: {
     .single();
   if (error || !checklist) throw new Error(error?.message ?? "Failed to create checklist.");
 
-  for (const item of input.items) {
-    let linkedTicketId: string | null = null;
-    if (item.condition === "Damaged" || item.condition === "Missing") {
+  // Flagged items are typically a handful at most, so create their tickets
+  // in parallel rather than one-by-one.
+  const flaggedItems = input.items.filter((i) => i.condition === "Damaged" || i.condition === "Missing");
+  const ticketIdByItemName = new Map<string, string>();
+  await Promise.all(
+    flaggedItems.map(async (item) => {
       const { data: ticket } = await supabaseAdmin
         .from("maintenance_tickets")
         .insert({
@@ -53,9 +56,14 @@ export async function submitChecklistAction(input: {
         })
         .select()
         .single();
-      linkedTicketId = ticket?.id ?? null;
-    }
-    await supabaseAdmin.from("checklist_items").insert({
+      if (ticket) ticketIdByItemName.set(item.name, ticket.id);
+    })
+  );
+
+  // All ~84 checklist items go in as a single bulk insert instead of one
+  // round-trip per item — this is what was making submission slow.
+  const { error: itemsError } = await supabaseAdmin.from("checklist_items").insert(
+    input.items.map((item) => ({
       checklist_id: checklist.id,
       name: item.name,
       category: item.category,
@@ -63,9 +71,10 @@ export async function submitChecklistAction(input: {
       qty: item.qty,
       condition: item.condition,
       available: item.available,
-      linked_ticket_id: linkedTicketId,
-    });
-  }
+      linked_ticket_id: ticketIdByItemName.get(item.name) ?? null,
+    }))
+  );
+  if (itemsError) throw new Error(itemsError.message);
 
   revalidatePath("/checklists");
   revalidatePath("/dashboard");
