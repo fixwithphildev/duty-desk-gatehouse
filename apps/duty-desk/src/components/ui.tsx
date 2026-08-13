@@ -47,6 +47,42 @@ export function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; titl
   );
 }
 
+const TONE_VARS: Record<string, string> = {
+  teal: "var(--teal)",
+  gold: "var(--gold)",
+  red: "var(--red)",
+  neutral: "var(--neutral)",
+};
+
+export interface BarBreakdownItem {
+  label: string;
+  value: number;
+  tone?: string;
+}
+
+// Direct-labeled horizontal bars using the app's existing status tones
+// (teal/gold/red), not a separate chart-only palette — keeps analytics
+// visually consistent with the Badge colors used everywhere else.
+export function BarBreakdown({ items }: { items: BarBreakdownItem[] }) {
+  const max = Math.max(1, ...items.map((i) => i.value));
+  return (
+    <div className="bar-breakdown">
+      {items.map((item) => (
+        <div className="bar-breakdown-row" key={item.label}>
+          <span className="bar-breakdown-label">{item.label}</span>
+          <div className="bar-breakdown-track">
+            <div
+              className="bar-breakdown-fill"
+              style={{ width: `${(item.value / max) * 100}%`, background: TONE_VARS[item.tone ?? "neutral"] ?? TONE_VARS.neutral }}
+            />
+          </div>
+          <span className="mono bar-breakdown-value">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="field">

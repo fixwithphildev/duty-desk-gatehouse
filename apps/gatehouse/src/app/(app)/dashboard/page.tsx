@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { AlertTriangle, MapPin, Shield, KeyRound, Bell } from "lucide-react";
+import { AlertTriangle, MapPin, Shield, Bell } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { severityTone } from "@/lib/types";
-import { getIncidents, getOpenIncidentsCount } from "@/lib/data/incidents";
+import { getIncidents, getOpenIncidentsCount, getIncidentsDailyTrend } from "@/lib/data/incidents";
 import { getVehiclesOnPropertyCount } from "@/lib/data/vehicles";
 import { getActivePatrolsCount } from "@/lib/data/patrols";
-import { getIssuedKeysCount } from "@/lib/data/keys";
 import { getAlerts, getUnacknowledgedAlertsCount } from "@/lib/data/alerts";
 import { Badge, StatCard } from "@/components/ui";
+import { TrendChart } from "@/components/trend-chart";
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -15,14 +15,14 @@ function fmtTime(iso: string): string {
 
 export default async function DashboardPage() {
   await requireSession();
-  const [incidents, openIncidents, vehiclesOn, activePatrols, issuedKeys, alerts, unackAlerts] = await Promise.all([
+  const [incidents, openIncidents, vehiclesOn, activePatrols, alerts, unackAlerts, incidentsTrend] = await Promise.all([
     getIncidents(),
     getOpenIncidentsCount(),
     getVehiclesOnPropertyCount(),
     getActivePatrolsCount(),
-    getIssuedKeysCount(),
     getAlerts(),
     getUnacknowledgedAlertsCount(),
+    getIncidentsDailyTrend(14),
   ]);
 
   const unresolvedAlerts = alerts.filter((a) => a.status !== "Acknowledged").slice(0, 5);
@@ -39,7 +39,6 @@ export default async function DashboardPage() {
         <StatCard label="Open incidents" value={openIncidents} icon={AlertTriangle} tone={openIncidents ? "amber" : "green"} />
         <StatCard label="Vehicles on property" value={vehiclesOn} icon={MapPin} sub="cards out" />
         <StatCard label="Patrols active" value={activePatrols} icon={Shield} />
-        <StatCard label="Keys issued" value={issuedKeys} icon={KeyRound} />
         <StatCard label="Unacknowledged alerts" value={unackAlerts} icon={Bell} tone={unackAlerts ? "red" : "green"} />
       </div>
 
@@ -82,6 +81,11 @@ export default async function DashboardPage() {
             {recentIncidents.length === 0 ? <li style={{ padding: 12, opacity: 0.6, fontSize: 13 }}>No activity yet.</li> : null}
           </ul>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><span>Incidents logged — last 14 days</span></div>
+        <TrendChart data={incidentsTrend} tone="var(--amber)" />
       </div>
     </div>
   );

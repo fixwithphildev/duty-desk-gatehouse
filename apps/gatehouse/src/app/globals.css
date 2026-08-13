@@ -179,3 +179,23 @@ a { color: inherit; }
 .alert-type { font-weight: 700; font-size: 13px; }
 .alert-msg { font-size: 13.5px; margin-bottom: 5px; line-height: 1.45; }
 .alert-meta { font-size: 11px; opacity: 0.6; color: var(--muted); }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+.bar-breakdown { display: flex; flex-direction: column; gap: 12px; }
+.bar-breakdown-row { display: grid; grid-template-columns: 120px 1fr 34px; align-items: center; gap: 10px; }
+.bar-breakdown-label { font-size: 12.5px; color: var(--muted); }
+.bar-breakdown-track { height: 10px; border-radius: 6px; background: var(--bg); overflow: hidden; }
+.bar-breakdown-fill { height: 100%; border-radius: 6px; transition: width 0.3s var(--ease); }
+.bar-breakdown-value { font-size: 12.5px; font-weight: 700; text-align: right; }
+
+.trend-chart { position: relative; }
+.trend-chart-tooltip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 11.5px; padding: 5px 9px; border-radius: 7px; transform: translate(-50%, -130%); white-space: nowrap; box-shadow: var(--shadow-md); z-index: 2; }
+.trend-chart-axis-label { font-size: 10px; fill: var(--muted); }
+
+.notification-stack { position: fixed; top: 18px; right: 18px; z-index: 100; display: flex; flex-direction: column; gap: 10px; max-width: 340px; }
+.notification-toast { display: flex; align-items: flex-start; gap: 9px; background: var(--panel); border: 1px solid var(--red); border-left: 3px solid var(--red); border-radius: 12px; padding: 12px 12px 12px 14px; box-shadow: var(--shadow-lg); cursor: pointer; animation: toastIn 0.25s var(--ease); color: var(--ink); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+.notification-toast-msg { font-size: 12.5px; line-height: 1.4; flex: 1; }
+.notification-toast-close { background: transparent; border: none; color: var(--muted); flex-shrink: 0; display: flex; padding: 2px; }
+.notification-toast svg:first-child { color: var(--red); flex-shrink: 0; margin-top: 1px; }

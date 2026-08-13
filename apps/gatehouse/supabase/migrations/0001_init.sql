@@ -102,35 +102,6 @@ create table item_logs (
 );
 
 -- ---------------------------------------------------------------------------
--- Staff attendance (on duty) & off-duty visitor attendance
--- ---------------------------------------------------------------------------
-
-create type gh_attendance_status as enum ('Signed In', 'Signed Out');
-
-create table attendance_logs (
-  id uuid primary key default gen_random_uuid(),
-  staff_name text not null,
-  role text,
-  in_at timestamptz not null default now(),
-  out_at timestamptz,
-  status gh_attendance_status not null default 'Signed In',
-  logged_by uuid references staff_accounts(id),
-  created_at timestamptz not null default now()
-);
-
-create table off_duty_logs (
-  id uuid primary key default gen_random_uuid(),
-  staff_name text not null,
-  department text,
-  reason text,
-  in_at timestamptz not null default now(),
-  out_at timestamptz,
-  status gh_attendance_status not null default 'Signed In',
-  logged_by uuid references staff_accounts(id),
-  created_at timestamptz not null default now()
-);
-
--- ---------------------------------------------------------------------------
 -- Patrols
 -- ---------------------------------------------------------------------------
 
@@ -144,24 +115,6 @@ create table patrols (
   ended_at timestamptz,
   notes text,
   status gh_patrol_status not null default 'In Progress',
-  created_at timestamptz not null default now()
-);
-
--- ---------------------------------------------------------------------------
--- Access & key management
--- ---------------------------------------------------------------------------
-
-create type gh_key_status as enum ('Issued', 'Returned', 'Lost');
-
-create table key_records (
-  id uuid primary key default gen_random_uuid(),
-  key_type text not null,
-  area text not null,
-  issued_to text not null,
-  issued_by uuid references staff_accounts(id),
-  issued_at timestamptz not null default now(),
-  returned_at timestamptz,
-  status gh_key_status not null default 'Issued',
   created_at timestamptz not null default now()
 );
 
@@ -195,8 +148,5 @@ alter table login_events enable row level security;
 alter table incidents enable row level security;
 alter table vehicle_logs enable row level security;
 alter table item_logs enable row level security;
-alter table attendance_logs enable row level security;
-alter table off_duty_logs enable row level security;
 alter table patrols enable row level security;
-alter table key_records enable row level security;
 alter table alerts enable row level security;

@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth";
 import { navForRole } from "@/lib/nav";
 import { getUnacknowledgedAlertsCount } from "@/lib/data/alerts";
 import { Sidebar } from "@/components/sidebar";
+import { NotificationWatcher } from "@/components/notification-watcher";
 
 // Every page under this route group is behind requireSession() (this layout)
 // plus, where the blueprint's permission matrix restricts a role (only
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="app-shell">
       <Sidebar items={navForRole(session.role)} displayName={session.displayName} role={session.role} unackAlertCount={unackAlertCount} />
       <main className="main">{children}</main>
+      <NotificationWatcher />
     </div>
   );
 }

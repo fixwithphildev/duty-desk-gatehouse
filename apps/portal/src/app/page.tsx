@@ -22,6 +22,8 @@ function RadioIcon() {
 export default function PortalPage() {
   return (
     <div className="portal-shell">
+      <div className="portal-scrim" />
+      <div className="portal-content">
       <div>
         <h1 className="portal-title">The Destination — Operations Portal</h1>
         <p className="portal-sub">One link for both departments. Pick your platform below to sign in with your username and usercode.</p>
@@ -41,6 +43,7 @@ export default function PortalPage() {
       </div>
 
       <div className="portal-foot">This page holds no accounts and no data — it only links to each platform&apos;s own login.</div>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Severity } from "@/lib/types";
+import { bucketByDay, daysAgoIso, type DailyCount } from "@/lib/trend";
 
 export interface IncidentRow {
   id: string;
@@ -35,4 +36,9 @@ export async function getIncidents(): Promise<IncidentRow[]> {
 export async function getOpenIncidentsCount(): Promise<number> {
   const { count } = await supabaseAdmin.from("incidents").select("id", { count: "exact", head: true }).neq("status", "Resolved");
   return count ?? 0;
+}
+
+export async function getIncidentsDailyTrend(days = 14): Promise<DailyCount[]> {
+  const { data } = await supabaseAdmin.from("incidents").select("created_at").gte("created_at", daysAgoIso(days));
+  return bucketByDay((data ?? []).map((r) => r.created_at), days);
 }

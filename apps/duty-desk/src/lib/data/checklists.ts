@@ -1,6 +1,8 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { ChecklistType, Condition } from "@/lib/types";
+import { bucketByDay, daysAgoIso, type DailyCount } from "@/lib/trend";
 
 export interface ChecklistRow {
   id: string;
@@ -55,6 +57,41 @@ export async function getLatestSubmittedByApartment(): Promise<ChecklistRow[]> {
   }
   return [...map.values()];
 }
+
+export async function getChecklistsDailyTrend(days = 14): Promise<DailyCount[]> {
+  const { data } = await supabaseAdmin
+    .from("apartment_checklists")
+    .select("created_at")
+    .eq("status", "submitted")
+    .gte("created_at", daysAgoIso(days));
+  return bucketByDay((data ?? []).map((r) => r.created_at), days);
+}
+
+// Lightweight, cached version of "how many apartments are currently Not
+// Ready" for the sidebar badge — this runs on EVERY page load site-wide
+// (it lives in the shared app layout), so unlike getAllChecklists() it
+// selects only the 3 columns it needs (no staff_accounts join) and is
+// cached for 30s instead of hitting the database on every navigation.
+// Checklist submission explicitly busts this cache via revalidateTag, so
+// it's never stale for more than a moment after a real change.
+export const getNotReadyCount = unstable_cache(
+  async (): Promise<number> => {
+    const { data } = await supabaseAdmin
+      .from("apartment_checklists")
+      .select("apartment, overall_ready, created_at")
+      .eq("status", "submitted")
+      .order("created_at", { ascending: false });
+
+    const latestByApartment = new Map<string, boolean>();
+    for (const row of data ?? []) {
+      const key = row.apartment.trim().toLowerCase();
+      if (!latestByApartment.has(key)) latestByApartment.set(key, row.overall_ready);
+    }
+    return [...latestByApartment.values()].filter((ready) => !ready).length;
+  },
+  ["checklists-not-ready-count"],
+  { revalidate: 30, tags: ["checklists"] }
+);
 
 export async function getChecklistWithItems(id: string): Promise<{ checklist: ChecklistRow; items: ChecklistItemRow[] } | null> {
   const { data: checklist } = await supabaseAdmin

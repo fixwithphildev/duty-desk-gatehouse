@@ -4,5 +4,4 @@
 
 export const GH_INCIDENT_CATEGORIES = ["Theft", "Disturbance", "Medical", "Trespassing", "Property Damage", "Other"];
 export const GH_INCIDENT_STATUSES = ["Open", "In Progress", "Resolved"] as const;
-export const GH_KEY_TYPES = ["Room Key", "Master Key", "Storage / Utility", "Server Room"];
 export const GH_ALERT_TYPES = ["Fire", "Medical Emergency", "Security Breach", "Lockdown"];

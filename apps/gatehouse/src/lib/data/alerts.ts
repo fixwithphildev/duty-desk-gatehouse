@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Severity } from "@/lib/types";
+import { bucketByDay, daysAgoIso, type DailyCount } from "@/lib/trend";
 
 export interface AlertRow {
   id: string;
@@ -35,4 +36,9 @@ export async function getAlerts(): Promise<AlertRow[]> {
 export async function getUnacknowledgedAlertsCount(): Promise<number> {
   const { count } = await supabaseAdmin.from("alerts").select("id", { count: "exact", head: true }).eq("status", "Unacknowledged");
   return count ?? 0;
+}
+
+export async function getAlertsDailyTrend(days = 14): Promise<DailyCount[]> {
+  const { data } = await supabaseAdmin.from("alerts").select("created_at").gte("created_at", daysAgoIso(days));
+  return bucketByDay((data ?? []).map((r) => r.created_at), days);
 }

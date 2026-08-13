@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, AlertTriangle, MapPin, ClipboardList, UserCheck, Users,
-  Shield, KeyRound, Bell, FileBarChart, Radio, ShieldCheck, LogOut, UserCog,
+  LayoutDashboard, AlertTriangle, MapPin, ClipboardList,
+  Shield, Bell, FileBarChart, Radio, ShieldCheck, LogOut, UserCog,
 } from "lucide-react";
 import type { NavItem } from "@/lib/nav";
 import { GH_ROLE_LABELS, type GHRole } from "@/lib/types";
@@ -15,10 +15,7 @@ const ICONS = {
   incidents: AlertTriangle,
   vehicles: MapPin,
   items: ClipboardList,
-  attendance: UserCheck,
-  offduty: Users,
   patrols: Shield,
-  keys: KeyRound,
   alerts: Bell,
   reports: FileBarChart,
   admin: ShieldCheck,

@@ -3,7 +3,7 @@ import type { GHRole } from "./types";
 export interface NavItem {
   href: string;
   label: string;
-  iconKey: "dashboard" | "incidents" | "vehicles" | "items" | "attendance" | "offduty" | "patrols" | "keys" | "alerts" | "reports" | "admin" | "account";
+  iconKey: "dashboard" | "incidents" | "vehicles" | "items" | "patrols" | "alerts" | "reports" | "admin" | "account";
 }
 
 export const GH_NAV: NavItem[] = [
@@ -11,20 +11,14 @@ export const GH_NAV: NavItem[] = [
   { href: "/incidents", label: "Incidents", iconKey: "incidents" },
   { href: "/vehicles", label: "Vehicle Access", iconKey: "vehicles" },
   { href: "/items", label: "Items Book", iconKey: "items" },
-  { href: "/attendance", label: "Staff Attendance", iconKey: "attendance" },
-  { href: "/offduty", label: "Off-Duty Attendance", iconKey: "offduty" },
   { href: "/patrols", label: "Patrols", iconKey: "patrols" },
-  { href: "/keys", label: "Access & Keys", iconKey: "keys" },
   { href: "/alerts", label: "Alerts", iconKey: "alerts" },
   { href: "/reports", label: "Reports", iconKey: "reports" },
   { href: "/admin/staff", label: "Staff Accounts", iconKey: "admin" },
   { href: "/account", label: "My Account", iconKey: "account" },
 ];
 
-const CORE_PREFIXES = [
-  "/dashboard", "/incidents", "/vehicles", "/items", "/attendance", "/offduty",
-  "/patrols", "/keys", "/alerts", "/reports", "/account",
-];
+const CORE_PREFIXES = ["/dashboard", "/incidents", "/vehicles", "/items", "/patrols", "/alerts", "/reports", "/account"];
 
 // Everyone with a login can view everything on Gatehouse (blueprint 4.3 —
 // only edit rights and account admin differ by role), so every role gets

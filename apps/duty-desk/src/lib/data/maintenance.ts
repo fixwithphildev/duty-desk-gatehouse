@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
+import { bucketByDay, daysAgoIso, type DailyCount } from "@/lib/trend";
 
 export interface MaintenanceTicketRow {
   id: string;
@@ -43,6 +44,11 @@ export async function getMaintenanceTickets(assignedToFilter?: string[]): Promis
 export async function getOpenTicketsCount(): Promise<number> {
   const { count } = await supabaseAdmin.from("maintenance_tickets").select("id", { count: "exact", head: true }).neq("status", "Resolved");
   return count ?? 0;
+}
+
+export async function getTicketsDailyTrend(days = 14): Promise<DailyCount[]> {
+  const { data } = await supabaseAdmin.from("maintenance_tickets").select("created_at").gte("created_at", daysAgoIso(days));
+  return bucketByDay((data ?? []).map((r) => r.created_at), days);
 }
 
 export async function uploadTicketPhoto(ticketId: string, uploadedBy: string, file: File): Promise<void> {

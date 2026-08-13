@@ -2,11 +2,12 @@
 
 This walks you (Philip, IT Support — no other developer needed) through taking Duty Desk and Gatehouse from code on this computer to two live, password-protected web apps your staff can use, plus the shared landing page.
 
-You will create **four accounts**, all free to sign up for (you only start paying once you upgrade specific plans, in Step 6):
+You will create **five accounts**, all free to sign up for (you only start paying once you upgrade specific plans, in Step 6):
 
 1. A **GitHub** account — holds the code, so Vercel can deploy it.
 2. A **Supabase** account — hosts the two databases (one for Duty Desk, one for Gatehouse).
 3. A **Vercel** account — hosts the three live web apps.
+4. A **Resend** account — sends the "Email this report" copies from the Reports page (free up to 3,000 emails/month).
 
 Do the steps **in order**. Each one builds on the last. Budget about half a day, most of it waiting for things to finish rather than active work.
 
@@ -63,9 +64,18 @@ You now have two completely separate databases, matching the blueprint's "no sha
 
 ---
 
+## 3.5. Create a Resend account (for the "Email report" button)
+
+1. Go to resend.com and sign up.
+2. Go to **API Keys** → **Create API Key**. Name it anything (e.g. "duty-desk-gatehouse"), leave permissions as default ("Full access"), and copy the key it shows you — like the Supabase service_role key, it's shown once.
+3. That's it for now — you don't need to verify a domain to get started. Resend gives you a shared sending address, `onboarding@resend.dev`, that works immediately for testing. If you want emails to come from your own domain later (e.g. `reports@thedestination.com`), Resend's **Domains** tab walks you through adding a couple of DNS records — optional, do it whenever you're ready.
+4. You can reuse this **same** Resend account and API key for both Duty Desk and Gatehouse — it's just an email-sending tool, not part of either platform's own data, so reusing it doesn't break the "fully independent platforms" rule.
+
+---
+
 ## 4. Configure local environment files
 
-For each app, copy the example env file and fill in the values from Steps 2–3.
+For each app, copy the example env file and fill in the values from Steps 2–3 (and 3.5 for the email keys).
 
 **Duty Desk** — create `apps/duty-desk/.env.local`:
 ```
@@ -73,6 +83,8 @@ SUPABASE_URL=<Duty Desk Project URL from step 2>
 SUPABASE_SERVICE_ROLE_KEY=<Duty Desk service_role key from step 2>
 SESSION_SECRET=<a random string — see below>
 MAINTENANCE_PHOTOS_BUCKET=maintenance-photos
+RESEND_API_KEY=<your Resend API key from step 3.5>
+REPORTS_FROM_EMAIL=onboarding@resend.dev
 ```
 
 **Gatehouse** — create `apps/gatehouse/.env.local`:
@@ -80,6 +92,8 @@ MAINTENANCE_PHOTOS_BUCKET=maintenance-photos
 SUPABASE_URL=<Gatehouse Project URL from step 3>
 SUPABASE_SERVICE_ROLE_KEY=<Gatehouse service_role key from step 3>
 SESSION_SECRET=<a DIFFERENT random string>
+RESEND_API_KEY=<your Resend API key from step 3.5 — can be the same key as Duty Desk's>
+REPORTS_FROM_EMAIL=onboarding@resend.dev
 ```
 
 To generate a `SESSION_SECRET`, run this once for each app and paste the result in:
@@ -125,9 +139,9 @@ then open `http://localhost:3000/login` and sign in with the username/usercode y
 1. Go to vercel.com and sign up **using your GitHub account** (this makes connecting the repo a one-click step).
 2. From your Vercel dashboard, click **Add New → Project**, and import the `duty-desk-gatehouse` repository (you may need to click "Configure GitHub App" once to grant Vercel access to it).
 3. Vercel will ask for a **Root Directory** — this is the key setting that makes one repo produce three independent apps. Set it to `apps/duty-desk`. Leave the framework preset on "Next.js" (auto-detected).
-4. Before clicking Deploy, expand **Environment Variables** and add the same three (Duty Desk) values from your `apps/duty-desk/.env.local` file: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `MAINTENANCE_PHOTOS_BUCKET`.
+4. Before clicking Deploy, expand **Environment Variables** and add all six values from your `apps/duty-desk/.env.local` file: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `MAINTENANCE_PHOTOS_BUCKET`, `RESEND_API_KEY`, `REPORTS_FROM_EMAIL`.
 5. Click **Deploy**. Wait for it to finish, then open the URL Vercel gives you (something like `duty-desk-gatehouse.vercel.app`) and confirm the login page loads.
-6. Repeat steps 2–5 for a **second** Vercel project: Root Directory `apps/gatehouse`, using the Gatehouse env values.
+6. Repeat steps 2–5 for a **second** Vercel project: Root Directory `apps/gatehouse`, using the Gatehouse env values (5 values this time — no `MAINTENANCE_PHOTOS_BUCKET`).
 7. Repeat once more for a **third** Vercel project: Root Directory `apps/portal`. Its environment variables are the two live URLs from steps 5–6:
    ```
    NEXT_PUBLIC_DUTY_DESK_URL=<your Duty Desk Vercel URL>
@@ -171,6 +185,13 @@ From here on, day-to-day account creation, disabling, and usercode resets are ha
 - **Staff member left**: Staff Accounts → find their row → **Disable**. Their past entries stay in the system under their name; they just can't log in anymore.
 - **Account locked** (5 wrong usercode attempts): it unlocks itself after 15 minutes, or an admin can click **Unlock** immediately.
 - **Staff can change their own usercode** any time after logging in, from **My Account** in the sidebar.
+- **Reports page**: shows trend charts and breakdowns, plus per-dataset **Download** (CSV) and **Email** buttons for backups or sharing outside the system.
+
+---
+
+## Staying on security patches
+
+This build pins Next.js to a specific version rather than "always latest," so upgrades are deliberate rather than automatic. Every so often (e.g. quarterly), it's worth running `npm audit` in each app folder and asking Claude Code to review whether an update is warranted — especially for anything flagged **critical**. Don't blindly run `npm audit fix --force`; it can jump major versions and break things without testing.
 
 ---
 

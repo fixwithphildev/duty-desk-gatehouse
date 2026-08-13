@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ClipboardCheck, MessageSquareWarning, Wrench, DoorClosed, ListTodo, BookOpen } from "lucide-react";
 import { requireSession } from "@/lib/auth";
-import { getLatestSubmittedByApartment } from "@/lib/data/checklists";
+import { getLatestSubmittedByApartment, getChecklistsDailyTrend } from "@/lib/data/checklists";
 import { getComplaints } from "@/lib/data/complaints";
 import { getMaintenanceTickets } from "@/lib/data/maintenance";
 import { getPendingTasksCount } from "@/lib/data/tasks";
 import { getLastHandover } from "@/lib/data/dutylog";
 import { StatCard, Badge } from "@/components/ui";
+import { TrendChart } from "@/components/trend-chart";
 import { priorityTone } from "@/lib/checklist-data";
 
 function fmtTime(iso: string): string {
@@ -15,12 +16,13 @@ function fmtTime(iso: string): string {
 
 export default async function DashboardPage() {
   await requireSession();
-  const [apts, complaints, tickets, pendingTasks, lastHandover] = await Promise.all([
+  const [apts, complaints, tickets, pendingTasks, lastHandover, checklistTrend] = await Promise.all([
     getLatestSubmittedByApartment(),
     getComplaints(),
     getMaintenanceTickets(),
     getPendingTasksCount(),
     getLastHandover(),
+    getChecklistsDailyTrend(14),
   ]);
 
   const notReady = apts.filter((c) => !c.overall_ready);
@@ -96,6 +98,11 @@ export default async function DashboardPage() {
             {activity.length === 0 ? <li style={{ padding: 12, opacity: 0.6, fontSize: 13 }}>No activity yet.</li> : null}
           </ul>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><span>Checklists submitted — last 14 days</span></div>
+        <TrendChart data={checklistTrend} tone="var(--teal)" />
       </div>
     </div>
   );
