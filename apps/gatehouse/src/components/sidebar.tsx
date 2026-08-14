@@ -1,10 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, AlertTriangle, MapPin, ClipboardList,
-  Shield, Bell, FileBarChart, Radio, ShieldCheck, LogOut, UserCog,
+  Shield, Bell, FileBarChart, Radio, ShieldCheck, LogOut, UserCog, Menu, X,
 } from "lucide-react";
 import type { NavItem } from "@/lib/nav";
 import { GH_ROLE_LABELS, type GHRole } from "@/lib/types";
@@ -34,40 +35,59 @@ export function Sidebar({
   unackAlertCount: number;
 }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => { setOpen(false); }, [pathname]);
 
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        <Radio size={18} />
-        <span className="brand-text">GATEHOUSE</span>
-      </div>
-      <nav className="nav">
-        {items.map((item) => {
-          const Icon = ICONS[item.iconKey];
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link key={item.href} href={item.href} className={`nav-item ${active ? "nav-active" : ""}`}>
-              <Icon size={16} />
-              <span>{item.label}</span>
-              {item.iconKey === "alerts" && unackAlertCount > 0 ? <span className="nav-dot" /> : null}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="sidebar-foot">
-        <div className="user-chip">
-          <div className="user-avatar mono">{displayName[0]?.toUpperCase() ?? "?"}</div>
-          <div>
-            <div className="user-name">{displayName}</div>
-            <div className="user-role">{GH_ROLE_LABELS[role]}</div>
-          </div>
+    <>
+      <header className="mobile-topbar">
+        <button className="menu-btn" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(true)}>
+          <Menu size={18} />
+        </button>
+        <div className="mobile-topbar-brand">
+          <Radio size={16} />
+          <span className="mobile-topbar-brand-text">GATEHOUSE</span>
         </div>
-        <form action={signOutAction}>
-          <button type="submit" className="signout-btn" title="Sign out" aria-label="Sign out">
-            <LogOut size={16} />
+        <div style={{ width: 30 }} aria-hidden />
+      </header>
+      {open ? <div className="sidebar-overlay" onClick={() => setOpen(false)} /> : null}
+      <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
+        <div className="brand">
+          <Radio size={18} />
+          <span className="brand-text">GATEHOUSE</span>
+          <button className="sidebar-close-btn icon-btn" aria-label="Close menu" onClick={() => setOpen(false)}>
+            <X size={16} />
           </button>
-        </form>
-      </div>
-    </aside>
+        </div>
+        <nav className="nav">
+          {items.map((item) => {
+            const Icon = ICONS[item.iconKey];
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link key={item.href} href={item.href} className={`nav-item ${active ? "nav-active" : ""}`}>
+                <Icon size={16} />
+                <span>{item.label}</span>
+                {item.iconKey === "alerts" && unackAlertCount > 0 ? <span className="nav-dot" /> : null}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="sidebar-foot">
+          <div className="user-chip">
+            <div className="user-avatar mono">{displayName[0]?.toUpperCase() ?? "?"}</div>
+            <div>
+              <div className="user-name">{displayName}</div>
+              <div className="user-role">{GH_ROLE_LABELS[role]}</div>
+            </div>
+          </div>
+          <form action={signOutAction}>
+            <button type="submit" className="signout-btn" title="Sign out" aria-label="Sign out">
+              <LogOut size={16} />
+            </button>
+          </form>
+        </div>
+      </aside>
+    </>
   );
 }

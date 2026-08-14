@@ -38,6 +38,25 @@ a { color: inherit; }
 .signout-btn:hover { background: #1d2731; color: var(--ink); }
 
 .main { flex: 1; padding: 34px 40px 70px; overflow-x: hidden; min-width: 0; }
+
+.mobile-topbar { display: none; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 40; }
+.mobile-topbar-brand { display: flex; align-items: center; gap: 8px; color: var(--amber); }
+.mobile-topbar-brand-text { font-weight: 700; letter-spacing: 0.08em; font-size: 12.5px; font-family: 'Space Grotesk', sans-serif; }
+.menu-btn { background: transparent; border: 1px solid var(--line); border-radius: 9px; padding: 7px; display: inline-flex; color: var(--ink); }
+.sidebar-close-btn { display: none; }
+.sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 55; animation: fadeIn 0.2s var(--ease); }
+
+@media (max-width: 860px) {
+  .mobile-topbar { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 45; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 60;
+    transform: translateX(-100%); transition: transform 0.25s var(--ease);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.sidebar-open { transform: translateX(0); }
+  .sidebar-close-btn { display: inline-flex; margin-left: auto; }
+  .main { padding: 70px 16px 56px; }
+}
 .view { display: flex; flex-direction: column; gap: 22px; max-width: 1100px; animation: viewIn 0.25s var(--ease); }
 @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .view-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
