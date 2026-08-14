@@ -55,7 +55,10 @@ export function Sidebar({
       <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
         <div className="brand">
           <Radio size={18} />
-          <span className="brand-text">GATEHOUSE</span>
+          <div>
+            <span className="brand-text">GATEHOUSE</span>
+            <div className="brand-eyebrow">The Destination</div>
+          </div>
           <button className="sidebar-close-btn icon-btn" aria-label="Close menu" onClick={() => setOpen(false)}>
             <X size={16} />
           </button>

@@ -15,7 +15,8 @@ function fmtTime(iso: string): string {
 }
 
 export default async function DashboardPage() {
-  await requireSession();
+  const session = await requireSession();
+  const firstName = session.displayName.split(" ")[0];
   const [apts, complaints, tickets, pendingTasks, lastHandover, checklistTrend] = await Promise.all([
     getLatestSubmittedByApartment(),
     getComplaints(),
@@ -38,8 +39,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="view">
-      <div className="view-head">
-        <h2>Today&apos;s Duty Overview</h2>
+      <div className="view-head dash-hero">
+        <div>
+          <div className="dash-hero-greeting">Welcome back, {firstName}</div>
+          <h2>Today&apos;s Duty Overview</h2>
+        </div>
         <span className="mono view-time">{new Date().toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}</span>
       </div>
 
