@@ -1,10 +1,11 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import { Home } from "lucide-react";
+import { Home, ArrowLeft } from "lucide-react";
 import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
+const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL;
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -20,6 +21,12 @@ export function LoginForm() {
 
   return (
     <div className="login-shell">
+      {PORTAL_URL ? (
+        <a href={PORTAL_URL} className="login-back">
+          <ArrowLeft size={14} />
+          Back to portal
+        </a>
+      ) : null}
       <div className="login-card">
         <div className="login-brand">
           <Home size={20} />

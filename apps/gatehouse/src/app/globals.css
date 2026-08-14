@@ -181,8 +181,10 @@ a { color: inherit; }
 .submit-bar { position: sticky; bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; background: var(--panel); box-shadow: var(--shadow-lg); flex-wrap: wrap; }
 .submit-summary { font-size: 12px; opacity: 0.7; font-weight: 500; color: var(--muted); }
 
-.login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--bg); }
+.login-shell { position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(circle at 20% 15%, rgba(232,163,61,0.12), transparent 55%), radial-gradient(circle at 85% 88%, rgba(76,154,118,0.10), transparent 50%), var(--bg); }
 .login-card { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 34px 30px; box-shadow: var(--shadow-lg); }
+.login-back { position: absolute; top: 22px; left: 22px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 9px; transition: background 0.18s var(--ease), color 0.18s var(--ease); }
+.login-back:hover { background: var(--panel); color: var(--ink); }
 .login-brand { display: flex; align-items: center; gap: 10px; color: var(--amber); margin-bottom: 6px; }
 .login-brand-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
 .login-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }

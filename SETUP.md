@@ -139,16 +139,21 @@ then open `http://localhost:3000/login` and sign in with the username/usercode y
 1. Go to vercel.com and sign up **using your GitHub account** (this makes connecting the repo a one-click step).
 2. From your Vercel dashboard, click **Add New → Project**, and import the `duty-desk-gatehouse` repository (you may need to click "Configure GitHub App" once to grant Vercel access to it).
 3. Vercel will ask for a **Root Directory** — this is the key setting that makes one repo produce three independent apps. Set it to `apps/duty-desk`. Leave the framework preset on "Next.js" (auto-detected).
-4. Before clicking Deploy, expand **Environment Variables** and add all six values from your `apps/duty-desk/.env.local` file: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `MAINTENANCE_PHOTOS_BUCKET`, `RESEND_API_KEY`, `REPORTS_FROM_EMAIL`.
+4. Before clicking Deploy, expand **Environment Variables** and add the values from your `apps/duty-desk/.env.local` file: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `MAINTENANCE_PHOTOS_BUCKET`, `RESEND_API_KEY`, `REPORTS_FROM_EMAIL`. Skip `NEXT_PUBLIC_PORTAL_URL` for now — you don't have the portal's URL yet (step 7 creates it).
 5. Click **Deploy**. Wait for it to finish, then open the URL Vercel gives you (something like `duty-desk-gatehouse.vercel.app`) and confirm the login page loads.
-6. Repeat steps 2–5 for a **second** Vercel project: Root Directory `apps/gatehouse`, using the Gatehouse env values (5 values this time — no `MAINTENANCE_PHOTOS_BUCKET`).
+6. Repeat steps 2–5 for a **second** Vercel project: Root Directory `apps/gatehouse`, using the Gatehouse env values (same set minus `MAINTENANCE_PHOTOS_BUCKET`, also skipping `NEXT_PUBLIC_PORTAL_URL` for now).
 7. Repeat once more for a **third** Vercel project: Root Directory `apps/portal`. Its environment variables are the two live URLs from steps 5–6:
    ```
    NEXT_PUBLIC_DUTY_DESK_URL=<your Duty Desk Vercel URL>
    NEXT_PUBLIC_GATEHOUSE_URL=<your Gatehouse Vercel URL>
    ```
+8. Now that you have the portal's URL, go back to **each** of the Duty Desk and Gatehouse projects → **Settings → Environment Variables** and add:
+   ```
+   NEXT_PUBLIC_PORTAL_URL=<your Portal Vercel URL>
+   ```
+   This is what makes the "Back to portal" link show up on each login page. Redeploy both (**Deployments → ⋯ → Redeploy**) for it to take effect.
 
-You now have three live, independently-hosted sites. Bookmark the portal URL and share that one with staff — it links out to both.
+You now have three live, independently-hosted sites, cross-linked to each other. Bookmark the portal URL and share that one with staff — it links out to both.
 
 ### Upgrading to paid plans (before real rollout)
 
