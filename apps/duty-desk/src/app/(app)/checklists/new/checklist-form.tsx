@@ -71,8 +71,6 @@ export function ChecklistForm({ preparedByName }: { preparedByName: string }) {
         </button>
       </div>
 
-      {error ? <div className="login-error">{error}</div> : null}
-
       <div className="card">
         <div className="new-header-grid">
           <Field label="Apartment / unit number">
@@ -194,13 +192,16 @@ export function ChecklistForm({ preparedByName }: { preparedByName: string }) {
         ) : null}
       </div>
 
-      <div className="submit-bar">
-        <div className="mono submit-summary">
-          Submitting as: <strong>{effectiveReady}</strong>
+      <div className="submit-bar" style={error ? { flexDirection: "column", alignItems: "stretch" } : undefined}>
+        {error ? <div className="login-error" style={{ margin: 0 }}>{error}</div> : null}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div className="mono submit-summary">
+            Submitting as: <strong>{effectiveReady}</strong>
+          </div>
+          <button type="button" className="btn btn-primary" disabled={!apartment.trim() || pending} onClick={handleSubmit}>
+            {pending ? "Submitting…" : "Submit checklist & lock"}
+          </button>
         </div>
-        <button type="button" className="btn btn-primary" disabled={!apartment.trim() || pending} onClick={handleSubmit}>
-          {pending ? "Submitting…" : "Submit checklist & lock"}
-        </button>
       </div>
     </div>
   );
