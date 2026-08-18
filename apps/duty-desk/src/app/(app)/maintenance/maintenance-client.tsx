@@ -59,18 +59,18 @@ export function MaintenanceClient({ tickets, canEdit }: { tickets: MaintenanceTi
           <tbody>
             {tickets.map((t) => (
               <tr key={t.id}>
-                <td className="mono">{fmtTime(t.created_at)}</td>
-                <td>{t.area}</td>
-                <td>
+                <td className="mono" data-label="Reported">{fmtTime(t.created_at)}</td>
+                <td data-label="Area">{t.area}</td>
+                <td data-label="Issue">
                   <div className="cell-title">
                     {t.issue_type} {t.photo_count > 0 ? <Paperclip size={12} style={{ verticalAlign: "middle", opacity: 0.6 }} /> : null}
                   </div>
                   {t.notes ? <div className="cell-sub">{t.notes}</div> : null}
                 </td>
-                <td>{t.assigned_to}</td>
-                <td><Badge tone={priorityTone(t.priority)}>{t.priority}</Badge></td>
-                <td><Badge tone={t.source === "checklist" ? "gold" : "neutral"}>{t.source === "checklist" ? "Checklist" : "Manual"}</Badge></td>
-                <td>
+                <td data-label="Assigned">{t.assigned_to}</td>
+                <td data-label="Priority"><Badge tone={priorityTone(t.priority)}>{t.priority}</Badge></td>
+                <td data-label="Source"><Badge tone={t.source === "checklist" ? "gold" : "neutral"}>{t.source === "checklist" ? "Checklist" : "Manual"}</Badge></td>
+                <td data-label="Status">
                   {canEdit ? (
                     <select className="select select-sm" value={t.status} disabled={pending} onChange={(e) => onStatusChange(t.id, e.target.value as typeof t.status)}>
                       {DD_TICKET_STATUSES.map((s) => <option key={s}>{s}</option>)}

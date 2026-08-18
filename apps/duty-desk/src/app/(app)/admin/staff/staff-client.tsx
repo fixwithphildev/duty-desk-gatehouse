@@ -77,10 +77,10 @@ export function StaffClient({
               const manageable = canManageAccount(actorRole, a.role);
               return (
                 <tr key={a.id}>
-                  <td className="cell-title mono">{a.username}</td>
-                  <td>{a.display_name}</td>
-                  <td>{DD_ROLE_LABELS[a.role]}</td>
-                  <td>
+                  <td className="cell-title mono" data-label="Username">{a.username}</td>
+                  <td data-label="Name">{a.display_name}</td>
+                  <td data-label="Role">{DD_ROLE_LABELS[a.role]}</td>
+                  <td data-label="Status">
                     {a.disabled ? <Badge tone="red">Disabled</Badge> : locked ? <Badge tone="gold">Locked</Badge> : <Badge tone="teal">Active</Badge>}
                   </td>
                   <td>

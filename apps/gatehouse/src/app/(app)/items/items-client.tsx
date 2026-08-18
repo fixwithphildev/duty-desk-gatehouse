@@ -56,10 +56,10 @@ export function ItemsClient({ logs, canEdit }: { logs: ItemLogRow[]; canEdit: bo
             <tbody>
               {outItems.map((i) => (
                 <tr key={i.id}>
-                  <td className="cell-title">{i.item_desc}</td>
-                  <td>{i.carried_by}</td>
-                  <td>{i.authorized_by || "—"}</td>
-                  <td className="mono">{fmtTime(i.out_at)}</td>
+                  <td className="cell-title" data-label="Item">{i.item_desc}</td>
+                  <td data-label="Carried by">{i.carried_by}</td>
+                  <td data-label="Authorized by">{i.authorized_by || "—"}</td>
+                  <td className="mono" data-label="Out since">{fmtTime(i.out_at)}</td>
                   <td>{canEdit ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => markReturned(i.id)}><DoorOpen size={13} /> Mark returned</button> : null}</td>
                 </tr>
               ))}
@@ -77,11 +77,11 @@ export function ItemsClient({ logs, canEdit }: { logs: ItemLogRow[]; canEdit: bo
             <tbody>
               {history.map((i) => (
                 <tr key={i.id}>
-                  <td>{i.item_desc}</td>
-                  <td>{i.carried_by}</td>
-                  <td className="mono">{fmtTime(i.out_at)}</td>
-                  <td className="mono">{fmtTime(i.in_at)}</td>
-                  <td><Badge tone={statusTone(i.status)}>{i.status}</Badge></td>
+                  <td data-label="Item">{i.item_desc}</td>
+                  <td data-label="Carried by">{i.carried_by}</td>
+                  <td className="mono" data-label="Out">{fmtTime(i.out_at)}</td>
+                  <td className="mono" data-label="In">{fmtTime(i.in_at)}</td>
+                  <td data-label="Status"><Badge tone={statusTone(i.status)}>{i.status}</Badge></td>
                 </tr>
               ))}
             </tbody>

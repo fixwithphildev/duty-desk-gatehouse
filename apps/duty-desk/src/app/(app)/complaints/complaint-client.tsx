@@ -67,13 +67,13 @@ export function ComplaintsClient({ complaints, canEdit }: { complaints: Complain
           <tbody>
             {complaints.map((c) => (
               <tr key={c.id}>
-                <td className="mono">{fmtTime(c.created_at)}</td>
-                <td>{c.guest_name || "—"}</td>
-                <td>{c.room || "—"}</td>
-                <td>{c.category}</td>
-                <td><Badge tone={priorityTone(c.priority)}>{c.priority}</Badge></td>
-                <td className="cell-sub">{c.description}</td>
-                <td>
+                <td className="mono" data-label="Logged">{fmtTime(c.created_at)}</td>
+                <td data-label="Guest">{c.guest_name || "—"}</td>
+                <td data-label="Room">{c.room || "—"}</td>
+                <td data-label="Category">{c.category}</td>
+                <td data-label="Priority"><Badge tone={priorityTone(c.priority)}>{c.priority}</Badge></td>
+                <td className="cell-sub" data-label="Details">{c.description}</td>
+                <td data-label="Status">
                   {canEdit ? (
                     <select
                       className="select select-sm"

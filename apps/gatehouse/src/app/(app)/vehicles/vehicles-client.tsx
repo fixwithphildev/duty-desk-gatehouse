@@ -56,10 +56,10 @@ export function VehiclesClient({ logs, canEdit }: { logs: VehicleLogRow[]; canEd
             <tbody>
               {onProperty.map((v) => (
                 <tr key={v.id}>
-                  <td className="cell-title mono">{v.card_number}</td>
-                  <td className="mono">{v.plate_number}</td>
-                  <td>{v.driver_name || "—"}</td>
-                  <td className="mono">{fmtTime(v.entry_at)}</td>
+                  <td className="cell-title mono" data-label="Card #">{v.card_number}</td>
+                  <td className="mono" data-label="Plate #">{v.plate_number}</td>
+                  <td data-label="Driver">{v.driver_name || "—"}</td>
+                  <td className="mono" data-label="Entered">{fmtTime(v.entry_at)}</td>
                   <td>{canEdit ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => returnCard(v.id)}><DoorOpen size={13} /> Card returned</button> : null}</td>
                 </tr>
               ))}
@@ -77,12 +77,12 @@ export function VehiclesClient({ logs, canEdit }: { logs: VehicleLogRow[]; canEd
             <tbody>
               {history.map((v) => (
                 <tr key={v.id}>
-                  <td className="cell-title mono">{v.card_number}</td>
-                  <td className="mono">{v.plate_number}</td>
-                  <td>{v.driver_name || "—"}</td>
-                  <td className="mono">{fmtTime(v.entry_at)}</td>
-                  <td className="mono">{fmtTime(v.exit_at)}</td>
-                  <td><Badge tone={statusTone(v.status)}>{v.status}</Badge></td>
+                  <td className="cell-title mono" data-label="Card #">{v.card_number}</td>
+                  <td className="mono" data-label="Plate #">{v.plate_number}</td>
+                  <td data-label="Driver">{v.driver_name || "—"}</td>
+                  <td className="mono" data-label="Entered">{fmtTime(v.entry_at)}</td>
+                  <td className="mono" data-label="Exited">{fmtTime(v.exit_at)}</td>
+                  <td data-label="Status"><Badge tone={statusTone(v.status)}>{v.status}</Badge></td>
                 </tr>
               ))}
             </tbody>

@@ -53,12 +53,12 @@ export function IncidentsClient({ incidents, canEdit }: { incidents: IncidentRow
           <tbody>
             {incidents.map((i) => (
               <tr key={i.id}>
-                <td className="mono">{fmtTime(i.created_at)}</td>
-                <td className="cell-title">{i.title}</td>
-                <td>{i.category}</td>
-                <td><Badge tone={severityTone(i.severity)}>{i.severity}</Badge></td>
-                <td>{i.location || "—"}</td>
-                <td>
+                <td className="mono" data-label="Reported">{fmtTime(i.created_at)}</td>
+                <td className="cell-title" data-label="Title">{i.title}</td>
+                <td data-label="Category">{i.category}</td>
+                <td data-label="Severity"><Badge tone={severityTone(i.severity)}>{i.severity}</Badge></td>
+                <td data-label="Location">{i.location || "—"}</td>
+                <td data-label="Status">
                   {canEdit ? (
                     <select className="select select-sm" value={i.status} disabled={pending} onChange={(e) => onStatusChange(i.id, e.target.value as typeof i.status)}>
                       {GH_INCIDENT_STATUSES.map((s) => <option key={s}>{s}</option>)}

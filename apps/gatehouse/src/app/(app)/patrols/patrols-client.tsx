@@ -58,10 +58,10 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
           <tbody>
             {patrols.map((p) => (
               <tr key={p.id}>
-                <td>{p.officer_name}</td>
-                <td>{p.route}</td>
-                <td className="mono">{fmtTime(p.started_at)}</td>
-                <td><Badge tone={statusTone(p.status)}>{p.status}</Badge></td>
+                <td data-label="Officer">{p.officer_name}</td>
+                <td data-label="Route">{p.route}</td>
+                <td className="mono" data-label="Started">{fmtTime(p.started_at)}</td>
+                <td data-label="Status"><Badge tone={statusTone(p.status)}>{p.status}</Badge></td>
                 <td>
                   {canEdit && p.status === "In Progress" ? (
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCompleting(p)}>

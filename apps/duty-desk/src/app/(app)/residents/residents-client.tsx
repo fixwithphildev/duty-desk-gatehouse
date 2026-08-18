@@ -48,11 +48,11 @@ export function ResidentsClient({ residents, canEdit }: { residents: ResidentRow
           <tbody>
             {residents.map((r) => (
               <tr key={r.id}>
-                <td className="cell-title">{r.name}</td>
-                <td>{r.room}</td>
-                <td className="mono">{r.check_in ?? "—"}</td>
-                <td className="mono">{r.check_out ?? "—"}</td>
-                <td className="cell-sub">{r.preferences ?? "—"}</td>
+                <td className="cell-title" data-label="Name">{r.name}</td>
+                <td data-label="Room">{r.room}</td>
+                <td className="mono" data-label="Check-in">{r.check_in ?? "—"}</td>
+                <td className="mono" data-label="Check-out">{r.check_out ?? "—"}</td>
+                <td className="cell-sub" data-label="Preferences">{r.preferences ?? "—"}</td>
               </tr>
             ))}
             {residents.length === 0 ? (
