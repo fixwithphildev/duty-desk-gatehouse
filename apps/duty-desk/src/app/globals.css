@@ -139,7 +139,15 @@ a { color: inherit; }
 .badge-gold { background: var(--gold-soft); color: var(--gold-ink); }
 .badge-red { background: var(--red-soft); color: var(--red); }
 
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-sm); }
+.table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-sm); }
+/* Tables scroll horizontally on narrow screens with no scrollbar visible by
+   default on touch devices, so a table with more columns than fit can look
+   cut off rather than scrollable. This edge fade hints there's more. */
+.table-wrap::after {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 34px;
+  background: linear-gradient(to right, transparent, rgba(20,18,14,0.2));
+  pointer-events: none; border-radius: 0 13px 13px 0;
+}
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; padding: 12px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--paper); color: var(--muted); }
 .table td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; transition: background 0.15s var(--ease); background: var(--surface); }
@@ -187,6 +195,14 @@ a { color: inherit; }
 .checklist-row:last-child { border-bottom: none; }
 .checklist-name { font-size: 13px; flex: 1; font-weight: 500; }
 .checklist-controls { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+
+/* Below ~520px a Qty input plus 4 condition buttons no longer fit next to
+   the item name — .main's overflow-x:hidden was silently clipping the
+   overflow (e.g. the N/A button) rather than showing it. Stack instead. */
+@media (max-width: 520px) {
+  .checklist-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .checklist-controls { flex-wrap: wrap; width: 100%; }
+}
 .input-qty { width: 64px; padding: 7px 8px; font-size: 12px; text-align: center; }
 
 .submit-bar { position: sticky; bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; background: var(--surface); box-shadow: var(--shadow-lg); flex-wrap: wrap; }
