@@ -99,7 +99,7 @@ export default async function DashboardPage() {
                 </div>
               </li>
             ))}
-            {activity.length === 0 ? <li style={{ padding: 12, opacity: 0.6, fontSize: 13 }}>No activity yet.</li> : null}
+            {activity.length === 0 ? <li style={{ padding: 12, opacity: 0.75, fontSize: 13 }}>No activity yet.</li> : null}
           </ul>
         </div>
       </div>

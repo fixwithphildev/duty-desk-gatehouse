@@ -52,7 +52,7 @@ export default async function ChecklistsPage() {
               </tr>
             ))}
             {all.length === 0 ? (
-              <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", opacity: 0.6 }}>No checklists submitted yet.</td></tr>
+              <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", opacity: 0.75 }}>No checklists submitted yet.</td></tr>
             ) : null}
           </tbody>
         </table>

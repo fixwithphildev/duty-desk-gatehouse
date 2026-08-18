@@ -61,7 +61,7 @@ export function DutyLogClient({ entries, canEdit }: { entries: DutyLogRow[]; can
             </div>
           </li>
         ))}
-        {entries.length === 0 ? <li style={{ padding: 16, opacity: 0.6, fontSize: 13 }}>No duty log entries yet.</li> : null}
+        {entries.length === 0 ? <li style={{ padding: 16, opacity: 0.75, fontSize: 13 }}>No duty log entries yet.</li> : null}
       </ul>
     </div>
   );

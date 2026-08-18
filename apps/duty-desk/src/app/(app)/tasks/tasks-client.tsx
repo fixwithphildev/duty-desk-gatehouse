@@ -61,7 +61,7 @@ export function TasksClient({ tasks, canEdit }: { tasks: TaskRow[]; canEdit: boo
             )}
           </li>
         ))}
-        {tasks.length === 0 ? <li style={{ padding: 16, opacity: 0.6, fontSize: 13 }}>No tasks yet.</li> : null}
+        {tasks.length === 0 ? <li style={{ padding: 16, opacity: 0.75, fontSize: 13 }}>No tasks yet.</li> : null}
       </ul>
 
       <Drawer open={open} onClose={() => setOpen(false)} title="New task">

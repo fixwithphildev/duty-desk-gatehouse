@@ -90,7 +90,7 @@ export function ComplaintsClient({ complaints, canEdit }: { complaints: Complain
               </tr>
             ))}
             {complaints.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", opacity: 0.6 }}>No complaints logged yet.</td></tr>
+              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", opacity: 0.75 }}>No complaints logged yet.</td></tr>
             ) : null}
           </tbody>
         </table>

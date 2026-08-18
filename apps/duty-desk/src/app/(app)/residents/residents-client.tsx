@@ -56,7 +56,7 @@ export function ResidentsClient({ residents, canEdit }: { residents: ResidentRow
               </tr>
             ))}
             {residents.length === 0 ? (
-              <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", opacity: 0.6 }}>No resident records yet.</td></tr>
+              <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", opacity: 0.75 }}>No resident records yet.</td></tr>
             ) : null}
           </tbody>
         </table>

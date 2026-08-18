@@ -127,7 +127,7 @@ export function StaffClient({
               </div>
             </li>
           ))}
-          {loginEvents.length === 0 ? <li style={{ padding: 12, opacity: 0.6, fontSize: 13 }}>No login activity yet.</li> : null}
+          {loginEvents.length === 0 ? <li style={{ padding: 12, opacity: 0.75, fontSize: 13 }}>No login activity yet.</li> : null}
         </ul>
       </div>
 

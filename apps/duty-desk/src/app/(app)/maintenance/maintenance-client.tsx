@@ -82,7 +82,7 @@ export function MaintenanceClient({ tickets, canEdit }: { tickets: MaintenanceTi
               </tr>
             ))}
             {tickets.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", opacity: 0.6 }}>No maintenance tickets.</td></tr>
+              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", opacity: 0.75 }}>No maintenance tickets.</td></tr>
             ) : null}
           </tbody>
         </table>
