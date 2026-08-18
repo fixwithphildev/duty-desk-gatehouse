@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
+import { ticketDeptFor } from "@/lib/checklist-data";
 import type { ChecklistItemInput, ChecklistType } from "@/lib/types";
 
 export async function submitChecklistAction(input: {
@@ -47,7 +48,7 @@ export async function submitChecklistAction(input: {
         .insert({
           area: `Apartment ${apartment}`,
           issue_type: item.name,
-          assigned_to: "Engineering",
+          assigned_to: ticketDeptFor(item.name),
           priority: item.condition === "Missing" ? "High" : "Medium",
           status: "Reported",
           source: "checklist",

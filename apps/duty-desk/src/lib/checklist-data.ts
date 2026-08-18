@@ -97,6 +97,25 @@ export const DD_COMPLAINT_STATUSES = ["Open", "In Progress", "Resolved"] as cons
 export const DD_TICKET_DEPTS = ["Engineering", "Housekeeping", "General Maintenance"];
 export const DD_TICKET_STATUSES = ["Reported", "In Progress", "Resolved"] as const;
 
+// Best-effort split for tickets auto-created from a flagged checklist item:
+// fixed equipment/electrical/plumbing/HVAC needs a technician (Engineering);
+// everything else — furnishings, linens, tableware, cleanliness — needs
+// housekeeping to clean or restock, so that's the default for any item not
+// listed here. Adjust individual items below if this doesn't match how your
+// teams actually split the work.
+export const DD_ENGINEERING_ITEMS = new Set([
+  "TV Position", "Working Pop Lights", "Washing Machine", "Bedside Drawer Charger", "AC Units Condition",
+  "Floor Skirting", "Hallway Lights", "Surroundings / Garden", "All Doors Condition", "Recess Light",
+  "Extension Boxes",
+  "Refrigerator Condition", "Microwave Condition", "Electric Kettle", "Gas Availability",
+  "Kitchen Heat Extractor", "Blender", "Kitchen Cabinet",
+  "Shower Heads", "Shower Cubicle", "Toilet Seats", "Taps",
+]);
+
+export function ticketDeptFor(itemName: string): "Engineering" | "Housekeeping" {
+  return DD_ENGINEERING_ITEMS.has(itemName) ? "Engineering" : "Housekeeping";
+}
+
 export function priorityTone(p: string): string {
   return p === "High" ? "red" : p === "Medium" ? "gold" : "teal";
 }
