@@ -1,12 +1,12 @@
 # Setup & Deployment Walkthrough
 
-This walks you (Philip, IT Support — no other developer needed) through taking Duty Desk and Gatehouse from code on this computer to two live, password-protected web apps your staff can use, plus the shared landing page.
+This walks you (Philip, IT Support — no other developer needed) through taking Duty Desk, Gatehouse, and Maintenance Desk from code on this computer to three live, password-protected web apps your staff can use, plus the shared landing page.
 
 You will create **five accounts**, all free to sign up for (you only start paying once you upgrade specific plans, in Step 6):
 
 1. A **GitHub** account — holds the code, so Vercel can deploy it.
-2. A **Supabase** account — hosts the two databases (one for Duty Desk, one for Gatehouse).
-3. A **Vercel** account — hosts the three live web apps.
+2. A **Supabase** account — hosts the databases (one each for Duty Desk, Gatehouse, and Maintenance Desk's own logins — three total; Maintenance Desk's tickets live in Duty Desk's database, see Step 2.5).
+3. A **Vercel** account — hosts the four live web apps.
 4. A **Resend** account — sends the "Email this report" copies from the Reports page (free up to 3,000 emails/month).
 
 Do the steps **in order**. Each one builds on the last. Budget about half a day, most of it waiting for things to finish rather than active work.
@@ -64,6 +64,15 @@ You now have two completely separate databases, matching the blueprint's "no sha
 
 ---
 
+## 3.4. Create the Maintenance Desk Supabase project — and one small change to Duty Desk's
+
+Maintenance Desk is a genuinely separate third platform (own login, own staff accounts) with one deliberate exception: maintenance tickets are a single shared record between it and Duty Desk, not a copy that gets synced. Concretely, that means Maintenance Desk's own database holds only its logins, while its server also connects straight to Duty Desk's existing database for the tickets table — see the comments in `apps/maintenance-desk/src/lib/supabase.ts` if you want the full explanation.
+
+1. Repeat Step 2 exactly for a third project — name it `maintenance-desk-prod`, run the SQL from [`apps/maintenance-desk/supabase/migrations/0001_init.sql`](apps/maintenance-desk/supabase/migrations/0001_init.sql), skip the Storage bucket, and note down its own **Project URL** and **service_role key**.
+2. Now go back to your **existing** `duty-desk-prod` project (not the new one) → **SQL Editor** → **New query**. Run [`apps/duty-desk/supabase/migrations/0002_maintenance_desk_integration.sql`](apps/duty-desk/supabase/migrations/0002_maintenance_desk_integration.sql). This just adds one text column to the existing `maintenance_tickets` table (who last touched a ticket, from either platform) — it doesn't touch any existing data.
+
+---
+
 ## 3.5. Create a Resend account (for the "Email report" button)
 
 1. Go to resend.com and sign up.
@@ -96,11 +105,22 @@ RESEND_API_KEY=<your Resend API key from step 3.5 — can be the same key as Dut
 REPORTS_FROM_EMAIL=onboarding@resend.dev
 ```
 
+**Maintenance Desk** — create `apps/maintenance-desk/.env.local`:
+```
+SUPABASE_URL=<Maintenance Desk Project URL from step 3.4>
+SUPABASE_SERVICE_ROLE_KEY=<Maintenance Desk service_role key from step 3.4>
+DUTY_DESK_SUPABASE_URL=<the SAME Duty Desk Project URL from step 2 — not a new value>
+DUTY_DESK_SUPABASE_SERVICE_ROLE_KEY=<the SAME Duty Desk service_role key from step 2>
+SESSION_SECRET=<a THIRD different random string>
+MAINTENANCE_PHOTOS_BUCKET=maintenance-photos
+```
+The `DUTY_DESK_SUPABASE_*` pair is intentionally a copy of Duty Desk's own credentials from Step 2 — that's what gives Maintenance Desk its direct connection to the shared tickets table. Everything else about this file (its own `SUPABASE_URL`, its own `SESSION_SECRET`) is unique to Maintenance Desk, same as the other two apps.
+
 To generate a `SESSION_SECRET`, run this once for each app and paste the result in:
 ```
 node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
 ```
-Use a **different** secret for each app — this is what keeps a Duty Desk login session cryptographically separate from a Gatehouse one.
+Use a **different** secret for each app — this is what keeps a Duty Desk login session cryptographically separate from a Gatehouse or Maintenance Desk one.
 
 These `.env.local` files are already excluded from git (see each app's `.gitignore`) — they hold secrets and should never be committed.
 
@@ -126,6 +146,14 @@ npm run seed:super-admin
 ```
 Use a **different** usercode than the one you got for Duty Desk (they're independent logins on independent systems, per the blueprint).
 
+And once more for Maintenance Desk:
+```
+cd ../maintenance-desk
+npm install
+npm run seed:super-admin
+```
+Again, a different usercode from the other two.
+
 You can sanity-check either app locally before deploying:
 ```
 npm run dev
@@ -134,32 +162,34 @@ then open `http://localhost:3000/login` and sign in with the username/usercode y
 
 ---
 
-## 6. Create your Vercel account and the three hosting projects
+## 6. Create your Vercel account and the four hosting projects
 
 1. Go to vercel.com and sign up **using your GitHub account** (this makes connecting the repo a one-click step).
 2. From your Vercel dashboard, click **Add New → Project**, and import the `duty-desk-gatehouse` repository (you may need to click "Configure GitHub App" once to grant Vercel access to it).
-3. Vercel will ask for a **Root Directory** — this is the key setting that makes one repo produce three independent apps. Set it to `apps/duty-desk`. Leave the framework preset on "Next.js" (auto-detected).
+3. Vercel will ask for a **Root Directory** — this is the key setting that makes one repo produce several independent apps. Set it to `apps/duty-desk`. Leave the framework preset on "Next.js" (auto-detected).
 4. Before clicking Deploy, expand **Environment Variables** and add the values from your `apps/duty-desk/.env.local` file: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `MAINTENANCE_PHOTOS_BUCKET`, `RESEND_API_KEY`, `REPORTS_FROM_EMAIL`. Skip `NEXT_PUBLIC_PORTAL_URL` for now — you don't have the portal's URL yet (step 7 creates it).
 5. Click **Deploy**. Wait for it to finish, then open the URL Vercel gives you (something like `duty-desk-gatehouse.vercel.app`) and confirm the login page loads.
 6. Repeat steps 2–5 for a **second** Vercel project: Root Directory `apps/gatehouse`, using the Gatehouse env values (same set minus `MAINTENANCE_PHOTOS_BUCKET`, also skipping `NEXT_PUBLIC_PORTAL_URL` for now).
-7. Repeat once more for a **third** Vercel project: Root Directory `apps/portal`. Its environment variables are the two live URLs from steps 5–6:
+7. Repeat once more for a **third** Vercel project: Root Directory `apps/maintenance-desk`, using the values from `apps/maintenance-desk/.env.local` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DUTY_DESK_SUPABASE_URL`, `DUTY_DESK_SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `MAINTENANCE_PHOTOS_BUCKET`), again skipping `NEXT_PUBLIC_PORTAL_URL` for now.
+8. Repeat once more for a **fourth** Vercel project: Root Directory `apps/portal`. Its environment variables are the three live URLs from steps 5–7:
    ```
    NEXT_PUBLIC_DUTY_DESK_URL=<your Duty Desk Vercel URL>
    NEXT_PUBLIC_GATEHOUSE_URL=<your Gatehouse Vercel URL>
+   NEXT_PUBLIC_MAINTENANCE_DESK_URL=<your Maintenance Desk Vercel URL>
    ```
-8. Now that you have the portal's URL, go back to **each** of the Duty Desk and Gatehouse projects → **Settings → Environment Variables** and add:
+9. Now that you have the portal's URL, go back to **each** of the Duty Desk, Gatehouse, and Maintenance Desk projects → **Settings → Environment Variables** and add:
    ```
    NEXT_PUBLIC_PORTAL_URL=<your Portal Vercel URL>
    ```
-   This is what makes the "Back to portal" link show up on each login page. Redeploy both (**Deployments → ⋯ → Redeploy**) for it to take effect.
+   This is what makes the "Back to portal" link show up on each login page. Redeploy all three (**Deployments → ⋯ → Redeploy**) for it to take effect.
 
-You now have three live, independently-hosted sites, cross-linked to each other. Bookmark the portal URL and share that one with staff — it links out to both.
+You now have four live, independently-hosted sites, cross-linked to each other. Bookmark the portal URL and share that one with staff — it links out to all three.
 
 ### Upgrading to paid plans (before real rollout)
 
 The proposal (Section 7.1) calls for paid tiers before going live with real staff/guest data, since free tiers pause when idle and have no backup guarantee:
-- **Vercel**: from your Vercel dashboard, go to your account/team **Settings → Billing** and upgrade to the **Pro** plan (~$20/month). This covers all three projects under one account.
-- **Supabase**: for **each** of the two projects, go to **Project Settings → Billing** and upgrade to **Pro** (~$25/month each). This enables daily backups and removes the auto-pause on inactivity.
+- **Vercel**: from your Vercel dashboard, go to your account/team **Settings → Billing** and upgrade to the **Pro** plan (~$20/month). This covers all four projects under one account.
+- **Supabase**: for **each** of the three projects, go to **Project Settings → Billing** and upgrade to **Pro** (~$25/month each). This enables daily backups and removes the auto-pause on inactivity. Maintenance Desk's own project only holds logins, but Duty Desk's project is now load-bearing for two platforms, so don't skip it there.
 
 You can complete Steps 1–8 (below) on the free tiers first to confirm everything works, then upgrade once you're ready for real rollout.
 
@@ -171,7 +201,7 @@ If you'd rather use `operations.yourcompany.com` than a `.vercel.app` address: b
 
 ---
 
-## 8. Set up your two department admins
+## 8. Set up your department admins
 
 Log in to Duty Desk as your Super Admin account and go to **Staff Accounts** in the sidebar:
 1. Create an account for your **General Manager** with the role "General Manager". Give them the username/usercode shown.
@@ -179,7 +209,9 @@ Log in to Duty Desk as your Super Admin account and go to **Staff Accounts** in 
 
 Log in to Gatehouse as your Super Admin account and do the same for your **Security Supervisor** (role "Security Supervisor"), who then creates the 5 Security Officer accounts.
 
-From here on, day-to-day account creation, disabling, and usercode resets are handled by these two department admins — you (Super Admin) are the fallback if either of them is ever locked out or needs help, per blueprint Section 4.1.
+Log in to Maintenance Desk as your Super Admin account and do the same for your **Maintenance Supervisor**, who then creates the Maintenance Technician accounts.
+
+From here on, day-to-day account creation, disabling, and usercode resets are handled by these department admins — you (Super Admin) are the fallback if any of them is ever locked out or needs help, per blueprint Section 4.1.
 
 ---
 

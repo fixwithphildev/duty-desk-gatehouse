@@ -18,7 +18,7 @@ export async function createTicketAction(formData: FormData) {
 
   const { data: ticket, error } = await supabaseAdmin
     .from("maintenance_tickets")
-    .insert({ area, issue_type: issueType, assigned_to: assignedTo, priority, status: "Reported", source: "manual", created_by: session.staffId })
+    .insert({ area, issue_type: issueType, assigned_to: assignedTo, priority, status: "Reported", source: "manual", created_by: session.staffId, logged_by_name: session.displayName })
     .select()
     .single();
   if (error || !ticket) throw new Error(error?.message ?? "Failed to create ticket.");
@@ -32,8 +32,8 @@ export async function createTicketAction(formData: FormData) {
 }
 
 export async function updateTicketStatusAction(id: string, status: "Reported" | "In Progress" | "Resolved") {
-  await requireSession();
-  const { error } = await supabaseAdmin.from("maintenance_tickets").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+  const session = await requireSession();
+  const { error } = await supabaseAdmin.from("maintenance_tickets").update({ status, logged_by_name: session.displayName, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/maintenance");
   revalidatePath("/dashboard");

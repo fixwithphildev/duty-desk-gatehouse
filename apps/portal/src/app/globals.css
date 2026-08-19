@@ -2,7 +2,7 @@
 
 :root {
   --bg: #14120f; --ink: #f4f1ea; --muted: #cfc9ba; --line: #2c2924;
-  --teal: #6dc4ae; --amber: #f0b458;
+  --teal: #6dc4ae; --amber: #f0b458; --rust: #e0813f;
 }
 * { box-sizing: border-box; }
 html, body { padding: 0; margin: 0; }
@@ -56,9 +56,12 @@ body { font-family: 'Inter', sans-serif; color: var(--ink); background: var(--bg
 .portal-tile-dd:hover { border-color: var(--teal); }
 .portal-tile-gh { border-color: rgba(240,180,88,0.45); }
 .portal-tile-gh:hover { border-color: var(--amber); }
+.portal-tile-md { border-color: rgba(224,129,63,0.45); }
+.portal-tile-md:hover { border-color: var(--rust); }
 .portal-tile-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
 .portal-tile-dd .portal-tile-icon { background: rgba(109,196,174,0.18); color: var(--teal); }
 .portal-tile-gh .portal-tile-icon { background: rgba(240,180,88,0.18); color: var(--amber); }
+.portal-tile-md .portal-tile-icon { background: rgba(224,129,63,0.18); color: var(--rust); }
 .portal-tile-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
 .portal-tile-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; text-align: left; }
 .portal-foot { font-size: 11.5px; color: var(--muted); letter-spacing: 0.02em; text-shadow: 0 1px 8px rgba(0,0,0,0.4); }

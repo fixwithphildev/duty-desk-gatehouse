@@ -54,6 +54,7 @@ export async function submitChecklistAction(input: {
           source: "checklist",
           notes: `Flagged as ${item.condition} during ${typeLabel} checklist`,
           created_by: session.staffId,
+          logged_by_name: session.displayName,
         })
         .select()
         .single();

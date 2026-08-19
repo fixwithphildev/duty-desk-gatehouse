@@ -12,6 +12,7 @@ export interface MaintenanceTicketRow {
   status: "Reported" | "In Progress" | "Resolved";
   source: "manual" | "checklist";
   notes: string | null;
+  logged_by_name: string | null;
   created_at: string;
   photo_count: number;
 }
@@ -21,7 +22,7 @@ const PHOTOS_BUCKET = process.env.MAINTENANCE_PHOTOS_BUCKET || "maintenance-phot
 export async function getMaintenanceTickets(assignedToFilter?: string[]): Promise<MaintenanceTicketRow[]> {
   let query = supabaseAdmin
     .from("maintenance_tickets")
-    .select("id, area, issue_type, assigned_to, priority, status, source, notes, created_at, maintenance_ticket_photos(id)")
+    .select("id, area, issue_type, assigned_to, priority, status, source, notes, logged_by_name, created_at, maintenance_ticket_photos(id)")
     .order("created_at", { ascending: false });
   if (assignedToFilter && assignedToFilter.length > 0) {
     query = query.in("assigned_to", assignedToFilter);
@@ -36,6 +37,7 @@ export async function getMaintenanceTickets(assignedToFilter?: string[]): Promis
     status: row.status as MaintenanceTicketRow["status"],
     source: row.source as MaintenanceTicketRow["source"],
     notes: row.notes as string | null,
+    logged_by_name: (row.logged_by_name as string | null) ?? null,
     created_at: row.created_at as string,
     photo_count: Array.isArray(row.maintenance_ticket_photos) ? row.maintenance_ticket_photos.length : 0,
   }));

@@ -1,5 +1,6 @@
 const DUTY_DESK_URL = process.env.NEXT_PUBLIC_DUTY_DESK_URL || "#";
 const GATEHOUSE_URL = process.env.NEXT_PUBLIC_GATEHOUSE_URL || "#";
+const MAINTENANCE_DESK_URL = process.env.NEXT_PUBLIC_MAINTENANCE_DESK_URL || "#";
 
 function HomeIcon() {
   return (
@@ -15,6 +16,14 @@ function RadioIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="2" />
       <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14" />
+    </svg>
+  );
+}
+
+function WrenchIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
     </svg>
   );
 }
@@ -39,6 +48,11 @@ export default function PortalPage() {
           <div className="portal-tile-icon"><RadioIcon /></div>
           <div className="portal-tile-name">Gatehouse</div>
           <div className="portal-tile-desc">Security department — incidents, access control, patrols, alerts.</div>
+        </a>
+        <a href={MAINTENANCE_DESK_URL} className="portal-tile portal-tile-md">
+          <div className="portal-tile-icon"><WrenchIcon /></div>
+          <div className="portal-tile-name">Maintenance Desk</div>
+          <div className="portal-tile-desc">Maintenance department — the ticket queue shared with Duty Desk.</div>
         </a>
       </div>
 
