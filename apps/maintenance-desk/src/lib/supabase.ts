@@ -24,8 +24,13 @@ function getEnv(name: string): string {
   return value;
 }
 
+// SUPABASE_SCHEMA is optional and defaults to "public" — it only needs to be
+// set if this project's tables ever move into a non-default schema (e.g. if
+// Maintenance Desk is consolidated into Duty Desk's Supabase project to cut
+// hosting costs, its tables would live under a "maintenance" schema there).
 export const supabaseAdmin = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"), {
   auth: { persistSession: false, autoRefreshToken: false },
+  db: { schema: process.env.SUPABASE_SCHEMA || "public" },
 });
 
 export const ticketsDb = createClient(getEnv("DUTY_DESK_SUPABASE_URL"), getEnv("DUTY_DESK_SUPABASE_SERVICE_ROLE_KEY"), {

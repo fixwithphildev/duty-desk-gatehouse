@@ -187,11 +187,42 @@ You now have four live, independently-hosted sites, cross-linked to each other. 
 
 ### Upgrading to paid plans (before real rollout)
 
-The proposal (Section 7.1) calls for paid tiers before going live with real staff/guest data, since free tiers pause when idle and have no backup guarantee:
+Free tiers pause when idle for ~7 days and have no backup guarantee, so paid tiers are the ideal before real staff/guest data depends on this day to day:
 - **Vercel**: from your Vercel dashboard, go to your account/team **Settings → Billing** and upgrade to the **Pro** plan (~$20/month). This covers all four projects under one account.
-- **Supabase**: for **each** of the three projects, go to **Project Settings → Billing** and upgrade to **Pro** (~$25/month each). This enables daily backups and removes the auto-pause on inactivity. Maintenance Desk's own project only holds logins, but Duty Desk's project is now load-bearing for two platforms, so don't skip it there.
+- **Supabase**: bills per **organization**, not per project — a ~$25/month base subscription per org, plus a ~$10/month compute add-on for every project in that org beyond the first (which the base subscription's included credit already covers). Right now that's two organizations (Duty Desk + Gatehouse in one, Maintenance Desk in a second, opened only to get around the free tier's 2-project cap), which comes to ~$780/year total. See "Consolidating to one Supabase project" below to bring that down to ~$540/year by merging into a single organization.
 
 You can complete Steps 1–8 (below) on the free tiers first to confirm everything works, then upgrade once you're ready for real rollout.
+
+### If you're not ready to pay for anything yet
+
+Two GitHub Actions workflows already in this repo (`.github/workflows/keep-alive.yml` and `backup.yml`) cover the two real risks of staying on free tier, at no cost:
+- **keep-alive.yml** pings each Supabase project every 3 days so none of them ever go idle long enough to hit the ~7-day auto-pause.
+- **backup.yml** dumps each project's database every Monday and keeps 60 days of snapshots as workflow artifacts (visible under the repo's **Actions** tab → a run → Artifacts), so there's always a recent restore point.
+
+Both need a few repository secrets before they'll run — on GitHub, go to the repo's **Settings → Secrets and variables → Actions** and add:
+- `DUTY_DESK_SUPABASE_URL`, `DUTY_DESK_SUPABASE_SERVICE_ROLE_KEY` — same values as `apps/duty-desk/.env.local`.
+- `GATEHOUSE_SUPABASE_URL`, `GATEHOUSE_SUPABASE_SERVICE_ROLE_KEY` — same values as `apps/gatehouse/.env.local`.
+- `MAINTENANCE_DESK_SUPABASE_URL`, `MAINTENANCE_DESK_SUPABASE_SERVICE_ROLE_KEY` — same values as `apps/maintenance-desk/.env.local`.
+- `DUTY_DESK_DB_URL`, `GATEHOUSE_DB_URL`, `MAINTENANCE_DESK_DB_URL` — each project's **direct Postgres connection string** (different from the URL/key pair above), found under that project's **Project Settings → Database → Connection string** (URI format) in the Supabase dashboard.
+
+Once those are added, both workflows run on their own schedule (or trigger one manually from the Actions tab with "Run workflow" to test it immediately). Check the Actions tab occasionally — a red X means a ping or a dump failed and is worth a look.
+
+### Consolidating to one Supabase project (optional, cuts the paid rate from ~$780/yr to ~$540/yr)
+
+Supabase's per-organization base fee is what makes splitting departments across projects expensive — merging Gatehouse's and Maintenance Desk's tables into Duty Desk's project (under their own schemas, still fully separated from Duty Desk's own tables) avoids paying that base fee twice. The app code already supports this: both `apps/gatehouse/src/lib/supabase.ts` and `apps/maintenance-desk/src/lib/supabase.ts` read an optional `SUPABASE_SCHEMA` environment variable (defaulting to `public`), so no code changes are needed to do this — only data and configuration.
+
+1. In the Duty Desk Supabase project's SQL Editor, run `apps/duty-desk/supabase/migrations/0003_consolidate_departments.sql`. This creates two empty schemas, `gatehouse` and `maintenance`, inside Duty Desk's database.
+2. From a terminal with `pg_dump`/`psql` installed (or the Bash tool, if working with Claude), pull each project's connection string from **Project Settings → Database → Connection string** and run, for Gatehouse:
+   ```
+   pg_dump "$GATEHOUSE_DB_URL" --no-owner --no-privileges --schema=public -f gatehouse_dump.sql
+   sed -i 's/public\./gatehouse./g; s/SCHEMA public/SCHEMA gatehouse/g' gatehouse_dump.sql
+   psql "$DUTY_DESK_DB_URL" -f gatehouse_dump.sql
+   ```
+   and the same for Maintenance Desk, substituting `maintenance` for `gatehouse` throughout.
+3. In the Duty Desk project's dashboard, go to **Project Settings → API → Exposed schemas** and add `gatehouse` and `maintenance` to the list (alongside `public`) — otherwise the API can't see tables outside `public`.
+4. Update `apps/gatehouse/.env.local` (and its Vercel project's environment variables) to Duty Desk's `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, and add `SUPABASE_SCHEMA=gatehouse`. Do the same for `apps/maintenance-desk/.env.local` (and its Vercel project) with `SUPABASE_SCHEMA=maintenance`.
+5. Redeploy both, then log in and spot-check each platform still works end to end before touching anything else.
+6. Once confirmed, downgrade or delete the old Gatehouse and Maintenance Desk Supabase projects (and the second Supabase account, if nothing else uses it), and trim `keep-alive.yml`/`backup.yml` down to just the Duty Desk secrets — the code comments in both files mark exactly what to remove.
 
 ---
 

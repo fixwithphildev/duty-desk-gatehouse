@@ -1,0 +1,43 @@
+name: Keep Supabase projects awake
+
+# Free-tier Supabase projects auto-pause after ~7 days with no API activity.
+# This pings each project's REST endpoint every 3 days so none of them ever
+# get close to that. A failing step still lets the others run, and shows up
+# as a red X in the Actions tab (and a notification email to the repo) so a
+# real problem with a project doesn't go unnoticed.
+
+on:
+  schedule:
+    - cron: "0 6 */3 * *" # every 3 days, 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Duty Desk
+        continue-on-error: true
+        run: |
+          curl -sf -o /dev/null -w "Duty Desk: HTTP %{http_code}\n" \
+            "${{ secrets.DUTY_DESK_SUPABASE_URL }}/rest/v1/staff_accounts?select=id&limit=1" \
+            -H "apikey: ${{ secrets.DUTY_DESK_SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.DUTY_DESK_SUPABASE_SERVICE_ROLE_KEY }}"
+
+      - name: Ping Gatehouse
+        continue-on-error: true
+        run: |
+          curl -sf -o /dev/null -w "Gatehouse: HTTP %{http_code}\n" \
+            "${{ secrets.GATEHOUSE_SUPABASE_URL }}/rest/v1/staff_accounts?select=id&limit=1" \
+            -H "apikey: ${{ secrets.GATEHOUSE_SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.GATEHOUSE_SUPABASE_SERVICE_ROLE_KEY }}"
+
+      # Once the three projects are consolidated into one Supabase org/project
+      # (see the consolidation plan), this third step and its two secrets can
+      # be deleted — the other two steps will already be covering that project.
+      - name: Ping Maintenance Desk
+        continue-on-error: true
+        run: |
+          curl -sf -o /dev/null -w "Maintenance Desk: HTTP %{http_code}\n" \
+            "${{ secrets.MAINTENANCE_DESK_SUPABASE_URL }}/rest/v1/staff_accounts?select=id&limit=1" \
+            -H "apikey: ${{ secrets.MAINTENANCE_DESK_SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.MAINTENANCE_DESK_SUPABASE_SERVICE_ROLE_KEY }}"

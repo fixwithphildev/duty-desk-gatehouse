@@ -1,0 +1,52 @@
+name: Weekly database backup
+
+# Free-tier Supabase has no automated backups. This dumps each project's
+# database every Monday and stores the dumps as a workflow artifact, so
+# there's always a recent snapshot to restore from if data is ever lost by
+# mistake or a provider incident. Artifacts are only visible to people with
+# read access to this repo.
+#
+# Requires the `postgresql-client` apt package for pg_dump (installed below)
+# and a direct Postgres connection string per project — NOT the same as the
+# SUPABASE_URL/SERVICE_ROLE_KEY secrets used for the REST API. Find it in the
+# Supabase dashboard under Project Settings -> Database -> Connection string
+# (URI format), for each project.
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # every Monday, 05:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql-client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Dump Duty Desk
+        continue-on-error: true
+        run: pg_dump "${{ secrets.DUTY_DESK_DB_URL }}" --no-owner --no-privileges -f duty-desk.sql
+
+      - name: Dump Gatehouse
+        continue-on-error: true
+        run: pg_dump "${{ secrets.GATEHOUSE_DB_URL }}" --no-owner --no-privileges -f gatehouse.sql
+
+      # Once the three projects are consolidated into one Supabase org/project
+      # (see the consolidation plan), this step and DUTY_DESK/GATEHOUSE above
+      # collapse into a single dump of the one remaining project.
+      - name: Dump Maintenance Desk
+        continue-on-error: true
+        run: pg_dump "${{ secrets.MAINTENANCE_DESK_DB_URL }}" --no-owner --no-privileges -f maintenance-desk.sql
+
+      - name: Upload backups
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backups-${{ github.run_id }}
+          path: |
+            duty-desk.sql
+            gatehouse.sql
+            maintenance-desk.sql
+          if-no-files-found: warn
+          retention-days: 60
