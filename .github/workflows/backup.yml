@@ -38,20 +38,23 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
 
+      # Called by full path, not bare `pg_dump` — Ubuntu's pg_dump wrapper
+      # script still resolves to the older v16 binary even with v17 also
+      # installed, which silently reintroduces the version-mismatch error.
       - name: Dump Duty Desk
         continue-on-error: true
-        run: pg_dump "${{ secrets.DUTY_DESK_DB_URL }}" --no-owner --no-privileges -f duty-desk.sql
+        run: /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.DUTY_DESK_DB_URL }}" --no-owner --no-privileges -f duty-desk.sql
 
       - name: Dump Gatehouse
         continue-on-error: true
-        run: pg_dump "${{ secrets.GATEHOUSE_DB_URL }}" --no-owner --no-privileges -f gatehouse.sql
+        run: /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.GATEHOUSE_DB_URL }}" --no-owner --no-privileges -f gatehouse.sql
 
       # Once the three projects are consolidated into one Supabase org/project
       # (see the consolidation plan), this step and DUTY_DESK/GATEHOUSE above
       # collapse into a single dump of the one remaining project.
       - name: Dump Maintenance Desk
         continue-on-error: true
-        run: pg_dump "${{ secrets.MAINTENANCE_DESK_DB_URL }}" --no-owner --no-privileges -f maintenance-desk.sql
+        run: /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.MAINTENANCE_DESK_DB_URL }}" --no-owner --no-privileges -f maintenance-desk.sql
 
       - name: Upload backups
         if: always()
