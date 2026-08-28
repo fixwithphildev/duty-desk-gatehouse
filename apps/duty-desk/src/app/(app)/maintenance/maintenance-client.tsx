@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Paperclip } from "lucide-react";
 import { Badge, Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
@@ -9,15 +10,28 @@ import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createTicketAction, updateTicketStatusAction } from "./actions";
 import type { MaintenanceTicketRow } from "@/lib/data/maintenance";
 
+const REFRESH_MS = 15_000;
+
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export function MaintenanceClient({ tickets, canEdit }: { tickets: MaintenanceTicketRow[]; canEdit: boolean }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // This table is the one genuinely shared record with Maintenance Desk —
+  // a status change made over there writes straight to the same row, but
+  // there's no way for that separate app to tell this already-open page to
+  // re-fetch. Poll on the same interval as the notification toasts so
+  // changes from either side show up without a manual refresh.
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [router]);
 
   const submit = () => {
     if (!formRef.current) return;

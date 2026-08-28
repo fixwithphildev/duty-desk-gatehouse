@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Paperclip } from "lucide-react";
 import { Badge, Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
@@ -9,15 +10,26 @@ import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createTicketAction, updateTicketStatusAction, getTicketPhotosAction } from "./actions";
 import type { MaintenanceTicketRow } from "@/lib/data/tickets";
 
+const REFRESH_MS = 15_000;
+
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export function TicketsClient({ tickets, canEdit }: { tickets: MaintenanceTicketRow[]; canEdit: boolean }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Same shared table, same problem in reverse — a status change made in
+  // Duty Desk writes straight to this row, but this app has no way to know
+  // unless it checks. Poll on the same interval as the notification toasts.
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [router]);
 
   const [photoView, setPhotoView] = useState<{ label: string; urls: string[] } | null>(null);
   const [photoLoading, setPhotoLoading] = useState<string | null>(null);
