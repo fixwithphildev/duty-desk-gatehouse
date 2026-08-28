@@ -7,10 +7,13 @@ name: Weekly database backup
 # read access to this repo.
 #
 # Requires the `postgresql-client` apt package for pg_dump (installed below)
-# and a direct Postgres connection string per project — NOT the same as the
+# and a Postgres connection string per project — NOT the same as the
 # SUPABASE_URL/SERVICE_ROLE_KEY secrets used for the REST API. Find it in the
-# Supabase dashboard under Project Settings -> Database -> Connection string
-# (URI format), for each project.
+# Supabase dashboard under each project's Connect -> Direct connection string
+# tab. Use the "Session pooler" option, NOT "Direct connection" — Supabase's
+# direct connection is IPv6-only by default, and GitHub-hosted runners can't
+# reach IPv6 hosts (pg_dump fails with "Network is unreachable"). The Session
+# pooler string is IPv4-compatible and works from GitHub Actions.
 
 on:
   schedule:

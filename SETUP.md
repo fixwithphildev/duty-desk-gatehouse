@@ -203,7 +203,7 @@ Both need a few repository secrets before they'll run — on GitHub, go to the r
 - `DUTY_DESK_SUPABASE_URL`, `DUTY_DESK_SUPABASE_SERVICE_ROLE_KEY` — same values as `apps/duty-desk/.env.local`.
 - `GATEHOUSE_SUPABASE_URL`, `GATEHOUSE_SUPABASE_SERVICE_ROLE_KEY` — same values as `apps/gatehouse/.env.local`.
 - `MAINTENANCE_DESK_SUPABASE_URL`, `MAINTENANCE_DESK_SUPABASE_SERVICE_ROLE_KEY` — same values as `apps/maintenance-desk/.env.local`.
-- `DUTY_DESK_DB_URL`, `GATEHOUSE_DB_URL`, `MAINTENANCE_DESK_DB_URL` — each project's **direct Postgres connection string** (different from the URL/key pair above), found under that project's **Project Settings → Database → Connection string** (URI format) in the Supabase dashboard.
+- `DUTY_DESK_DB_URL`, `GATEHOUSE_DB_URL`, `MAINTENANCE_DESK_DB_URL` — each project's Postgres connection string (different from the URL/key pair above), found under that project's **Connect → Direct connection string** tab in the Supabase dashboard. Use the **Session pooler** option, not "Direct connection" — Supabase's direct connection is IPv6-only by default, and GitHub-hosted runners can't reach IPv6 hosts (`pg_dump` fails with "Network is unreachable"). The Session pooler string is IPv4-compatible.
 
 Once those are added, both workflows run on their own schedule (or trigger one manually from the Actions tab with "Run workflow" to test it immediately). Check the Actions tab occasionally — a red X means a ping or a dump failed and is worth a look.
 
