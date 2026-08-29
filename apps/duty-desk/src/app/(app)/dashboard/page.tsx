@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardCheck, MessageSquareWarning, Wrench, DoorClosed, ListTodo, BookOpen } from "lucide-react";
+import { ClipboardCheck, MessageSquareWarning, Wrench, DoorClosed, ListTodo } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { getLatestSubmittedByApartment, getChecklistsDailyTrend } from "@/lib/data/checklists";
 import { getComplaints } from "@/lib/data/complaints";
@@ -9,6 +9,7 @@ import { getLastHandover } from "@/lib/data/dutylog";
 import { StatCard, Badge } from "@/components/ui";
 import { TrendChart } from "@/components/trend-chart";
 import { priorityTone } from "@/lib/checklist-data";
+import { HandoverBanner } from "./handover-banner";
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -47,15 +48,7 @@ export default async function DashboardPage() {
         <span className="mono view-time">{new Date().toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}</span>
       </div>
 
-      {lastHandover ? (
-        <div className="handover-banner">
-          <BookOpen size={16} />
-          <div>
-            <div className="handover-title">Last shift handover — {lastHandover.officer_name}, {fmtTime(lastHandover.created_at)}</div>
-            <div className="handover-note">{lastHandover.notes}</div>
-          </div>
-        </div>
-      ) : null}
+      <HandoverBanner handover={lastHandover} />
 
       <div className="stat-grid">
         <StatCard label="Apartments checked" value={apts.length} icon={ClipboardCheck} />

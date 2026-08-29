@@ -57,7 +57,10 @@ export function DutyLogClient({ entries, canEdit }: { entries: DutyLogRow[]; can
             <span className={`feed-dot ${d.handover ? "tone-gold" : ""}`} />
             <div className="feed-main">
               <div className="feed-label">{d.notes}</div>
-              <div className="feed-meta mono">{d.officer_name} · {fmtTime(d.created_at)} {d.handover ? "· Handover note" : ""}</div>
+              <div className="feed-meta mono">
+                {d.officer_name} · {fmtTime(d.created_at)}
+                {d.handover ? (d.acknowledged_at ? " · Handover note · Handled" : " · Handover note · Outstanding") : ""}
+              </div>
             </div>
           </li>
         ))}

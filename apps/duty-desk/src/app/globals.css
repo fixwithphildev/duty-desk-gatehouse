@@ -83,8 +83,15 @@ a { color: inherit; }
 .dash-hero-greeting { font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--teal); margin-bottom: 5px; }
 
 .handover-banner { display: flex; gap: 12px; align-items: flex-start; border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow-sm); background: var(--gold-soft); border: 1px solid rgba(183,139,75,0.3); color: #6b4f26; }
+.handover-main { flex: 1; min-width: 0; }
 .handover-title { font-size: 12.5px; font-weight: 600; margin-bottom: 3px; }
 .handover-note { font-size: 13px; line-height: 1.5; }
+.handover-ack { flex-shrink: 0; color: #6b4f26; border-color: rgba(183,139,75,0.4); }
+
+@media (max-width: 640px) {
+  .handover-banner { flex-wrap: wrap; }
+  .handover-ack { margin-left: 28px; }
+}
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 14px; }
 .stat-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; gap: 12px; align-items: flex-start; box-shadow: var(--shadow-sm); background: var(--surface); transition: box-shadow 0.2s var(--ease), transform 0.2s var(--ease); }
