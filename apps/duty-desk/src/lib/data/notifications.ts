@@ -15,10 +15,20 @@ export interface NotificationItem {
 // surface what actually needs attention, not create noise staff learn to
 // ignore.
 export async function getNotificationsSince(sinceIso: string): Promise<NotificationItem[]> {
-  const [checklists, complaints, tickets] = await Promise.all([
+  const [checklists, complaints, tickets, ticketUpdates] = await Promise.all([
     supabaseAdmin.from("apartment_checklists").select("id, apartment, created_at").eq("overall_ready", false).eq("status", "submitted").gt("created_at", sinceIso),
     supabaseAdmin.from("complaints").select("id, description, room, created_at").eq("priority", "High").gt("created_at", sinceIso),
     supabaseAdmin.from("maintenance_tickets").select("id, area, issue_type, created_at").eq("priority", "High").gt("created_at", sinceIso),
+    // Status changes (e.g. Maintenance Desk marking something Resolved)
+    // don't have their own "created_at" — they touch updated_at instead.
+    // Filtering updated_at > created_at + a couple seconds is how this
+    // tells a genuine status change apart from the row's own insert,
+    // since PostgREST can't compare two columns to each other directly.
+    supabaseAdmin
+      .from("maintenance_tickets")
+      .select("id, area, issue_type, status, logged_by_name, created_at, updated_at")
+      .eq("priority", "High")
+      .gt("updated_at", sinceIso),
   ]);
 
   const items: NotificationItem[] = [];
@@ -35,6 +45,15 @@ export async function getNotificationsSince(sinceIso: string): Promise<Notificat
   }
   for (const row of tickets.data ?? []) {
     items.push({ id: `tkt-${row.id}`, message: `High priority maintenance — ${row.area}: ${row.issue_type}`, href: "/maintenance", createdAt: row.created_at });
+  }
+  for (const row of ticketUpdates.data ?? []) {
+    if (new Date(row.updated_at).getTime() - new Date(row.created_at).getTime() < 2000) continue;
+    items.push({
+      id: `tktupd-${row.id}-${row.updated_at}`,
+      message: `${row.issue_type} (${row.area}) marked ${row.status}${row.logged_by_name ? ` by ${row.logged_by_name}` : ""}`,
+      href: "/maintenance",
+      createdAt: row.updated_at,
+    });
   }
   return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
