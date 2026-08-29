@@ -144,7 +144,11 @@ a { color: inherit; }
 .table tbody tr:hover td { background: rgba(127,127,127,0.04); }
 .cell-title { font-weight: 600; }
 .cell-sub { font-size: 11.5px; margin-top: 3px; max-width: 260px; line-height: 1.4; color: var(--muted); }
-.select-sm { padding: 5px 9px; font-size: 12px; }
+/* .select.select-sm (not .select-sm alone) — needs to outrank the later
+   ".input, .select, .textarea" rule below, which has equal specificity to
+   a bare class selector and would otherwise silently win by source order,
+   reintroducing the full-size padding/font this rule is trying to shrink. */
+.select.select-sm { padding: 5px 22px 5px 9px; font-size: 12px; min-width: 104px; background-position: right 8px center; background-size: 9px 5px; }
 
 /* Below 820px (phone through tablet portrait), a horizontally-scrolling
    table hides whichever columns don't fit — including, on every table
@@ -166,13 +170,26 @@ a { color: inherit; }
     text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 5px;
   }
   .table td select.select, .table td .btn { min-height: 44px; }
-  .table td select.select-sm { padding: 11px 14px; font-size: 14px; }
+  .table td select.select-sm { padding: 11px 34px 11px 14px; font-size: 14px; min-width: 0; background-position: right 12px center; background-size: 10px 6px; }
   .table td .btn-sm { padding: 11px 16px; font-size: 13px; }
 }
 
 .field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
 .field-label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .input, .select, .textarea { border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; font-size: 13.5px; width: 100%; background: var(--paper); transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease); color: var(--ink); }
+/* The browser's native select arrow doesn't reliably respect padding-right
+   for its own clearance — it can overlap the last character of the chosen
+   option regardless of how much room the CSS box math says is free.
+   appearance: none removes that native control entirely and draws our own,
+   so the reserved space is exact and enforced by us. */
+select.select {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235B6470' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 10px 6px;
+}
 .input:focus, .select:focus, .textarea:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-soft); }
 .input:disabled { opacity: 0.55; }
 .textarea { resize: vertical; }
