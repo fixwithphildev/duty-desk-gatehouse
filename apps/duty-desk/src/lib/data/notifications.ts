@@ -19,15 +19,19 @@ export async function getNotificationsSince(sinceIso: string): Promise<Notificat
     supabaseAdmin.from("apartment_checklists").select("id, apartment, created_at").eq("overall_ready", false).eq("status", "submitted").gt("created_at", sinceIso),
     supabaseAdmin.from("complaints").select("id, description, room, created_at").eq("priority", "High").gt("created_at", sinceIso),
     supabaseAdmin.from("maintenance_tickets").select("id, area, issue_type, created_at").eq("priority", "High").gt("created_at", sinceIso),
-    // Status changes (e.g. Maintenance Desk marking something Resolved)
-    // don't have their own "created_at" — they touch updated_at instead.
-    // Filtering updated_at > created_at + a couple seconds is how this
-    // tells a genuine status change apart from the row's own insert,
-    // since PostgREST can't compare two columns to each other directly.
+    // Status changes (e.g. Maintenance Desk marking something Resolved) —
+    // deliberately NOT restricted to High priority the way ticket-creation
+    // notifications above are. Creation noise is filtered because most new
+    // tickets aren't urgent; but once someone's waiting to hear a ticket
+    // got actioned, priority doesn't matter — a Medium-priority status
+    // change should still surface here. Status changes don't have their
+    // own "created_at" — they touch updated_at instead. Filtering
+    // updated_at > created_at + a couple seconds is how this tells a
+    // genuine status change apart from the row's own insert, since
+    // PostgREST can't compare two columns to each other directly.
     supabaseAdmin
       .from("maintenance_tickets")
       .select("id, area, issue_type, status, logged_by_name, created_at, updated_at")
-      .eq("priority", "High")
       .gt("updated_at", sinceIso),
   ]);
 

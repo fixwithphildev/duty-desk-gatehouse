@@ -10,7 +10,7 @@ import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createTicketAction, updateTicketStatusAction } from "./actions";
 import type { MaintenanceTicketRow } from "@/lib/data/maintenance";
 
-const REFRESH_MS = 15_000;
+const REFRESH_MS = 5_000;
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });

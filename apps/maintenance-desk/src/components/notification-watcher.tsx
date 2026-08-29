@@ -10,7 +10,7 @@ interface ToastItem {
   href: string;
 }
 
-const POLL_MS = 15_000;
+const POLL_MS = 5_000;
 const AUTO_DISMISS_MS = 12_000;
 
 // A short two-note chime, synthesized with the Web Audio API rather than
