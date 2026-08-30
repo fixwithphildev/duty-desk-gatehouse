@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, CheckCircle2 } from "lucide-react";
+import { Plus, CheckCircle2, Ban } from "lucide-react";
 import { Badge, Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { statusTone } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
-import { startPatrolAction, completePatrolAction } from "./actions";
+import { startPatrolAction, completePatrolAction, voidPatrolAction } from "./actions";
 import type { PatrolRow } from "@/lib/data/patrols";
 
 function fmtTime(iso: string | null): string {
@@ -20,6 +20,10 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
   const [notes, setNotes] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const [voidTarget, setVoidTarget] = useState<PatrolRow | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
 
   const startPatrol = () => {
     if (!route.trim()) return;
@@ -45,6 +49,21 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
     });
   };
 
+  const submitVoid = () => {
+    if (!voidTarget || !voidReason.trim()) return;
+    setVoidError(null);
+    startTransition(async () => {
+      try {
+        await voidPatrolAction(voidTarget.id, voidReason);
+        setVoidTarget(null);
+        setVoidReason("");
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
+        setVoidError(errorMessage(e));
+      }
+    });
+  };
+
   return (
     <div className="view">
       <div className="view-head">
@@ -57,16 +76,26 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
           <thead><tr><th>Officer</th><th>Route</th><th>Started</th><th>Status</th><th /></tr></thead>
           <tbody>
             {patrols.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} style={p.void ? { opacity: 0.6 } : undefined}>
                 <td data-label="Officer">{p.officer_name}</td>
-                <td data-label="Route">{p.route}</td>
+                <td data-label="Route">
+                  {p.route}
+                  {p.void ? <div className="cell-sub" style={{ color: "var(--red)" }}>Voided by {p.voided_by_name} — {p.void_reason}</div> : null}
+                </td>
                 <td className="mono" data-label="Started">{fmtTime(p.started_at)}</td>
-                <td data-label="Status"><Badge tone={statusTone(p.status)}>{p.status}</Badge></td>
+                <td data-label="Status">{p.void ? <Badge tone="neutral">Voided</Badge> : <Badge tone={statusTone(p.status)}>{p.status}</Badge>}</td>
                 <td>
-                  {canEdit && p.status === "In Progress" ? (
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCompleting(p)}>
-                      <CheckCircle2 size={13} /> Complete
-                    </button>
+                  {canEdit && !p.void ? (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {p.status === "In Progress" ? (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCompleting(p)}>
+                          <CheckCircle2 size={13} /> Complete
+                        </button>
+                      ) : null}
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidTarget(p); setVoidReason(""); setVoidError(null); }}>
+                        <Ban size={13} /> Void
+                      </button>
+                    </div>
                   ) : null}
                 </td>
               </tr>
@@ -88,6 +117,18 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
         <Field label="Findings / notes"><textarea className="textarea" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. All clear" /></Field>
         <button type="button" className="btn btn-primary drawer-submit" disabled={pending} onClick={completePatrol}>
           {pending ? "Saving…" : "Mark completed"}
+        </button>
+      </Drawer>
+
+      <Drawer open={!!voidTarget} onClose={() => setVoidTarget(null)} title="Void this patrol">
+        {voidError ? <div className="login-error">{voidError}</div> : null}
+        <p className="gate-copy" style={{ marginTop: 0 }}>This keeps the original entry visible for the record — it won&apos;t be edited or deleted, just marked voided with your reason attached.</p>
+        {voidTarget ? <p style={{ fontSize: 13, fontWeight: 600, marginTop: 0 }}>{voidTarget.route}</p> : null}
+        <Field label="Reason (required)">
+          <textarea className="textarea" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Logged by mistake, no patrol actually happened" />
+        </Field>
+        <button type="button" className="btn btn-primary drawer-submit" disabled={!voidReason.trim() || pending} onClick={submitVoid}>
+          {pending ? "Voiding…" : "Void patrol"}
         </button>
       </Drawer>
     </div>

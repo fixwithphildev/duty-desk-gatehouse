@@ -13,13 +13,21 @@ export interface AlertRow {
   status: "Unacknowledged" | "Acknowledged";
   acknowledged_by_name: string | null;
   created_at: string;
+  void: boolean;
+  void_reason: string | null;
+  voided_by_name: string | null;
+  voided_at: string | null;
 }
 
 export async function getAlerts(): Promise<AlertRow[]> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("alerts")
-    .select("id, type, severity, message, location, status, created_at, raised_by:staff_accounts!alerts_raised_by_fkey(display_name), acknowledged_by:staff_accounts!alerts_acknowledged_by_fkey(display_name)")
+    .select(
+      "id, type, severity, message, location, status, created_at, void, void_reason, voided_at, " +
+        "raised_by:staff_accounts!alerts_raised_by_fkey(display_name), acknowledged_by:staff_accounts!alerts_acknowledged_by_fkey(display_name), voider:staff_accounts!alerts_voided_by_fkey(display_name)"
+    )
     .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
   return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
     id: row.id as string,
     type: row.type as string,
@@ -28,8 +36,12 @@ export async function getAlerts(): Promise<AlertRow[]> {
     location: row.location as string | null,
     status: row.status as AlertRow["status"],
     created_at: row.created_at as string,
+    void: row.void as boolean,
+    void_reason: row.void_reason as string | null,
+    voided_at: row.voided_at as string | null,
     raised_by_name: (row.raised_by as { display_name?: string } | null)?.display_name ?? "—",
     acknowledged_by_name: (row.acknowledged_by as { display_name?: string } | null)?.display_name ?? null,
+    voided_by_name: (row.voider as { display_name?: string } | null)?.display_name ?? null,
   }));
 }
 

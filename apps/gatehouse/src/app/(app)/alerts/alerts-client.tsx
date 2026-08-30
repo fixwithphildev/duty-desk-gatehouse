@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, AlertOctagon, CheckCircle2 } from "lucide-react";
+import { Plus, AlertOctagon, CheckCircle2, Ban } from "lucide-react";
 import { Badge, Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { GH_SEVERITIES, severityTone } from "@/lib/types";
 import { GH_ALERT_TYPES } from "@/lib/constants";
 import type { AlertRow } from "@/lib/data/alerts";
 import { isRedirectError, errorMessage } from "@/lib/utils";
-import { raiseAlertAction, acknowledgeAlertAction } from "./actions";
+import { raiseAlertAction, acknowledgeAlertAction, voidAlertAction } from "./actions";
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -21,6 +21,10 @@ export function AlertsClient({ alerts, canEdit }: { alerts: AlertRow[]; canEdit:
   const [form, setForm] = useState(EMPTY);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const [voidTarget, setVoidTarget] = useState<AlertRow | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
 
   const submit = () => {
     if (!form.message.trim()) return;
@@ -39,6 +43,21 @@ export function AlertsClient({ alerts, canEdit }: { alerts: AlertRow[]; canEdit:
 
   const acknowledge = (id: string) => startTransition(async () => { await acknowledgeAlertAction(id); });
 
+  const submitVoid = () => {
+    if (!voidTarget || !voidReason.trim()) return;
+    setVoidError(null);
+    startTransition(async () => {
+      try {
+        await voidAlertAction(voidTarget.id, voidReason);
+        setVoidTarget(null);
+        setVoidReason("");
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
+        setVoidError(errorMessage(e));
+      }
+    });
+  };
+
   return (
     <div className="view">
       <div className="view-head">
@@ -48,7 +67,7 @@ export function AlertsClient({ alerts, canEdit }: { alerts: AlertRow[]; canEdit:
 
       <div className="alert-list">
         {alerts.map((a) => (
-          <div key={a.id} className={`alert-card tone-${severityTone(a.severity)}`}>
+          <div key={a.id} className={`alert-card tone-${severityTone(a.severity)}`} style={a.void ? { opacity: 0.6 } : undefined}>
             <AlertOctagon size={18} />
             <div className="alert-main">
               <div className="alert-top">
@@ -57,17 +76,31 @@ export function AlertsClient({ alerts, canEdit }: { alerts: AlertRow[]; canEdit:
               </div>
               <div className="alert-msg">{a.message}</div>
               <div className="alert-meta mono">{a.location ?? "—"} · raised by {a.raised_by_name} · {fmtTime(a.created_at)}</div>
+              {a.void ? (
+                <div className="alert-meta" style={{ color: "var(--red)", marginTop: 4 }}>Voided by {a.voided_by_name} — {a.void_reason}</div>
+              ) : null}
             </div>
-            {a.status !== "Acknowledged" ? (
-              canEdit ? (
-                <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => acknowledge(a.id)}>
-                  <CheckCircle2 size={13} /> Acknowledge
-                </button>
-              ) : (
-                <Badge tone="amber">Unacknowledged</Badge>
-              )
+            {a.void ? (
+              <Badge tone="neutral">Voided</Badge>
             ) : (
-              <Badge tone="green">Acknowledged</Badge>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                {a.status !== "Acknowledged" ? (
+                  canEdit ? (
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => acknowledge(a.id)}>
+                      <CheckCircle2 size={13} /> Acknowledge
+                    </button>
+                  ) : (
+                    <Badge tone="amber">Unacknowledged</Badge>
+                  )
+                ) : (
+                  <Badge tone="green">Acknowledged</Badge>
+                )}
+                {canEdit ? (
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => { setVoidTarget(a); setVoidReason(""); setVoidError(null); }}>
+                    <Ban size={13} /> Void
+                  </button>
+                ) : null}
+              </div>
             )}
           </div>
         ))}
@@ -92,6 +125,18 @@ export function AlertsClient({ alerts, canEdit }: { alerts: AlertRow[]; canEdit:
         <Field label="Message"><textarea className="textarea" rows={3} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} /></Field>
         <button type="button" className="btn btn-primary drawer-submit" disabled={!form.message.trim() || pending} onClick={submit}>
           {pending ? "Raising…" : "Raise alert"}
+        </button>
+      </Drawer>
+
+      <Drawer open={!!voidTarget} onClose={() => setVoidTarget(null)} title="Void this alert">
+        {voidError ? <div className="login-error">{voidError}</div> : null}
+        <p className="gate-copy" style={{ marginTop: 0 }}>This keeps the original entry visible for the record — it won&apos;t be edited or deleted, just marked voided with your reason attached.</p>
+        {voidTarget ? <p style={{ fontSize: 13, fontWeight: 600, marginTop: 0 }}>{voidTarget.message}</p> : null}
+        <Field label="Reason (required)">
+          <textarea className="textarea" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Raised by mistake" />
+        </Field>
+        <button type="button" className="btn btn-primary drawer-submit" disabled={!voidReason.trim() || pending} onClick={submitVoid}>
+          {pending ? "Voiding…" : "Void alert"}
         </button>
       </Drawer>
     </div>

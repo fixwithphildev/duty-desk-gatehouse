@@ -32,3 +32,15 @@ export async function acknowledgeAlertAction(id: string) {
   revalidatePath("/alerts");
   revalidatePath("/dashboard");
 }
+
+export async function voidAlertAction(id: string, reason: string) {
+  const session = await requireRole(GH_CAN_EDIT);
+  if (!reason.trim()) throw new Error("A reason is required to void an alert.");
+  const { error } = await supabaseAdmin
+    .from("alerts")
+    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/alerts");
+  revalidatePath("/dashboard");
+}

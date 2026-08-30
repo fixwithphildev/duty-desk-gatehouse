@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Ban } from "lucide-react";
 import { Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { DD_COMPLAINT_CATEGORIES, DD_COMPLAINT_STATUSES, DD_PRIORITIES, priorityTone } from "@/lib/checklist-data";
 import { isRedirectError, errorMessage } from "@/lib/utils";
-import { createComplaintAction, updateComplaintStatusAction } from "./actions";
+import { createComplaintAction, updateComplaintStatusAction, voidComplaintAction } from "./actions";
 import type { ComplaintRow } from "@/lib/data/complaints";
 import { Badge } from "@/components/ui";
 
@@ -29,6 +29,10 @@ export function ComplaintsClient({ complaints, canEdit }: { complaints: Complain
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  const [voidTarget, setVoidTarget] = useState<ComplaintRow | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
+
   const submit = () => {
     if (!form.description.trim()) return;
     setError(null);
@@ -50,6 +54,21 @@ export function ComplaintsClient({ complaints, canEdit }: { complaints: Complain
     });
   };
 
+  const submitVoid = () => {
+    if (!voidTarget || !voidReason.trim()) return;
+    setVoidError(null);
+    startTransition(async () => {
+      try {
+        await voidComplaintAction(voidTarget.id, voidReason);
+        setVoidTarget(null);
+        setVoidReason("");
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
+        setVoidError(errorMessage(e));
+      }
+    });
+  };
+
   return (
     <div className="view">
       <div className="view-head">
@@ -66,15 +85,26 @@ export function ComplaintsClient({ complaints, canEdit }: { complaints: Complain
           <thead><tr><th>Logged</th><th>Guest</th><th>Room</th><th>Category</th><th>Priority</th><th>Details</th><th>Status</th></tr></thead>
           <tbody>
             {complaints.map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id} style={c.void ? { opacity: 0.6 } : undefined}>
                 <td className="mono" data-label="Logged">{fmtTime(c.created_at)}</td>
                 <td data-label="Guest">{c.guest_name || "—"}</td>
                 <td data-label="Room">{c.room || "—"}</td>
                 <td data-label="Category">{c.category}</td>
                 <td data-label="Priority"><Badge tone={priorityTone(c.priority)}>{c.priority}</Badge></td>
-                <td className="cell-sub" data-label="Details">{c.description}</td>
+                <td className="cell-sub" data-label="Details">
+                  {c.description}
+                  {c.void ? (
+                    <div style={{ color: "var(--red)", marginTop: 4 }}>Voided by {c.voided_by_name} — {c.void_reason}</div>
+                  ) : canEdit ? (
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => { setVoidTarget(c); setVoidReason(""); setVoidError(null); }}>
+                      <Ban size={12} /> Void
+                    </button>
+                  ) : null}
+                </td>
                 <td data-label="Status">
-                  {canEdit ? (
+                  {c.void ? (
+                    <Badge tone="neutral">Voided</Badge>
+                  ) : canEdit ? (
                     <select
                       className="select select-sm"
                       value={c.status}
@@ -128,6 +158,18 @@ export function ComplaintsClient({ complaints, canEdit }: { complaints: Complain
         </Field>
         <button type="button" className="btn btn-primary drawer-submit" disabled={!form.description.trim() || pending} onClick={submit}>
           {pending ? "Saving…" : "Save"}
+        </button>
+      </Drawer>
+
+      <Drawer open={!!voidTarget} onClose={() => setVoidTarget(null)} title="Void this complaint">
+        {voidError ? <div className="login-error">{voidError}</div> : null}
+        <p style={{ fontSize: 12.5, opacity: 0.75, marginTop: 0 }}>This keeps the original entry visible for the record — it won&apos;t be edited or deleted, just marked voided with your reason attached.</p>
+        {voidTarget ? <p style={{ fontSize: 13, fontWeight: 600, marginTop: 0 }}>{voidTarget.description}</p> : null}
+        <Field label="Reason (required)">
+          <textarea className="textarea" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Logged against the wrong room" />
+        </Field>
+        <button type="button" className="btn btn-primary drawer-submit" disabled={!voidReason.trim() || pending} onClick={submitVoid}>
+          {pending ? "Voiding…" : "Void complaint"}
         </button>
       </Drawer>
     </div>

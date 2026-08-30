@@ -31,3 +31,14 @@ export async function addResidentAction(input: {
 
   revalidatePath("/residents");
 }
+
+export async function voidResidentAction(id: string, reason: string) {
+  const session = await requireRole(DD_CAN_EDIT_RESIDENTS);
+  if (!reason.trim()) throw new Error("A reason is required to void a resident record.");
+  const { error } = await supabaseAdmin
+    .from("resident_profiles")
+    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/residents");
+}

@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { requirePageAccess } from "@/lib/auth";
 import { getChecklistWithItems } from "@/lib/data/checklists";
+import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
 import { Badge } from "@/components/ui";
+import { VoidChecklistButton } from "./void-button";
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -13,17 +15,28 @@ function checklistTypeLabel(type: string): string {
 }
 
 export default async function ViewChecklistPage({ params }: { params: { id: string } }) {
-  await requirePageAccess("/checklists");
+  const session = await requirePageAccess("/checklists");
   const result = await getChecklistWithItems(params.id);
   if (!result) notFound();
   const { checklist, items } = result;
   const flagged = items.filter((i) => i.condition === "Damaged" || i.condition === "Missing");
+  const canEdit = DD_CAN_EDIT_CHECKLISTS.includes(session.role);
 
   return (
     <div className="view">
       <div className="view-head">
         <Link href="/checklists" className="btn btn-ghost"><ChevronLeft size={14} /> Back</Link>
       </div>
+
+      {checklist.void ? (
+        <div className="handover-banner">
+          <div className="handover-main">
+            <div className="handover-title">This checklist has been voided</div>
+            <div className="handover-note">By {checklist.voided_by_name} — {checklist.void_reason}</div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="card">
         <div className="view-checklist-head">
           <div>
@@ -32,7 +45,10 @@ export default async function ViewChecklistPage({ params }: { params: { id: stri
               {checklistTypeLabel(checklist.type)} · prepared by {checklist.prepared_by_name} · {fmtTime(checklist.created_at)}
             </div>
           </div>
-          <Badge tone={checklist.overall_ready ? "teal" : "red"}>{checklist.overall_ready ? "Ready" : "Not Ready"}</Badge>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Badge tone={checklist.overall_ready ? "teal" : "red"}>{checklist.overall_ready ? "Ready" : "Not Ready"}</Badge>
+            {!checklist.void ? <VoidChecklistButton id={checklist.id} canEdit={canEdit} /> : null}
+          </div>
         </div>
       </div>
 

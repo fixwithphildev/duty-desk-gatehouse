@@ -29,3 +29,15 @@ export async function returnVehicleCardAction(id: string) {
   revalidatePath("/vehicles");
   revalidatePath("/dashboard");
 }
+
+export async function voidVehicleLogAction(id: string, reason: string) {
+  const session = await requireRole(GH_CAN_EDIT);
+  if (!reason.trim()) throw new Error("A reason is required to void an entry.");
+  const { error } = await supabaseAdmin
+    .from("vehicle_logs")
+    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/vehicles");
+  revalidatePath("/dashboard");
+}

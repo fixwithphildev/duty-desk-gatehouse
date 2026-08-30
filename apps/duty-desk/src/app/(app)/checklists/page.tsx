@@ -42,12 +42,15 @@ export default async function ChecklistsPage() {
           </thead>
           <tbody>
             {all.map((c) => (
-              <tr key={c.id}>
-                <td className="cell-title">{c.apartment}</td>
+              <tr key={c.id} style={c.void ? { opacity: 0.6 } : undefined}>
+                <td className="cell-title">
+                  {c.apartment}
+                  {c.void ? <div className="cell-sub" style={{ color: "var(--red)" }}>Voided</div> : null}
+                </td>
                 <td>{checklistTypeLabel(c.type)}</td>
                 <td>{c.prepared_by_name}</td>
                 <td className="mono">{fmtTime(c.created_at)}</td>
-                <td><Badge tone={c.overall_ready ? "teal" : "red"}>{c.overall_ready ? "Ready" : "Not Ready"}</Badge></td>
+                <td>{c.void ? <Badge tone="neutral">Voided</Badge> : <Badge tone={c.overall_ready ? "teal" : "red"}>{c.overall_ready ? "Ready" : "Not Ready"}</Badge>}</td>
                 <td><Link href={`/checklists/${c.id}`} className="btn btn-ghost btn-sm">View</Link></td>
               </tr>
             ))}

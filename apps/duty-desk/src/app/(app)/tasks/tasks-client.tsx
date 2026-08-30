@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Plus } from "lucide-react";
+import { CheckCircle2, Plus, Ban } from "lucide-react";
 import { Badge, Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { isRedirectError, errorMessage } from "@/lib/utils";
-import { createTaskAction, markTaskDoneAction } from "./actions";
+import { createTaskAction, markTaskDoneAction, voidTaskAction } from "./actions";
 import type { TaskRow } from "@/lib/data/tasks";
 
 const EMPTY = { description: "", assignedTo: "", dueTime: "" };
@@ -15,6 +15,10 @@ export function TasksClient({ tasks, canEdit }: { tasks: TaskRow[]; canEdit: boo
   const [form, setForm] = useState(EMPTY);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const [voidTarget, setVoidTarget] = useState<TaskRow | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
 
   const submit = () => {
     if (!form.description.trim()) return;
@@ -33,6 +37,21 @@ export function TasksClient({ tasks, canEdit }: { tasks: TaskRow[]; canEdit: boo
 
   const markDone = (id: string) => startTransition(async () => { await markTaskDoneAction(id); });
 
+  const submitVoid = () => {
+    if (!voidTarget || !voidReason.trim()) return;
+    setVoidError(null);
+    startTransition(async () => {
+      try {
+        await voidTaskAction(voidTarget.id, voidReason);
+        setVoidTarget(null);
+        setVoidReason("");
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
+        setVoidError(errorMessage(e));
+      }
+    });
+  };
+
   return (
     <div className="view">
       <div className="view-head">
@@ -46,18 +65,32 @@ export function TasksClient({ tasks, canEdit }: { tasks: TaskRow[]; canEdit: boo
 
       <ul className="feed feed-card">
         {tasks.map((t) => (
-          <li key={t.id} className="feed-row feed-row-block">
-            <span className={`feed-dot ${t.status === "Done" ? "tone-teal" : "tone-gold"}`} />
+          <li key={t.id} className="feed-row feed-row-block" style={t.void ? { opacity: 0.6 } : undefined}>
+            <span className={`feed-dot ${t.void ? "" : t.status === "Done" ? "tone-teal" : "tone-gold"}`} />
             <div className="feed-main">
               <div className="feed-label">{t.description}</div>
               <div className="feed-meta mono">{t.assigned_to || "Unassigned"} {t.due_time ? `· due ${t.due_time}` : ""}</div>
+              {t.void ? (
+                <div className="feed-meta" style={{ color: "var(--red)" }}>Voided by {t.voided_by_name} — {t.void_reason}</div>
+              ) : null}
             </div>
-            {t.status === "Pending" ? (
-              <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => markDone(t.id)}>
-                <CheckCircle2 size={13} /> Done
-              </button>
+            {t.void ? (
+              <Badge tone="neutral">Voided</Badge>
             ) : (
-              <Badge tone="teal">Done</Badge>
+              <div style={{ display: "flex", gap: 6 }}>
+                {t.status === "Pending" ? (
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => markDone(t.id)}>
+                    <CheckCircle2 size={13} /> Done
+                  </button>
+                ) : (
+                  <Badge tone="teal">Done</Badge>
+                )}
+                {canEdit ? (
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => { setVoidTarget(t); setVoidReason(""); setVoidError(null); }}>
+                    <Ban size={13} /> Void
+                  </button>
+                ) : null}
+              </div>
             )}
           </li>
         ))}
@@ -71,6 +104,18 @@ export function TasksClient({ tasks, canEdit }: { tasks: TaskRow[]; canEdit: boo
         <Field label="Due"><input className="input" value={form.dueTime} onChange={(e) => setForm({ ...form, dueTime: e.target.value })} placeholder="e.g. 3:00 PM or Today" /></Field>
         <button type="button" className="btn btn-primary drawer-submit" disabled={!form.description.trim() || pending} onClick={submit}>
           {pending ? "Adding…" : "Add task"}
+        </button>
+      </Drawer>
+
+      <Drawer open={!!voidTarget} onClose={() => setVoidTarget(null)} title="Void this task">
+        {voidError ? <div className="login-error">{voidError}</div> : null}
+        <p style={{ fontSize: 12.5, opacity: 0.75, marginTop: 0 }}>This keeps the original task visible for the record — it won&apos;t be edited or deleted, just marked voided with your reason attached.</p>
+        {voidTarget ? <p style={{ fontSize: 13, fontWeight: 600, marginTop: 0 }}>{voidTarget.description}</p> : null}
+        <Field label="Reason (required)">
+          <textarea className="textarea" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Added by mistake" />
+        </Field>
+        <button type="button" className="btn btn-primary drawer-submit" disabled={!voidReason.trim() || pending} onClick={submitVoid}>
+          {pending ? "Voiding…" : "Void task"}
         </button>
       </Drawer>
     </div>

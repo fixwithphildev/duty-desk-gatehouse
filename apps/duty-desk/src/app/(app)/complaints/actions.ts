@@ -37,3 +37,15 @@ export async function updateComplaintStatusAction(id: string, status: "Open" | "
   revalidatePath("/complaints");
   revalidatePath("/dashboard");
 }
+
+export async function voidComplaintAction(id: string, reason: string) {
+  const session = await requireRole(DD_CAN_EDIT_COMPLAINTS);
+  if (!reason.trim()) throw new Error("A reason is required to void a complaint.");
+  const { error } = await supabaseAdmin
+    .from("complaints")
+    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/complaints");
+  revalidatePath("/dashboard");
+}

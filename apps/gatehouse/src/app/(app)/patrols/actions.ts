@@ -29,3 +29,15 @@ export async function completePatrolAction(id: string, notes: string) {
   revalidatePath("/patrols");
   revalidatePath("/dashboard");
 }
+
+export async function voidPatrolAction(id: string, reason: string) {
+  const session = await requireRole(GH_CAN_EDIT);
+  if (!reason.trim()) throw new Error("A reason is required to void a patrol.");
+  const { error } = await supabaseAdmin
+    .from("patrols")
+    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/patrols");
+  revalidatePath("/dashboard");
+}

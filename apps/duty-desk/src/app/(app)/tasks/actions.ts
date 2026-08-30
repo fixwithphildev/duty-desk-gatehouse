@@ -29,3 +29,15 @@ export async function markTaskDoneAction(id: string) {
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
 }
+
+export async function voidTaskAction(id: string, reason: string) {
+  const session = await requireRole(DD_CAN_EDIT_TASKS);
+  if (!reason.trim()) throw new Error("A reason is required to void a task.");
+  const { error } = await supabaseAdmin
+    .from("tasks")
+    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+}

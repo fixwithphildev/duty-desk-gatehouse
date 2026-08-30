@@ -15,14 +15,23 @@ export interface MaintenanceTicketRow {
   logged_by_name: string | null;
   created_at: string;
   photo_count: number;
+  void: boolean;
+  void_reason: string | null;
+  voided_by_name: string | null;
+  voided_at: string | null;
 }
 
 const PHOTOS_BUCKET = process.env.MAINTENANCE_PHOTOS_BUCKET || "maintenance-photos";
 
 export async function getMaintenanceTickets(assignedToFilter?: string[]): Promise<MaintenanceTicketRow[]> {
+  // voided_by_name is plain text, not a staff_accounts foreign key — this
+  // table is shared with Maintenance Desk's separate Supabase project via a
+  // direct connection (see lib/supabase.ts), and a Maintenance Desk staffer
+  // has no row in Duty Desk's staff_accounts to reference (same reason
+  // logged_by_name is text instead of a FK).
   let query = supabaseAdmin
     .from("maintenance_tickets")
-    .select("id, area, issue_type, assigned_to, priority, status, source, notes, logged_by_name, created_at, maintenance_ticket_photos(id)")
+    .select("id, area, issue_type, assigned_to, priority, status, source, notes, logged_by_name, created_at, void, void_reason, voided_by_name, voided_at, maintenance_ticket_photos(id)")
     .order("created_at", { ascending: false });
   if (assignedToFilter && assignedToFilter.length > 0) {
     query = query.in("assigned_to", assignedToFilter);
@@ -40,6 +49,10 @@ export async function getMaintenanceTickets(assignedToFilter?: string[]): Promis
     logged_by_name: (row.logged_by_name as string | null) ?? null,
     created_at: row.created_at as string,
     photo_count: Array.isArray(row.maintenance_ticket_photos) ? row.maintenance_ticket_photos.length : 0,
+    void: row.void as boolean,
+    void_reason: row.void_reason as string | null,
+    voided_by_name: row.voided_by_name as string | null,
+    voided_at: row.voided_at as string | null,
   }));
 }
 

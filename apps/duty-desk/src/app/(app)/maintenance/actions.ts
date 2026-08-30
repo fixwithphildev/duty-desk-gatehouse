@@ -38,3 +38,15 @@ export async function updateTicketStatusAction(id: string, status: "Reported" | 
   revalidatePath("/maintenance");
   revalidatePath("/dashboard");
 }
+
+export async function voidTicketAction(id: string, reason: string) {
+  const session = await requireSession();
+  if (!reason.trim()) throw new Error("A reason is required to void a ticket.");
+  const { error } = await supabaseAdmin
+    .from("maintenance_tickets")
+    .update({ void: true, void_reason: reason.trim(), voided_by_name: session.displayName, voided_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/maintenance");
+  revalidatePath("/dashboard");
+}

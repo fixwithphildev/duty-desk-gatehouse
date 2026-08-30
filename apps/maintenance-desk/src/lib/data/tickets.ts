@@ -22,6 +22,10 @@ export interface MaintenanceTicketRow {
   logged_by_name: string | null;
   created_at: string;
   photo_count: number;
+  void: boolean;
+  void_reason: string | null;
+  voided_by_name: string | null;
+  voided_at: string | null;
 }
 
 const PHOTOS_BUCKET = process.env.MAINTENANCE_PHOTOS_BUCKET || "maintenance-photos";
@@ -29,7 +33,7 @@ const PHOTOS_BUCKET = process.env.MAINTENANCE_PHOTOS_BUCKET || "maintenance-phot
 export async function getTickets(): Promise<MaintenanceTicketRow[]> {
   const { data } = await ticketsDb
     .from("maintenance_tickets")
-    .select("id, area, issue_type, assigned_to, priority, status, source, notes, logged_by_name, created_at, maintenance_ticket_photos(id)")
+    .select("id, area, issue_type, assigned_to, priority, status, source, notes, logged_by_name, created_at, void, void_reason, voided_by_name, voided_at, maintenance_ticket_photos(id)")
     .in("assigned_to", MD_DEPARTMENTS)
     .order("created_at", { ascending: false });
   return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
@@ -44,6 +48,10 @@ export async function getTickets(): Promise<MaintenanceTicketRow[]> {
     logged_by_name: (row.logged_by_name as string | null) ?? null,
     created_at: row.created_at as string,
     photo_count: Array.isArray(row.maintenance_ticket_photos) ? row.maintenance_ticket_photos.length : 0,
+    void: row.void as boolean,
+    void_reason: row.void_reason as string | null,
+    voided_by_name: row.voided_by_name as string | null,
+    voided_at: row.voided_at as string | null,
   }));
 }
 
@@ -103,6 +111,14 @@ export async function updateTicketStatus(id: string, status: TicketStatus, logge
   const { error } = await ticketsDb
     .from("maintenance_tickets")
     .update({ status, logged_by_name: loggedByName, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function voidTicket(id: string, reason: string, voidedByName: string): Promise<void> {
+  const { error } = await ticketsDb
+    .from("maintenance_tickets")
+    .update({ void: true, void_reason: reason, voided_by_name: voidedByName, voided_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
 }
