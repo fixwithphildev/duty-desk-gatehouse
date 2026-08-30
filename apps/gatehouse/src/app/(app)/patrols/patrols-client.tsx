@@ -73,7 +73,7 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
 
       <div className="table-wrap">
         <table className="table">
-          <thead><tr><th>Officer</th><th>Route</th><th>Started</th><th>Status</th><th /></tr></thead>
+          <thead><tr><th>Officer</th><th>Route</th><th>Started</th><th>Ended</th><th>Findings</th><th>Status</th><th /></tr></thead>
           <tbody>
             {patrols.map((p) => (
               <tr key={p.id} style={p.void ? { opacity: 0.6 } : undefined}>
@@ -83,6 +83,8 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
                   {p.void ? <div className="cell-sub" style={{ color: "var(--red)" }}>Voided by {p.voided_by_name} — {p.void_reason}</div> : null}
                 </td>
                 <td className="mono" data-label="Started">{fmtTime(p.started_at)}</td>
+                <td className="mono" data-label="Ended">{fmtTime(p.ended_at)}</td>
+                <td className="cell-sub" data-label="Findings">{p.notes || "—"}</td>
                 <td data-label="Status">{p.void ? <Badge tone="neutral">Voided</Badge> : <Badge tone={statusTone(p.status)}>{p.status}</Badge>}</td>
                 <td>
                   {canEdit && !p.void ? (
@@ -100,7 +102,7 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
                 </td>
               </tr>
             ))}
-            {patrols.length === 0 ? <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", opacity: 0.6 }}>No patrols logged yet.</td></tr> : null}
+            {patrols.length === 0 ? <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", opacity: 0.6 }}>No patrols logged yet.</td></tr> : null}
           </tbody>
         </table>
       </div>
