@@ -37,3 +37,20 @@ export async function updateIncidentStatusAction(id: string, status: "Open" | "I
   revalidatePath("/incidents");
   revalidatePath("/dashboard");
 }
+
+// Corrects a mistaken entry without editing or deleting it — the original
+// row stays fully visible, just marked not-actionable, with a required
+// reason and who/when. Same permission tier as logging/editing an incident.
+export async function voidIncidentAction(id: string, reason: string) {
+  const session = await requireRole(GH_CAN_EDIT);
+  if (!reason.trim()) throw new Error("A reason is required to void an incident.");
+
+  const { error } = await supabaseAdmin
+    .from("incidents")
+    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/incidents");
+  revalidatePath("/dashboard");
+}
