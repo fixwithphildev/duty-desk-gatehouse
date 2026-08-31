@@ -20,24 +20,18 @@ export const DD_ADMIN_ROLES: DDRole[] = ["general_manager", "super_admin"];
 
 // Roles that may create/edit each module. Everyone with a login can view
 // everything (per blueprint 4.3's "Can view: Everything" for most roles);
-// these gate the create/edit actions.
-export const DD_CAN_EDIT_CHECKLISTS: DDRole[] = ["resident_officer", "general_manager", "super_admin"];
-export const DD_CAN_EDIT_COMPLAINTS: DDRole[] = [
-  "resident_officer",
-  "front_desk",
-  "general_manager",
-  "super_admin",
-];
-export const DD_CAN_EDIT_TICKETS: DDRole[] = [
-  "resident_officer",
-  "housekeeping",
-  "engineering",
-  "general_manager",
-  "super_admin",
-];
-export const DD_CAN_EDIT_DUTY_LOG: DDRole[] = ["resident_officer", "general_manager", "super_admin"];
-export const DD_CAN_EDIT_RESIDENTS: DDRole[] = ["resident_officer", "general_manager", "super_admin"];
-export const DD_CAN_EDIT_TASKS: DDRole[] = ["resident_officer", "general_manager", "super_admin"];
+// these gate the create/edit actions. General Manager is deliberately
+// excluded from every one of these — per the blueprint's own description
+// of the role ("Read-only oversight, reports"), GM sees everything that's
+// happening but doesn't operate day-to-day, the same way Gatehouse's
+// Management role has no edit access either. GM keeps Void (below), since
+// that's a correction/oversight action, not routine operational editing.
+export const DD_CAN_EDIT_CHECKLISTS: DDRole[] = ["resident_officer", "super_admin"];
+export const DD_CAN_EDIT_COMPLAINTS: DDRole[] = ["resident_officer", "front_desk", "super_admin"];
+export const DD_CAN_EDIT_TICKETS: DDRole[] = ["resident_officer", "housekeeping", "engineering", "super_admin"];
+export const DD_CAN_EDIT_DUTY_LOG: DDRole[] = ["resident_officer", "super_admin"];
+export const DD_CAN_EDIT_RESIDENTS: DDRole[] = ["resident_officer", "super_admin"];
+export const DD_CAN_EDIT_TASKS: DDRole[] = ["resident_officer", "super_admin"];
 
 // Voiding a mistaken record is a correction with real accountability
 // weight, so it's reserved for a higher tier than routine create/edit —
