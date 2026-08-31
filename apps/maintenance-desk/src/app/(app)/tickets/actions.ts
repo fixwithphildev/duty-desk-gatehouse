@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
-import { MD_CAN_EDIT_TICKETS, MD_DEPARTMENTS, type TicketStatus } from "@/lib/types";
+import { MD_CAN_EDIT_TICKETS, MD_CAN_VOID, MD_DEPARTMENTS, type TicketStatus } from "@/lib/types";
 import { createTicket, updateTicketStatus, voidTicket, uploadTicketPhoto, getTicketPhotoUrls } from "@/lib/data/tickets";
 
 export async function createTicketAction(formData: FormData) {
@@ -34,7 +34,7 @@ export async function updateTicketStatusAction(id: string, status: TicketStatus)
 }
 
 export async function voidTicketAction(id: string, reason: string) {
-  const session = await requireSession();
+  const session = await requireRole(MD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a ticket.");
   await voidTicket(id, reason.trim(), session.displayName);
   revalidatePath("/tickets");

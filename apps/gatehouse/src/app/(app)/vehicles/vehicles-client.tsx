@@ -15,7 +15,7 @@ function fmtTime(iso: string | null): string {
 
 const EMPTY = { cardNumber: "", plateNumber: "", driverName: "" };
 
-export function VehiclesClient({ logs, canEdit }: { logs: VehicleLogRow[]; canEdit: boolean }) {
+export function VehiclesClient({ logs, canEdit, canVoid }: { logs: VehicleLogRow[]; canEdit: boolean; canVoid: boolean }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [pending, startTransition] = useTransition();
@@ -80,12 +80,10 @@ export function VehiclesClient({ logs, canEdit }: { logs: VehicleLogRow[]; canEd
                   <td data-label="Driver">{v.driver_name || "—"}</td>
                   <td className="mono" data-label="Entered">{fmtTime(v.entry_at)}</td>
                   <td>
-                    {canEdit ? (
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => returnCard(v.id)}><DoorOpen size={13} /> Card returned</button>
-                        <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => { setVoidTarget(v); setVoidReason(""); setVoidError(null); }}><Ban size={13} /> Void</button>
-                      </div>
-                    ) : null}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {canEdit ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => returnCard(v.id)}><DoorOpen size={13} /> Card returned</button> : null}
+                      {canVoid ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => { setVoidTarget(v); setVoidReason(""); setVoidError(null); }}><Ban size={13} /> Void</button> : null}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -107,7 +105,7 @@ export function VehiclesClient({ logs, canEdit }: { logs: VehicleLogRow[]; canEd
                     {v.card_number}
                     {v.void ? (
                       <div className="cell-sub" style={{ color: "var(--red)" }}>Voided by {v.voided_by_name} — {v.void_reason}</div>
-                    ) : canEdit ? (
+                    ) : canVoid ? (
                       <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => { setVoidTarget(v); setVoidReason(""); setVoidError(null); }}><Ban size={12} /> Void</button>
                     ) : null}
                   </td>

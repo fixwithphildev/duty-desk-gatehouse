@@ -10,7 +10,7 @@ import type { ResidentRow } from "@/lib/data/residents";
 
 const EMPTY = { name: "", room: "", checkIn: "", checkOut: "", preferences: "", contactInfo: "", notes: "" };
 
-export function ResidentsClient({ residents, canEdit }: { residents: ResidentRow[]; canEdit: boolean }) {
+export function ResidentsClient({ residents, canEdit, canVoid }: { residents: ResidentRow[]; canEdit: boolean; canVoid: boolean }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [pending, startTransition] = useTransition();
@@ -71,7 +71,7 @@ export function ResidentsClient({ residents, canEdit }: { residents: ResidentRow
                   {r.name}
                   {r.void ? (
                     <div className="cell-sub" style={{ color: "var(--red)" }}>Voided by {r.voided_by_name} — {r.void_reason}</div>
-                  ) : canEdit ? (
+                  ) : canVoid ? (
                     <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => { setVoidTarget(r); setVoidReason(""); setVoidError(null); }}>
                       <Ban size={12} /> Void
                     </button>

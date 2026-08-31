@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { DD_CAN_EDIT_TICKETS } from "@/lib/types";
+import { DD_CAN_EDIT_TICKETS, DD_CAN_VOID } from "@/lib/types";
 import { uploadTicketPhoto } from "@/lib/data/maintenance";
 
 export async function createTicketAction(formData: FormData) {
@@ -40,7 +40,7 @@ export async function updateTicketStatusAction(id: string, status: "Reported" | 
 }
 
 export async function voidTicketAction(id: string, reason: string) {
-  const session = await requireSession();
+  const session = await requireRole(DD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a ticket.");
   const { error } = await supabaseAdmin
     .from("maintenance_tickets")

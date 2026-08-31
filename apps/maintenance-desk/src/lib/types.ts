@@ -14,6 +14,11 @@ export const MD_ADMIN_ROLES: MDRole[] = ["maintenance_supervisor", "super_admin"
 // management/oversight roles.
 export const MD_CAN_EDIT_TICKETS: MDRole[] = ["maintenance_technician", "maintenance_supervisor", "super_admin"];
 
+// Voiding a mistaken ticket is a correction with real accountability
+// weight, so it's reserved for a higher tier than routine create/edit —
+// Maintenance Technician can log and update tickets but not void them.
+export const MD_CAN_VOID: MDRole[] = ["maintenance_supervisor", "super_admin"];
+
 // Roles a Maintenance Supervisor may create/manage day-to-day. Super Admin
 // can manage every role, including the Supervisor's own account.
 export const MD_STAFF_ROLES: MDRole[] = ["maintenance_technician"];

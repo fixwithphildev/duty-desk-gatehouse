@@ -23,7 +23,7 @@ const EMPTY: { guestName: string; room: string; category: string; priority: Prio
   description: "",
 };
 
-export function ComplaintsClient({ complaints, canEdit }: { complaints: ComplaintRow[]; canEdit: boolean }) {
+export function ComplaintsClient({ complaints, canEdit, canVoid }: { complaints: ComplaintRow[]; canEdit: boolean; canVoid: boolean }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [pending, startTransition] = useTransition();
@@ -95,7 +95,7 @@ export function ComplaintsClient({ complaints, canEdit }: { complaints: Complain
                   {c.description}
                   {c.void ? (
                     <div style={{ color: "var(--red)", marginTop: 4 }}>Voided by {c.voided_by_name} — {c.void_reason}</div>
-                  ) : canEdit ? (
+                  ) : canVoid ? (
                     <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => { setVoidTarget(c); setVoidReason(""); setVoidError(null); }}>
                       <Ban size={12} /> Void
                     </button>

@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
+import { DD_CAN_VOID } from "@/lib/types";
 
 // Voiding a checklist removes it from consideration for the apartment's
 // Ready/Not-Ready status (see getLatestSubmittedByApartment/getNotReadyCount
@@ -12,7 +12,7 @@ import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
 // authoritative again, same as if this one had never been submitted. The
 // original entry and all its items stay fully visible for the record.
 export async function voidChecklistAction(id: string, reason: string) {
-  const session = await requireRole(DD_CAN_EDIT_CHECKLISTS);
+  const session = await requireRole(DD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a checklist.");
 
   const { error } = await supabaseAdmin

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { GH_CAN_EDIT } from "@/lib/types";
+import { GH_CAN_EDIT, GH_CAN_VOID } from "@/lib/types";
 
 export async function createIncidentAction(input: {
   title: string;
@@ -40,9 +40,10 @@ export async function updateIncidentStatusAction(id: string, status: "Open" | "I
 
 // Corrects a mistaken entry without editing or deleting it — the original
 // row stays fully visible, just marked not-actionable, with a required
-// reason and who/when. Same permission tier as logging/editing an incident.
+// reason and who/when. Reserved for Supervisor/Management/Super Admin —
+// a higher tier than routine logging/editing.
 export async function voidIncidentAction(id: string, reason: string) {
-  const session = await requireRole(GH_CAN_EDIT);
+  const session = await requireRole(GH_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void an incident.");
 
   const { error } = await supabaseAdmin

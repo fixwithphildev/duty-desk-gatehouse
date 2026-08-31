@@ -16,7 +16,7 @@ function fmtTime(iso: string): string {
 
 const EMPTY = { type: GH_ALERT_TYPES[0], severity: "Medium", message: "", location: "" };
 
-export function AlertsClient({ alerts, canEdit }: { alerts: AlertRow[]; canEdit: boolean }) {
+export function AlertsClient({ alerts, canEdit, canVoid }: { alerts: AlertRow[]; canEdit: boolean; canVoid: boolean }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [pending, startTransition] = useTransition();
@@ -95,7 +95,7 @@ export function AlertsClient({ alerts, canEdit }: { alerts: AlertRow[]; canEdit:
                 ) : (
                   <Badge tone="green">Acknowledged</Badge>
                 )}
-                {canEdit ? (
+                {canVoid ? (
                   <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => { setVoidTarget(a); setVoidReason(""); setVoidError(null); }}>
                     <Ban size={13} /> Void
                   </button>

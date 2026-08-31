@@ -10,7 +10,7 @@ import type { TaskRow } from "@/lib/data/tasks";
 
 const EMPTY = { description: "", assignedTo: "", dueTime: "" };
 
-export function TasksClient({ tasks, canEdit }: { tasks: TaskRow[]; canEdit: boolean }) {
+export function TasksClient({ tasks, canEdit, canVoid }: { tasks: TaskRow[]; canEdit: boolean; canVoid: boolean }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [pending, startTransition] = useTransition();
@@ -85,7 +85,7 @@ export function TasksClient({ tasks, canEdit }: { tasks: TaskRow[]; canEdit: boo
                 ) : (
                   <Badge tone="teal">Done</Badge>
                 )}
-                {canEdit ? (
+                {canVoid ? (
                   <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => { setVoidTarget(t); setVoidReason(""); setVoidError(null); }}>
                     <Ban size={13} /> Void
                   </button>

@@ -39,6 +39,11 @@ export const DD_CAN_EDIT_DUTY_LOG: DDRole[] = ["resident_officer", "general_mana
 export const DD_CAN_EDIT_RESIDENTS: DDRole[] = ["resident_officer", "general_manager", "super_admin"];
 export const DD_CAN_EDIT_TASKS: DDRole[] = ["resident_officer", "general_manager", "super_admin"];
 
+// Voiding a mistaken record is a correction with real accountability
+// weight, so it's reserved for a higher tier than routine create/edit —
+// Resident Officer can log and update records but not void them.
+export const DD_CAN_VOID: DDRole[] = ["general_manager", "super_admin"];
+
 // Roles a General Manager may create/manage day-to-day (blueprint 4.1: GM
 // handles "day-to-day account creation for regular staff"). Super Admin can
 // manage every role, including General Manager's own account.

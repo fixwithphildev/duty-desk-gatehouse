@@ -14,6 +14,13 @@ export const GH_ADMIN_ROLES: GHRole[] = ["security_supervisor", "super_admin"];
 // operational records; Management is read-only oversight.
 export const GH_CAN_EDIT: GHRole[] = ["security_officer", "security_supervisor", "super_admin"];
 
+// Voiding a mistaken record is a correction with real accountability
+// weight, so it's reserved for a higher tier than routine create/edit —
+// Security Officer can log and update records but not void them. This is
+// Management's one write permission on this platform, scoped only to
+// voiding, not general editing.
+export const GH_CAN_VOID: GHRole[] = ["security_supervisor", "management", "super_admin"];
+
 // Roles a Security Supervisor may create/manage day-to-day (blueprint 4.1).
 // Super Admin can manage every role, including the Supervisor's own account.
 export const GH_STAFF_ROLES: GHRole[] = ["security_officer"];

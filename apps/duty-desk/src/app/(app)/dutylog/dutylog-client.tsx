@@ -12,7 +12,7 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function DutyLogClient({ entries, canEdit }: { entries: DutyLogRow[]; canEdit: boolean }) {
+export function DutyLogClient({ entries, canEdit, canVoid }: { entries: DutyLogRow[]; canEdit: boolean; canVoid: boolean }) {
   const [notes, setNotes] = useState("");
   const [handover, setHandover] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -84,7 +84,7 @@ export function DutyLogClient({ entries, canEdit }: { entries: DutyLogRow[]; can
               </div>
               {d.void ? (
                 <div className="feed-meta" style={{ color: "var(--red)" }}>Voided by {d.voided_by_name} — {d.void_reason}</div>
-              ) : canEdit ? (
+              ) : canVoid ? (
                 <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => { setVoidTarget(d); setVoidReason(""); setVoidError(null); }}>
                   <Ban size={12} /> Void
                 </button>

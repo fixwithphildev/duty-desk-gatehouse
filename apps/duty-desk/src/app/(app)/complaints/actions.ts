@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { DD_CAN_EDIT_COMPLAINTS } from "@/lib/types";
+import { DD_CAN_EDIT_COMPLAINTS, DD_CAN_VOID } from "@/lib/types";
 
 export async function createComplaintAction(input: {
   guestName: string;
@@ -39,7 +39,7 @@ export async function updateComplaintStatusAction(id: string, status: "Open" | "
 }
 
 export async function voidComplaintAction(id: string, reason: string) {
-  const session = await requireRole(DD_CAN_EDIT_COMPLAINTS);
+  const session = await requireRole(DD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a complaint.");
   const { error } = await supabaseAdmin
     .from("complaints")

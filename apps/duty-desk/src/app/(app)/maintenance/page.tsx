@@ -1,5 +1,5 @@
 import { requirePageAccess } from "@/lib/auth";
-import { DD_CAN_EDIT_TICKETS } from "@/lib/types";
+import { DD_CAN_EDIT_TICKETS, DD_CAN_VOID } from "@/lib/types";
 import { getMaintenanceTickets } from "@/lib/data/maintenance";
 import { MaintenanceClient } from "./maintenance-client";
 
@@ -14,5 +14,11 @@ export default async function MaintenancePage() {
 
   const tickets = await getMaintenanceTickets(assignedFilter);
 
-  return <MaintenanceClient tickets={tickets} canEdit={DD_CAN_EDIT_TICKETS.includes(session.role)} />;
+  return (
+    <MaintenanceClient
+      tickets={tickets}
+      canEdit={DD_CAN_EDIT_TICKETS.includes(session.role)}
+      canVoid={DD_CAN_VOID.includes(session.role)}
+    />
+  );
 }

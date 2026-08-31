@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { requirePageAccess } from "@/lib/auth";
 import { getChecklistWithItems } from "@/lib/data/checklists";
-import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
+import { DD_CAN_VOID } from "@/lib/types";
 import { Badge } from "@/components/ui";
 import { VoidChecklistButton } from "./void-button";
 
@@ -20,7 +20,7 @@ export default async function ViewChecklistPage({ params }: { params: { id: stri
   if (!result) notFound();
   const { checklist, items } = result;
   const flagged = items.filter((i) => i.condition === "Damaged" || i.condition === "Missing");
-  const canEdit = DD_CAN_EDIT_CHECKLISTS.includes(session.role);
+  const canVoid = DD_CAN_VOID.includes(session.role);
 
   return (
     <div className="view">
@@ -47,7 +47,7 @@ export default async function ViewChecklistPage({ params }: { params: { id: stri
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Badge tone={checklist.overall_ready ? "teal" : "red"}>{checklist.overall_ready ? "Ready" : "Not Ready"}</Badge>
-            {!checklist.void ? <VoidChecklistButton id={checklist.id} canEdit={canEdit} /> : null}
+            {!checklist.void ? <VoidChecklistButton id={checklist.id} canEdit={canVoid} /> : null}
           </div>
         </div>
       </div>

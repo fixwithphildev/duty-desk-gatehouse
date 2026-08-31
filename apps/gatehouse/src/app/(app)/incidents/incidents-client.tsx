@@ -16,7 +16,7 @@ function fmtTime(iso: string): string {
 
 const EMPTY = { title: "", category: GH_INCIDENT_CATEGORIES[0], severity: "Low", location: "", description: "" };
 
-export function IncidentsClient({ incidents, canEdit }: { incidents: IncidentRow[]; canEdit: boolean }) {
+export function IncidentsClient({ incidents, canEdit, canVoid }: { incidents: IncidentRow[]; canEdit: boolean; canVoid: boolean }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [pending, startTransition] = useTransition();
@@ -79,7 +79,7 @@ export function IncidentsClient({ incidents, canEdit }: { incidents: IncidentRow
                     <div className="cell-sub" style={{ color: "var(--red)" }}>
                       Voided by {i.voided_by_name}{i.voided_at ? ` · ${fmtTime(i.voided_at)}` : ""} — {i.void_reason}
                     </div>
-                  ) : canEdit ? (
+                  ) : canVoid ? (
                     <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => { setVoidTarget(i); setVoidReason(""); setVoidError(null); }}>
                       <Ban size={12} /> Void
                     </button>

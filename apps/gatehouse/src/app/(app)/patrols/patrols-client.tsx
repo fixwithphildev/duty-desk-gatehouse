@@ -13,7 +13,7 @@ function fmtTime(iso: string | null): string {
   return !iso ? "—" : new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canEdit: boolean }) {
+export function PatrolsClient({ patrols, canEdit, canVoid }: { patrols: PatrolRow[]; canEdit: boolean; canVoid: boolean }) {
   const [open, setOpen] = useState(false);
   const [route, setRoute] = useState("");
   const [completing, setCompleting] = useState<PatrolRow | null>(null);
@@ -87,16 +87,18 @@ export function PatrolsClient({ patrols, canEdit }: { patrols: PatrolRow[]; canE
                 <td className="cell-sub" data-label="Findings">{p.notes || "—"}</td>
                 <td data-label="Status">{p.void ? <Badge tone="neutral">Voided</Badge> : <Badge tone={statusTone(p.status)}>{p.status}</Badge>}</td>
                 <td>
-                  {canEdit && !p.void ? (
+                  {!p.void ? (
                     <div style={{ display: "flex", gap: 6 }}>
-                      {p.status === "In Progress" ? (
+                      {canEdit && p.status === "In Progress" ? (
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCompleting(p)}>
                           <CheckCircle2 size={13} /> Complete
                         </button>
                       ) : null}
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidTarget(p); setVoidReason(""); setVoidError(null); }}>
-                        <Ban size={13} /> Void
-                      </button>
+                      {canVoid ? (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidTarget(p); setVoidReason(""); setVoidError(null); }}>
+                          <Ban size={13} /> Void
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </td>

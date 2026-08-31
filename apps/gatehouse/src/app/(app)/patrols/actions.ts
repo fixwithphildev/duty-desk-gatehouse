@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { GH_CAN_EDIT } from "@/lib/types";
+import { GH_CAN_EDIT, GH_CAN_VOID } from "@/lib/types";
 
 export async function startPatrolAction(input: { route: string }) {
   const session = await requireRole(GH_CAN_EDIT);
@@ -31,7 +31,7 @@ export async function completePatrolAction(id: string, notes: string) {
 }
 
 export async function voidPatrolAction(id: string, reason: string) {
-  const session = await requireRole(GH_CAN_EDIT);
+  const session = await requireRole(GH_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a patrol.");
   const { error } = await supabaseAdmin
     .from("patrols")
