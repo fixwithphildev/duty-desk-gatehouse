@@ -235,3 +235,104 @@ select.select {
 .notification-toast-msg { font-size: 12.5px; line-height: 1.4; flex: 1; }
 .notification-toast-close { background: transparent; border: none; color: var(--muted); flex-shrink: 0; display: flex; padding: 2px; }
 .notification-toast svg:first-child { color: var(--orange); flex-shrink: 0; margin-top: 1px; }
+
+/* ---- Ticket costs drawer ---- */
+.costs-ticket { font-size: 13px; font-weight: 600; margin: -8px 0 16px; }
+.costs-hint { font-size: 13px; color: var(--muted); margin: 0 0 16px; }
+.costs-section-label { font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; }
+.costs-existing { margin-bottom: 20px; }
+.costs-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.costs-row-void .costs-row-item, .costs-row-void .costs-row-amount { text-decoration: line-through; opacity: 0.55; }
+.costs-row-main { min-width: 0; flex: 1; }
+.costs-row-item { font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+.costs-row-meta { font-size: 12px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.costs-row-void-note { font-size: 12px; color: var(--red-ink); margin-top: 4px; }
+.costs-row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.costs-row-amount { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.costs-void-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.costs-void-actions { display: flex; gap: 8px; }
+.costs-total { display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 700; padding: 12px 0 4px; }
+.costs-drafts { margin-bottom: 16px; }
+.costs-draft { border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 4px; margin-bottom: 12px; background: var(--paper); }
+.costs-draft .input { background: var(--surface); }
+.costs-draft-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 10px; min-height: 26px; }
+.costs-draft-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.costs-draft-grid .field { margin-bottom: 12px; }
+.costs-line-total { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); padding: 0 0 10px; }
+.costs-line-total .mono { color: var(--ink); font-weight: 600; }
+.costs-no-purchase { opacity: 1; font-size: 13px; }
+.cost-missing { border-color: var(--orange); color: var(--orange-ink); background: var(--orange-soft); box-shadow: none; }
+
+/* ---- Spending reports ---- */
+.spend-filters { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.spend-filters .field { margin-bottom: 0; }
+.spend-date { width: 170px; }
+.spend-period-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; padding: 3px; background: var(--paper); align-self: flex-end; }
+.spend-period-option { padding: 8px 14px; font-size: 13px; font-weight: 600; border-radius: 8px; color: var(--muted); text-decoration: none; }
+.spend-period-active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.spend-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.spend-downloads { display: flex; gap: 8px; flex-wrap: wrap; text-transform: none; letter-spacing: 0; opacity: 1; }
+.spend-amount { text-align: right; white-space: nowrap; }
+.spend-total-row td { font-weight: 700; border-top: 2px solid var(--line); }
+
+.spend-chart { position: relative; margin-bottom: 8px; }
+.spend-chart-plot { position: absolute; left: 0; right: 0; display: flex; align-items: flex-end; }
+.spend-chart-col { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; justify-content: center; outline: none; cursor: default; }
+.spend-chart-bar { width: 100%; max-width: 44px; background: var(--orange); border-radius: 4px 4px 0 0; transition: opacity 0.15s var(--ease); }
+.spend-chart-plot:hover .spend-chart-bar:not(.spend-chart-bar-hover) { opacity: 0.55; }
+.spend-chart-col:focus-visible .spend-chart-bar { outline: 2px solid var(--ink); outline-offset: 2px; }
+.spend-chart-baseline { position: absolute; left: 0; right: 0; height: 1px; background: var(--line); }
+.spend-chart-axis-label { position: absolute; left: 50%; transform: translateX(-50%); font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.spend-chart-tooltip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); font-size: 11.5px; padding: 6px 10px; border-radius: 7px; white-space: nowrap; box-shadow: var(--shadow-md); z-index: 2; pointer-events: none; text-align: center; }
+.spend-chart-tooltip-label { opacity: 0.8; margin-bottom: 2px; }
+
+@media (max-width: 1200px) {
+  .spend-date { width: auto; flex: 1; min-width: 140px; }
+  .spend-filters .btn { min-height: 44px; }
+  .spend-period-option { padding: 11px 16px; }
+  .spend-amount { text-align: left; }
+}
+.stat-card-link { display: block; color: inherit; text-decoration: none; }
+.stat-card-link .stat-card { height: 100%; }
+
+/* Phone/tablet tap targets for the costs drawer and spending reports —
+   44px minimum, same standard as the table controls above. Staff mostly
+   use iPhone/iPad, so this applies up to the 1200px mobile breakpoint
+   (covers iPad landscape); desktop keeps the compact sizes. */
+@media (max-width: 1200px) {
+  .drawer .input, .drawer .select, .drawer .btn { min-height: 44px; }
+  .drawer .btn-sm { padding: 11px 16px; font-size: 13px; }
+  .drawer .icon-btn { width: 44px; height: 44px; align-items: center; justify-content: center; }
+  .costs-no-purchase { min-height: 44px; margin-bottom: 12px; }
+  .costs-no-purchase input { width: 20px; height: 20px; }
+  .spend-filters .input { min-height: 44px; }
+  .spend-period-option { display: inline-flex; align-items: center; min-height: 44px; }
+  .spend-downloads .btn { min-height: 44px; padding: 11px 16px; font-size: 13px; }
+}
+
+/* Currency values need a wider value column than the default counts. */
+.bar-breakdown-money .bar-breakdown-row { grid-template-columns: minmax(80px, 150px) 1fr auto; }
+
+/* Spending report tables are short, read-only number tables with no
+   controls to tap — they stay real tables on phones instead of the
+   stacked-card layout the ticket tables use, so a year of months doesn't
+   become a long scroll of cards. */
+@media (max-width: 1200px) {
+  .table-wrap .spend-table { display: table; }
+  .spend-table thead { display: table-header-group; position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; }
+  .spend-table tbody { display: table-row-group; }
+  .spend-table tr, .spend-table tbody tr { display: table-row; background: none; border: none; border-radius: 0; box-shadow: none; padding: 0; margin: 0; }
+  .spend-table th, .spend-table td { display: table-cell; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+  .spend-table th:first-child, .spend-table td:first-child { padding-left: 0; }
+  .spend-table th:last-child, .spend-table td:last-child { padding-right: 0; }
+  .spend-table td::before { content: none; }
+  .spend-table td:last-child, .spend-table tr:last-child td { border-bottom: 1px solid var(--line); }
+  .spend-table tbody tr:last-child td { border-bottom: none; }
+  .spend-table .spend-amount { text-align: right; }
+  .spend-table th { background: transparent; }
+}
+/* Tooltip sits inside the plot (top of the column) rather than above it,
+   and edge columns/labels anchor inward instead of centring past the card. */
+.spend-chart-tooltip { top: 0; bottom: auto; }
+.spend-chart-tooltip.spend-edge-start, .spend-chart-axis-label.spend-edge-start { left: 0; transform: none; text-align: left; }
+.spend-chart-tooltip.spend-edge-end, .spend-chart-axis-label.spend-edge-end { left: auto; right: 0; transform: none; text-align: right; }

@@ -1,30 +1,38 @@
-export type MDRole = "maintenance_technician" | "maintenance_supervisor" | "super_admin";
+export type MDRole = "maintenance_technician" | "maintenance_supervisor" | "head_of_operations" | "super_admin";
 
 export const MD_ROLE_LABELS: Record<MDRole, string> = {
   maintenance_technician: "Maintenance Technician",
   maintenance_supervisor: "Maintenance Supervisor",
+  head_of_operations: "Head of Operations",
   super_admin: "Super Admin (IT)",
 };
 
 // Roles allowed to administer staff accounts (create, disable, reset codes).
 export const MD_ADMIN_ROLES: MDRole[] = ["maintenance_supervisor", "super_admin"];
 
-// Every logged-in role can work tickets (create, update status) — there's
-// no read-only role on this platform, unlike Duty Desk/Gatehouse's
-// management/oversight roles.
+// Everyone except Head of Operations can work tickets (create, update
+// status, record what was bought). Head of Operations is oversight only —
+// read-only, same as General Manager on Duty Desk.
 export const MD_CAN_EDIT_TICKETS: MDRole[] = ["maintenance_technician", "maintenance_supervisor", "super_admin"];
 
 // Voiding a mistaken ticket is a correction with real accountability
 // weight, so it's reserved for a higher tier than routine create/edit —
 // Maintenance Technician can log and update tickets but not void them.
+// The same tier voids a wrongly entered purchase line.
 export const MD_CAN_VOID: MDRole[] = ["maintenance_supervisor", "super_admin"];
 
+// Who can see department-wide spending and download the spending reports.
+// Technicians record what they bought on each ticket but don't get the
+// overall spending picture.
+export const MD_CAN_VIEW_SPENDING: MDRole[] = ["maintenance_supervisor", "head_of_operations", "super_admin"];
+
 // Roles a Maintenance Supervisor may create/manage day-to-day. Super Admin
-// can manage every role, including the Supervisor's own account.
+// can manage every role, including the Supervisor's own account and Head of
+// Operations (who sits above the Supervisor, so the Supervisor can't).
 export const MD_STAFF_ROLES: MDRole[] = ["maintenance_technician"];
 
 export function assignableRolesFor(actorRole: MDRole): MDRole[] {
-  if (actorRole === "super_admin") return ["maintenance_technician", "maintenance_supervisor", "super_admin"];
+  if (actorRole === "super_admin") return ["maintenance_technician", "maintenance_supervisor", "head_of_operations", "super_admin"];
   if (actorRole === "maintenance_supervisor") return MD_STAFF_ROLES;
   return [];
 }
@@ -64,4 +72,10 @@ export function priorityTone(p: string): string {
 }
 export function statusTone(s: string): string {
   return s === "Resolved" ? "green" : s === "In Progress" ? "blue" : "orange";
+}
+
+// All maintenance spending is recorded and reported in Naira.
+const NAIRA = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 2 });
+export function formatNaira(amount: number): string {
+  return NAIRA.format(amount);
 }

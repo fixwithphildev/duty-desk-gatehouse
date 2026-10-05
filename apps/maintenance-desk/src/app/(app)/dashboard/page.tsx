@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Wrench, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { Wrench, AlertTriangle, Clock, CheckCircle2, Wallet } from "lucide-react";
 import { requireSession } from "@/lib/auth";
-import { priorityTone } from "@/lib/types";
+import { priorityTone, formatNaira, MD_CAN_VIEW_SPENDING } from "@/lib/types";
+import { buildSpendingReport, periodStart, todayLocal } from "@/lib/reports/spending";
 import { getTickets, getOpenTicketsCount, getHighPriorityOpenCount, getTicketsDailyTrend } from "@/lib/data/tickets";
 import { StatCard, Badge, BarBreakdown } from "@/components/ui";
 import { TrendChart } from "@/components/trend-chart";
@@ -13,11 +14,14 @@ function fmtTime(iso: string): string {
 export default async function DashboardPage() {
   const session = await requireSession();
   const firstName = session.displayName.split(" ")[0];
-  const [tickets, openCount, highPriorityCount, trend] = await Promise.all([
+  const canViewSpending = MD_CAN_VIEW_SPENDING.includes(session.role);
+  const today = todayLocal();
+  const [tickets, openCount, highPriorityCount, trend, monthSpend] = await Promise.all([
     getTickets(),
     getOpenTicketsCount(),
     getHighPriorityOpenCount(),
     getTicketsDailyTrend(14),
+    canViewSpending ? buildSpendingReport("monthly", periodStart(today, "monthly"), today) : Promise.resolve(null),
   ]);
 
   const inProgress = tickets.filter((t) => t.status === "In Progress").length;
@@ -43,6 +47,11 @@ export default async function DashboardPage() {
         <StatCard label="High priority" value={highPriorityCount} icon={AlertTriangle} tone={highPriorityCount ? "red" : "green"} />
         <StatCard label="In progress" value={inProgress} icon={Clock} tone="blue" />
         <StatCard label="Resolved today" value={resolvedToday} icon={CheckCircle2} tone="green" />
+        {monthSpend ? (
+          <Link href="/spending" className="stat-card-link">
+            <StatCard label="Spent this month" value={formatNaira(monthSpend.total)} icon={Wallet} tone="orange" sub={`${monthSpend.ticketCount} ticket${monthSpend.ticketCount === 1 ? "" : "s"}`} />
+          </Link>
+        ) : null}
       </div>
 
       <div className="dash-grid">

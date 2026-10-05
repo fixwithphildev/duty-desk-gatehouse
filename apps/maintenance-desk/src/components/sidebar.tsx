@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Wrench, ShieldCheck, LogOut, UserCog, Menu, X,
+  LayoutDashboard, Wrench, ShieldCheck, LogOut, UserCog, Menu, X, Wallet,
 } from "lucide-react";
 import type { NavItem } from "@/lib/nav";
 import { MD_ROLE_LABELS, type MDRole } from "@/lib/types";
@@ -13,6 +13,7 @@ import { signOutAction } from "@/app/(app)/sign-out-action";
 const ICONS = {
   dashboard: LayoutDashboard,
   tickets: Wrench,
+  spending: Wallet,
   admin: ShieldCheck,
   account: UserCog,
 };

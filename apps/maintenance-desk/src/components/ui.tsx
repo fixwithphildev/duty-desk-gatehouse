@@ -63,10 +63,10 @@ export interface BarBreakdownItem {
 // Direct-labeled horizontal bars using the app's existing status tones,
 // not a separate chart-only palette — keeps analytics visually consistent
 // with the Badge colors used everywhere else.
-export function BarBreakdown({ items }: { items: BarBreakdownItem[] }) {
+export function BarBreakdown({ items, formatValue = String }: { items: BarBreakdownItem[]; formatValue?: (value: number) => string }) {
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
-    <div className="bar-breakdown">
+    <div className={`bar-breakdown ${formatValue !== String ? "bar-breakdown-money" : ""}`}>
       {items.map((item) => (
         <div className="bar-breakdown-row" key={item.label}>
           <span className="bar-breakdown-label">{item.label}</span>
@@ -76,7 +76,7 @@ export function BarBreakdown({ items }: { items: BarBreakdownItem[] }) {
               style={{ width: `${(item.value / max) * 100}%`, background: TONE_VARS[item.tone ?? "neutral"] ?? TONE_VARS.neutral }}
             />
           </div>
-          <span className="mono bar-breakdown-value">{item.value}</span>
+          <span className="mono bar-breakdown-value">{formatValue(item.value)}</span>
         </div>
       ))}
     </div>

@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { Plus, Paperclip, Ban } from "lucide-react";
 import { Badge, Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
-import { MD_PRIORITIES, MD_DEPARTMENTS, MD_TICKET_STATUSES, priorityTone, type TicketStatus } from "@/lib/types";
+import { MD_PRIORITIES, MD_DEPARTMENTS, MD_TICKET_STATUSES, priorityTone, formatNaira, type TicketStatus } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createTicketAction, updateTicketStatusAction, voidTicketAction, getTicketPhotosAction } from "./actions";
+import { CostsDrawer, type CostsMode } from "./costs-drawer";
 import type { MaintenanceTicketRow } from "@/lib/data/tickets";
+import type { TicketCostInfo } from "@/lib/data/expenses";
 
 const REFRESH_MS = 5_000;
 
@@ -16,12 +18,24 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function TicketsClient({ tickets, canEdit, canVoid }: { tickets: MaintenanceTicketRow[]; canEdit: boolean; canVoid: boolean }) {
+export function TicketsClient({
+  tickets,
+  costs,
+  canEdit,
+  canVoid,
+}: {
+  tickets: MaintenanceTicketRow[];
+  costs: Record<string, TicketCostInfo>;
+  canEdit: boolean;
+  canVoid: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [costsTarget, setCostsTarget] = useState<{ ticket: MaintenanceTicketRow; mode: CostsMode } | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   // Same shared table, same problem in reverse — a status change made in
   // Duty Desk writes straight to this row, but this app has no way to know
@@ -55,10 +69,58 @@ export function TicketsClient({ tickets, canEdit, canVoid }: { tickets: Maintena
     });
   };
 
-  const onStatusChange = (id: string, status: TicketStatus) => {
+  const onStatusChange = (ticket: MaintenanceTicketRow, status: TicketStatus) => {
+    // Resolving asks what was bought first — the status only changes once
+    // that form is submitted, so cancelling leaves the ticket as it was.
+    if (status === "Resolved") {
+      setCostsTarget({ ticket, mode: "resolve" });
+      return;
+    }
+    setStatusError(null);
     startTransition(async () => {
-      await updateTicketStatusAction(id, status);
+      try {
+        await updateTicketStatusAction(ticket.id, status);
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
+        setStatusError(errorMessage(e));
+      }
     });
+  };
+
+  const costCell = (t: MaintenanceTicketRow) => {
+    const info = costs[t.id];
+    if (info && info.lineCount > 0) {
+      return (
+        <button type="button" className="btn btn-ghost btn-sm mono" onClick={() => setCostsTarget({ ticket: t, mode: "view" })}>
+          {formatNaira(info.total)}
+        </button>
+      );
+    }
+    if (info?.noPurchase) {
+      return (
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCostsTarget({ ticket: t, mode: "view" })}>
+          No purchase
+        </button>
+      );
+    }
+    // Resolved with nothing recorded — e.g. resolved from Duty Desk, which
+    // has no cost step. Flagged so it gets filled in.
+    if (t.status === "Resolved" && !t.void) {
+      return canEdit ? (
+        <button type="button" className="btn btn-sm cost-missing" onClick={() => setCostsTarget({ ticket: t, mode: "view" })}>
+          Add cost
+        </button>
+      ) : (
+        <Badge tone="orange">Not recorded</Badge>
+      );
+    }
+    return canEdit && !t.void ? (
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCostsTarget({ ticket: t, mode: "view" })}>
+        <Plus size={12} /> Cost
+      </button>
+    ) : (
+      <span className="cell-sub">—</span>
+    );
   };
 
   const viewPhotos = (ticket: MaintenanceTicketRow) => {
@@ -96,9 +158,11 @@ export function TicketsClient({ tickets, canEdit, canVoid }: { tickets: Maintena
         ) : null}
       </div>
 
+      {statusError ? <div className="login-error">{statusError}</div> : null}
+
       <div className="table-wrap">
         <table className="table">
-          <thead><tr><th>Reported</th><th>Area</th><th>Issue</th><th>Department</th><th>Priority</th><th>Logged by</th><th>Status</th></tr></thead>
+          <thead><tr><th>Reported</th><th>Area</th><th>Issue</th><th>Department</th><th>Priority</th><th>Logged by</th><th>Status</th><th>Cost</th></tr></thead>
           <tbody>
             {tickets.map((t) => (
               <tr key={t.id} style={t.void ? { opacity: 0.6 } : undefined}>
@@ -127,17 +191,18 @@ export function TicketsClient({ tickets, canEdit, canVoid }: { tickets: Maintena
                   {t.void ? (
                     <Badge tone="neutral">Voided</Badge>
                   ) : canEdit ? (
-                    <select className="select select-sm" value={t.status} disabled={pending} onChange={(e) => onStatusChange(t.id, e.target.value as TicketStatus)}>
+                    <select className="select select-sm" value={t.status} disabled={pending} onChange={(e) => onStatusChange(t, e.target.value as TicketStatus)}>
                       {MD_TICKET_STATUSES.map((s) => <option key={s}>{s}</option>)}
                     </select>
                   ) : (
                     <Badge tone={t.status === "Resolved" ? "green" : t.status === "In Progress" ? "blue" : "orange"}>{t.status}</Badge>
                   )}
                 </td>
+                <td data-label="Cost">{costCell(t)}</td>
               </tr>
             ))}
             {tickets.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", opacity: 0.75 }}>No tickets right now.</td></tr>
+              <tr><td colSpan={8}style={{ padding: 24, textAlign: "center", opacity: 0.75 }}>No tickets right now.</td></tr>
             ) : null}
           </tbody>
         </table>
@@ -175,6 +240,14 @@ export function TicketsClient({ tickets, canEdit, canVoid }: { tickets: Maintena
           ))}
         </div>
       </Drawer>
+
+      <CostsDrawer
+        ticket={costsTarget?.ticket ?? null}
+        mode={costsTarget?.mode ?? "view"}
+        canEdit={canEdit}
+        canVoid={canVoid}
+        onClose={() => setCostsTarget(null)}
+      />
 
       <Drawer open={!!voidTarget} onClose={() => setVoidTarget(null)} title="Void this ticket">
         {voidError ? <div className="login-error">{voidError}</div> : null}

@@ -55,6 +55,42 @@ export async function getTickets(): Promise<MaintenanceTicketRow[]> {
   }));
 }
 
+export interface TicketSummary {
+  id: string;
+  area: string;
+  issue_type: string;
+  assigned_to: string;
+  status: TicketStatus;
+  void: boolean;
+}
+
+// Just enough of each ticket to label a spending line in the reports. The
+// spending rows live in Maintenance Desk's own database (see
+// lib/data/expenses.ts), so the join to tickets happens here, in code.
+export async function getTicketSummaries(ids: string[]): Promise<Map<string, TicketSummary>> {
+  const result = new Map<string, TicketSummary>();
+  const unique = [...new Set(ids)];
+  // Chunked so a year of spending doesn't produce one enormous URL filter.
+  for (let i = 0; i < unique.length; i += 200) {
+    const { data } = await ticketsDb
+      .from("maintenance_tickets")
+      .select("id, area, issue_type, assigned_to, status, void")
+      .in("id", unique.slice(i, i + 200));
+    for (const row of (data ?? []) as TicketSummary[]) result.set(row.id, row);
+  }
+  return result;
+}
+
+export async function getTicketStatus(id: string): Promise<{ status: TicketStatus; void: boolean } | null> {
+  const { data } = await ticketsDb
+    .from("maintenance_tickets")
+    .select("status, void")
+    .eq("id", id)
+    .in("assigned_to", MD_DEPARTMENTS)
+    .maybeSingle();
+  return (data as { status: TicketStatus; void: boolean } | null) ?? null;
+}
+
 export async function getOpenTicketsCount(): Promise<number> {
   const { count } = await ticketsDb
     .from("maintenance_tickets")
