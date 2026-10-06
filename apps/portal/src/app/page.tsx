@@ -1,63 +1,32 @@
-const DUTY_DESK_URL = process.env.NEXT_PUBLIC_DUTY_DESK_URL || "#";
-const GATEHOUSE_URL = process.env.NEXT_PUBLIC_GATEHOUSE_URL || "#";
-const MAINTENANCE_DESK_URL = process.env.NEXT_PUBLIC_MAINTENANCE_DESK_URL || "#";
+import { Portal, type Platform } from "./portal";
 
-function HomeIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12l9-9 9 9" />
-      <path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" />
-    </svg>
-  );
-}
-
-function RadioIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="2" />
-      <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14" />
-    </svg>
-  );
-}
-
-function WrenchIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-    </svg>
-  );
-}
+const PLATFORMS: Platform[] = [
+  {
+    key: "dd",
+    name: "Duty Desk",
+    dept: "Resident Officers",
+    desc: "Checklists, complaints, maintenance and the duty log.",
+    href: process.env.NEXT_PUBLIC_DUTY_DESK_URL || "#",
+    icon: "home",
+  },
+  {
+    key: "gh",
+    name: "Gatehouse",
+    dept: "Security",
+    desc: "Incidents, access control, patrols and alerts.",
+    href: process.env.NEXT_PUBLIC_GATEHOUSE_URL || "#",
+    icon: "shield",
+  },
+  {
+    key: "md",
+    name: "Maintenance Desk",
+    dept: "Maintenance",
+    desc: "The ticket queue and what each fix cost.",
+    href: process.env.NEXT_PUBLIC_MAINTENANCE_DESK_URL || "#",
+    icon: "wrench",
+  },
+];
 
 export default function PortalPage() {
-  return (
-    <div className="portal-shell">
-      <div className="portal-scrim" />
-      <div className="portal-content">
-      <div>
-        <h1 className="portal-title">The Destination — Operations Portal</h1>
-        <p className="portal-sub">One link for both departments. Pick your platform below to sign in with your username and usercode.</p>
-      </div>
-
-      <div className="portal-tiles">
-        <a href={DUTY_DESK_URL} className="portal-tile portal-tile-dd">
-          <div className="portal-tile-icon"><HomeIcon /></div>
-          <div className="portal-tile-name">Duty Desk</div>
-          <div className="portal-tile-desc">Resident Officer department — checklists, complaints, maintenance, duty log.</div>
-        </a>
-        <a href={GATEHOUSE_URL} className="portal-tile portal-tile-gh">
-          <div className="portal-tile-icon"><RadioIcon /></div>
-          <div className="portal-tile-name">Gatehouse</div>
-          <div className="portal-tile-desc">Security department — incidents, access control, patrols, alerts.</div>
-        </a>
-        <a href={MAINTENANCE_DESK_URL} className="portal-tile portal-tile-md">
-          <div className="portal-tile-icon"><WrenchIcon /></div>
-          <div className="portal-tile-name">Maintenance Desk</div>
-          <div className="portal-tile-desc">Maintenance department — the ticket queue shared with Duty Desk.</div>
-        </a>
-      </div>
-
-      <div className="portal-foot">This page holds no accounts and no data — it only links to each platform&apos;s own login.</div>
-      </div>
-    </div>
-  );
+  return <Portal platforms={PLATFORMS} />;
 }
