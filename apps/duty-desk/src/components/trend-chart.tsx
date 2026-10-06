@@ -67,7 +67,7 @@ export function TrendChart({ data, tone = "var(--teal)" }: { data: TrendPoint[];
         {linePath ? <path d={linePath} fill="none" stroke={tone} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /> : null}
         {points.map((p, i) =>
           i % labelEvery === 0 || i === points.length - 1 ? (
-            <text key={p.date} x={p.x} y={HEIGHT - 4} textAnchor="middle" className="trend-chart-axis-label">
+            <text key={p.date} x={p.x} y={HEIGHT - 4} textAnchor={i === 0 ? "start" : i === points.length - 1 ? "end" : "middle"} className="trend-chart-axis-label">
               {fmtShort(p.date)}
             </text>
           ) : null

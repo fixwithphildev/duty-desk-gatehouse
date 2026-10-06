@@ -6,7 +6,9 @@ import { SESSION_COOKIE, verifySession } from "./lib/session";
 // happens in requireSession() on the server, since that needs a DB call.
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isPublic = pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/api/health");
+  // /lobby.jpg is the login page's background photo, so it has to load
+  // before anyone is signed in.
+  const isPublic = pathname === "/login" || pathname === "/lobby.jpg" || pathname.startsWith("/_next") || pathname.startsWith("/api/health");
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySession(token) : null;
 

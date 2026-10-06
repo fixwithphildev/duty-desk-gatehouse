@@ -10,6 +10,8 @@ export function Badge({ tone = "neutral", children }: { tone?: string; children:
   return <span className={`badge badge-${tone}`}>{children}</span>;
 }
 
+// Label + icon on top, a large serif figure underneath. `tone` colours the
+// figure (red = needs action, gold = open items, teal = all clear).
 export function StatCard({
   label,
   value,
@@ -24,15 +26,13 @@ export function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="stat-card">
-      <div className={`stat-icon tone-${tone}`}>
-        <Icon size={17} />
+    <div className={`stat-card tone-${tone}`}>
+      <div className="stat-top">
+        <span className="stat-label">{label}</span>
+        <span className="stat-icon"><Icon size={16} /></span>
       </div>
-      <div>
-        <div className="stat-value mono">{value}</div>
-        <div className="stat-label">{label}</div>
-        {sub ? <div className="stat-sub">{sub}</div> : null}
-      </div>
+      <div className="stat-value">{value}</div>
+      {sub ? <div className="stat-sub">{sub}</div> : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ClipboardCheck, MessageSquareWarning, Wrench, DoorClosed, ListTodo } from "lucide-react";
+import { ClipboardCheck, MessageSquareWarning, Wrench, DoorClosed, ListTodo, Plus } from "lucide-react";
 import { requireSession } from "@/lib/auth";
+import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
 import { getLatestSubmittedByApartment, getChecklistsDailyTrend } from "@/lib/data/checklists";
 import { getComplaints } from "@/lib/data/complaints";
 import { getMaintenanceTickets } from "@/lib/data/maintenance";
@@ -38,14 +39,24 @@ export default async function DashboardPage() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
+  // Server time is UTC on Vercel; the property is in Lagos.
+  const now = new Date();
+  const hour = Number(now.toLocaleString("en-GB", { hour: "2-digit", hour12: false, timeZone: "Africa/Lagos" }));
+  const partOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+  const today = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Africa/Lagos" });
+  const canCreateChecklist = DD_CAN_EDIT_CHECKLISTS.includes(session.role);
+
   return (
     <div className="view">
-      <div className="view-head dash-hero">
+      <div className="dash-hero">
         <div>
-          <div className="dash-hero-greeting">Welcome back, {firstName}</div>
-          <h2>Today&apos;s Duty Overview</h2>
+          <div className="eyebrow">{today}</div>
+          <h1>Good {partOfDay}, {firstName}</h1>
+          <p className="dash-hero-sub">Here&apos;s what needs you on today&apos;s duty.</p>
         </div>
-        <span className="mono view-time">{new Date().toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}</span>
+        {canCreateChecklist ? (
+          <Link href="/checklists/new" className="btn btn-primary"><Plus size={16} /> New checklist</Link>
+        ) : null}
       </div>
 
       <HandoverBanner handover={lastHandover} />
@@ -60,7 +71,7 @@ export default async function DashboardPage() {
 
       <div className="dash-grid">
         <div className="card">
-          <div className="card-head"><span>Apartments not ready for check-in</span></div>
+          <div className="card-head"><span>Not ready for check-in</span><Link href="/checklists" className="card-link">All checklists</Link></div>
           {notReady.length === 0 ? (
             <div className="empty-state"><ClipboardCheck size={26} strokeWidth={1.5} /><div className="empty-title">All checked apartments are ready</div></div>
           ) : (

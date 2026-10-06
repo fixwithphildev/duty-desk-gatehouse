@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { BookOpen, Check } from "lucide-react";
+import { Repeat2, Check } from "lucide-react";
 import { acknowledgeHandoverAction } from "./actions";
 
 function fmtTime(iso: string): string {
@@ -24,13 +24,14 @@ export function HandoverBanner({ handover }: { handover: Handover | null }) {
 
   return (
     <div className="handover-banner">
-      <BookOpen size={16} />
+      <div className="handover-icon"><Repeat2 size={18} /></div>
       <div className="handover-main">
-        <div className="handover-title">Last shift handover — {handover.officer_name}, {fmtTime(handover.created_at)}</div>
-        <div className="handover-note">{handover.notes}</div>
+        <div className="handover-title">Handover from {handover.officer_name}</div>
+        <div className="handover-meta">Last shift · {fmtTime(handover.created_at)}</div>
+        <div className="handover-note">&ldquo;{handover.notes}&rdquo;</div>
       </div>
-      <button type="button" className="btn btn-ghost btn-sm handover-ack" disabled={pending} onClick={acknowledge}>
-        <Check size={13} /> {pending ? "Marking…" : "Mark as handled"}
+      <button type="button" className="btn handover-ack" disabled={pending} onClick={acknowledge}>
+        <Check size={15} /> {pending ? "Marking…" : "Mark as handled"}
       </button>
     </div>
   );
