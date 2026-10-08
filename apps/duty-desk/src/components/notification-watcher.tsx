@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, X } from "lucide-react";
 
 interface ToastItem {
   id: string;
   message: string;
   href: string;
+  tone?: "alert" | "good";
 }
 
 const POLL_MS = 5_000;
@@ -90,13 +91,13 @@ export function NotificationWatcher() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className="notification-toast"
+          className={`notification-toast${t.tone === "good" ? " notification-toast-good" : ""}`}
           onClick={() => {
             router.push(t.href);
             dismiss(t.id);
           }}
         >
-          <AlertTriangle size={15} />
+          {t.tone === "good" ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
           <span className="notification-toast-msg">{t.message}</span>
           <button
             type="button"

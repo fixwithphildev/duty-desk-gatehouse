@@ -1,11 +1,14 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase";
+import type { DDRole } from "@/lib/types";
 
 export interface NotificationItem {
   id: string;
   message: string;
   href: string;
   createdAt: string;
+  // "good" news (an apartment ready to sell) shows with a tick instead of a warning.
+  tone?: "alert" | "good";
 }
 
 // High-stakes-only triggers, per the blueprint's accountability goals:
@@ -14,8 +17,21 @@ export interface NotificationItem {
 // duty log notes, etc.) intentionally does NOT notify — the point is to
 // surface what actually needs attention, not create noise staff learn to
 // ignore.
-export async function getNotificationsSince(sinceIso: string): Promise<NotificationItem[]> {
-  const [checklists, complaints, tickets, ticketUpdates] = await Promise.all([
+export async function getNotificationsSince(sinceIso: string, role?: DDRole): Promise<NotificationItem[]> {
+  // Front desk is also told the moment an apartment is submitted Ready, so
+  // they can sell it straight away. Only front desk: for everyone else it
+  // would be routine noise.
+  const readyForFrontDesk =
+    role === "front_desk"
+      ? supabaseAdmin
+          .from("apartment_checklists")
+          .select("id, apartment, created_at, staff_accounts!apartment_checklists_prepared_by_fkey(display_name)")
+          .eq("overall_ready", true)
+          .eq("status", "submitted")
+          .eq("void", false)
+          .gt("created_at", sinceIso)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> });
+  const [checklists, complaints, tickets, ticketUpdates, readyNow] = await Promise.all([
     supabaseAdmin.from("apartment_checklists").select("id, apartment, created_at").eq("overall_ready", false).eq("status", "submitted").gt("created_at", sinceIso),
     supabaseAdmin.from("complaints").select("id, description, room, created_at").eq("priority", "High").gt("created_at", sinceIso),
     supabaseAdmin.from("maintenance_tickets").select("id, area, issue_type, created_at").eq("priority", "High").gt("created_at", sinceIso),
@@ -33,6 +49,7 @@ export async function getNotificationsSince(sinceIso: string): Promise<Notificat
       .from("maintenance_tickets")
       .select("id, area, issue_type, status, logged_by_name, created_at, updated_at")
       .gt("updated_at", sinceIso),
+    readyForFrontDesk,
   ]);
 
   const items: NotificationItem[] = [];
@@ -57,6 +74,16 @@ export async function getNotificationsSince(sinceIso: string): Promise<Notificat
       message: `${row.issue_type} (${row.area}) marked ${row.status}${row.logged_by_name ? ` by ${row.logged_by_name}` : ""}`,
       href: "/maintenance",
       createdAt: row.updated_at,
+    });
+  }
+  for (const row of (readyNow.data ?? []) as Array<Record<string, unknown>>) {
+    const by = (row.staff_accounts as { display_name?: string } | null)?.display_name;
+    items.push({
+      id: `rdy-${row.id}`,
+      message: `Apartment ${row.apartment} is ready to sell${by ? ` — checked by ${by}` : ""}`,
+      href: "/checklists",
+      createdAt: row.created_at as string,
+      tone: "good",
     });
   }
   return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

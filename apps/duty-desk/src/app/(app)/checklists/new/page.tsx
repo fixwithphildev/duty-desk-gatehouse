@@ -1,14 +1,8 @@
 import { requireRole } from "@/lib/auth";
 import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
-import { ChecklistForm } from "./checklist-form";
+import { StartChecklist } from "./start-checklist";
 
-// Raised from the 10s Vercel default: submitting inserts the checklist row,
-// up to ~84 checklist items, and any flagged-item tickets. That's normally
-// under a second, but free-tier Supabase/Vercel cold starts can add several
-// seconds of latency on an infrequently-hit route like this one.
-export const maxDuration = 30;
-
-export default async function NewChecklistPage() {
+export default async function NewChecklistPage({ searchParams }: { searchParams: { apartment?: string } }) {
   const session = await requireRole(DD_CAN_EDIT_CHECKLISTS);
-  return <ChecklistForm preparedByName={session.displayName} />;
+  return <StartChecklist preparedByName={session.displayName} initialApartment={searchParams.apartment ?? ""} />;
 }
