@@ -48,22 +48,29 @@ export const DD_CAN_CHARGE_DAMAGE: DDRole[] = ["front_desk", "resident_officer",
 // Resident Officer can log and update records but not void them.
 export const DD_CAN_VOID: DDRole[] = ["general_manager", "super_admin"];
 
-// Roles a General Manager may create/manage day-to-day (blueprint 4.1: GM
-// handles "day-to-day account creation for regular staff"). The Resident
-// Manager can do the same and also add Supervisors. Super Admin can manage
-// every role, including the managers' own accounts.
+// Only the Admin (super_admin) creates accounts, for every role (the user's
+// decision, Oct 2026). The Resident Manager can still reset a usercode, unlock
+// or switch off Supervisors and regular staff, and the General Manager regular
+// staff, so a forgotten code doesn't have to wait for the Admin. Super Admin
+// manages every role, including the managers' own accounts.
 export const DD_STAFF_ROLES: DDRole[] = ["resident_officer", "front_desk", "housekeeping", "engineering"];
 const RESIDENT_MANAGER_ROLES: DDRole[] = ["supervisor", ...DD_STAFF_ROLES];
+const ALL_ROLES: DDRole[] = ["resident_officer", "supervisor", "resident_manager", "front_desk", "housekeeping", "engineering", "general_manager", "super_admin"];
 
-export function assignableRolesFor(actorRole: DDRole): DDRole[] {
-  if (actorRole === "super_admin") return ["resident_officer", "supervisor", "resident_manager", "front_desk", "housekeeping", "engineering", "general_manager", "super_admin"];
+export function creatableRolesFor(actorRole: DDRole): DDRole[] {
+  return actorRole === "super_admin" ? ALL_ROLES : [];
+}
+
+// Accounts this role can reset, unlock and switch off.
+export function manageableRolesFor(actorRole: DDRole): DDRole[] {
+  if (actorRole === "super_admin") return ALL_ROLES;
   if (actorRole === "resident_manager") return RESIDENT_MANAGER_ROLES;
   if (actorRole === "general_manager") return DD_STAFF_ROLES;
   return [];
 }
 
 export function canManageAccount(actorRole: DDRole, targetRole: DDRole): boolean {
-  return assignableRolesFor(actorRole).includes(targetRole);
+  return manageableRolesFor(actorRole).includes(targetRole);
 }
 
 export interface StaffAccount {

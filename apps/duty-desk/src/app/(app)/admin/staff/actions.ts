@@ -4,18 +4,19 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateUsercode, hashUsercode } from "@/lib/usercode";
-import { DD_ADMIN_ROLES, assignableRolesFor, canManageAccount, type DDRole } from "@/lib/types";
+import { DD_ADMIN_ROLES, canManageAccount, creatableRolesFor, type DDRole } from "@/lib/types";
 
 export async function createStaffAction(input: {
   username: string;
   displayName: string;
   role: DDRole;
 }): Promise<{ username: string; usercode: string }> {
-  const session = await requireRole(DD_ADMIN_ROLES);
+  // Only the Admin creates accounts.
+  const session = await requireRole(["super_admin"]);
   const username = input.username.trim();
   const displayName = input.displayName.trim();
   if (!username || !displayName) throw new Error("Username and display name are required.");
-  if (!assignableRolesFor(session.role).includes(input.role)) {
+  if (!creatableRolesFor(session.role).includes(input.role)) {
     throw new Error("You aren't permitted to create an account with that role.");
   }
 

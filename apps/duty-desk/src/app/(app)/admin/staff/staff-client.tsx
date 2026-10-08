@@ -6,7 +6,7 @@ import { Ban, CheckCircle2, ClipboardCopy, KeyRound, Plus, Search, ShieldCheck, 
 import { Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { Badge, Kpi } from "@/components/suite";
-import { DD_ROLE_LABELS, assignableRolesFor, canManageAccount, type DDRole, type StaffAccount } from "@/lib/types";
+import { DD_ROLE_LABELS, canManageAccount, creatableRolesFor, manageableRolesFor, type DDRole, type StaffAccount } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { createStaffAction, setAccountDisabledAction, resetUsercodeAction, unlockAccountAction } from "./actions";
 import type { LoginEventRow } from "@/lib/data/login-events";
@@ -46,7 +46,8 @@ export function StaffClient({
   const [reveal, setReveal] = useState<{ name: string; username: string; usercode: string; reset: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const assignable = assignableRolesFor(actorRole);
+  const assignable = creatableRolesFor(actorRole);
+  const manageable = manageableRolesFor(actorRole);
   const isLocked = (a: StaffAccount) => !!a.locked_until && new Date(a.locked_until).getTime() > Date.now();
   const s = q.trim().toLowerCase();
   const list = accounts
@@ -89,11 +90,12 @@ export function StaffClient({
   };
 
   const mine = ROLE_ORDER.filter((r) => assignable.includes(r)).map((r) => DD_ROLE_LABELS[r]);
+  const canReset = ROLE_ORDER.filter((r) => manageable.includes(r)).map((r) => DD_ROLE_LABELS[r]);
 
   return (
     <>
       <div className="phead">
-        <div className="t"><h1>Staff accounts</h1><p>Who can sign in to Duty Desk. Only the Resident Manager, Supervisor and Admin can see this page. People sign in with a username and a one-time code, then choose their own usercode.</p></div>
+        <div className="t"><h1>Staff accounts</h1><p>Who can sign in to Duty Desk. Only the Admin adds accounts. People sign in with a username and a one-time code, then choose their own usercode.</p></div>
         <div className="acts">{assignable.length ? <button type="button" className="btn btn-primary" onClick={() => { setForm(EMPTY); setUserTouched(false); setError(null); setOpen(true); }}><Plus size={15} /> Add staff account</button> : null}</div>
       </div>
 
@@ -106,7 +108,7 @@ export function StaffClient({
 
       <div className="pill-note t-info">
         <ShieldCheck size={16} />
-        <span>{mine.length ? <>You can add, reset and switch off: <b>{mine.join(", ")}</b>.{actorRole !== "super_admin" ? " For other accounts, ask Admin (IT)." : ""}</> : "You can see every account. Only the Resident Manager or Admin can add people, reset a usercode or switch an account off."}</span>
+        <span>{actorRole === "super_admin" ? "As Admin you add every account, and can reset a code or switch off any account." : canReset.length ? <>Only the Admin adds new accounts. You can reset a code, unlock or switch off: <b>{canReset.join(", ")}</b>.</> : "You can see every account. Only the Admin adds accounts; the Admin or the Resident Manager can reset a code or switch an account off."}</span>
       </div>
 
       {actError ? <div className="err-note" role="alert">{actError}</div> : null}
