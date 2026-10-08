@@ -66,6 +66,7 @@ export async function buildReportCsv(dataset: ReportDataset): Promise<{ csv: str
   const tickets = await getMaintenanceTickets();
   const csv = toCsv(
     tickets.map((t) => ({
+      ref: t.ref_no ? `MT-${String(t.ref_no).padStart(4, "0")}` : "",
       reported_at: t.created_at,
       area: t.area,
       issue: t.issue_type,
@@ -73,9 +74,14 @@ export async function buildReportCsv(dataset: ReportDataset): Promise<{ csv: str
       priority: t.priority,
       status: t.status,
       source: t.source,
+      started_by: t.started_by_name ?? "",
+      fixed_by: t.resolved_by_name ?? "",
+      fixed_at: t.resolved_at ?? "",
+      fix_note: t.fix_note ?? "",
       notes: t.notes ?? "",
     })),
     [
+      { key: "ref", label: "Ref" },
       { key: "reported_at", label: "Reported At" },
       { key: "area", label: "Area" },
       { key: "issue", label: "Issue" },
@@ -83,6 +89,10 @@ export async function buildReportCsv(dataset: ReportDataset): Promise<{ csv: str
       { key: "priority", label: "Priority" },
       { key: "status", label: "Status" },
       { key: "source", label: "Source" },
+      { key: "started_by", label: "Started By" },
+      { key: "fixed_by", label: "Fixed By" },
+      { key: "fixed_at", label: "Fixed At" },
+      { key: "fix_note", label: "What Was Done" },
       { key: "notes", label: "Notes" },
     ]
   );

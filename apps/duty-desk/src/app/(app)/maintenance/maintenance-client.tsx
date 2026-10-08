@@ -23,6 +23,9 @@ export interface TicketView extends MaintenanceTicketRow {
   openedWhen: string;
   updatedWhen: string | null;
   voidedWhen: string | null;
+  startedWhen: string | null;
+  resolvedWhen: string | null;
+  ref: string | null;
   age: string;
   complaintId: string | null;
   checklistId: string | null;
@@ -212,7 +215,7 @@ export function MaintenanceClient({
           <section className="card" ref={detailRef} style={{ scrollMarginTop: 72 }}>
             <div className="card-h" style={{ alignItems: "flex-start" }}>
               <div className="vstack" style={{ gap: 4, flex: 1 }}>
-                <span className="mono muted" style={{ fontSize: 12 }}>{srcLabel(sel)} · opened {sel.openedWhen}</span>
+                <span className="mono muted" style={{ fontSize: 12 }}>{sel.ref ? `${sel.ref} · ` : ""}{srcLabel(sel)} · opened {sel.openedWhen}</span>
                 <h3 style={{ fontSize: 18 }}>{sel.issue_type}</h3>
                 <div className="hstack">
                   <Badge tone={priTone(sel.priority)}>{sel.priority} priority</Badge>
@@ -240,7 +243,10 @@ export function MaintenanceClient({
                   {sel.complaintId ? <> · <Link className="link" href={`/complaints?id=${sel.complaintId}`}>from a complaint</Link></> : null}
                   {sel.checklistId ? <> · <Link className="link" href={`/checklists/${sel.checklistId}`}>from a checklist</Link></> : null}
                 </dd>
-                {sel.updatedWhen && sel.logged_by_name ? <><dt>Last update</dt><dd>{sel.logged_by_name} · {sel.updatedWhen}</dd></> : null}
+                {sel.started_by_name ? <><dt>Started</dt><dd>{sel.started_by_name} · {sel.startedWhen}</dd></> : null}
+                {sel.status === "Resolved" && sel.resolved_by_name ? <><dt>Fixed by</dt><dd><b>{sel.resolved_by_name}</b> · {sel.assigned_to} · {sel.resolvedWhen}</dd></> : null}
+                {sel.fix_note ? <><dt>What was done</dt><dd>{sel.fix_note}</dd></> : null}
+                {sel.updatedWhen && sel.logged_by_name && !sel.started_by_name && !sel.resolved_by_name ? <><dt>Last update</dt><dd>{sel.logged_by_name} · {sel.updatedWhen}</dd></> : null}
                 {sel.notes ? <><dt>Notes</dt><dd style={{ whiteSpace: "pre-line" }}>{sel.notes}</dd></> : null}
                 {sel.void ? <><dt>Voided</dt><dd>{sel.voided_by_name} · {sel.void_reason}</dd></> : null}
               </dl>
@@ -286,7 +292,9 @@ export function MaintenanceClient({
                 <span className="over">Activity</span>
                 <ul className="tl" style={{ padding: 0 }}>
                   <li><span className="tm">{tm(sel.openedWhen)}</span><span className="dt">{sel.source === "complaint" ? <MessageSquare size={11} /> : <Wrench size={11} />}</span><span className="tx"><b>{sel.opened_by_name ?? (sel.source === "checklist" ? "Check-in prep" : "Maintenance Desk")}</b> opened the ticket for {sel.assigned_to}</span></li>
-                  {sel.updatedWhen && sel.logged_by_name ? <li><span className="tm">{tm(sel.updatedWhen)}</span><span className="dt">{sel.status === "Resolved" ? <Check size={11} /> : <UserRound size={11} />}</span><span className="tx"><b>{sel.logged_by_name}</b> {sel.status === "Resolved" ? "marked it resolved" : sel.status === "In Progress" ? "started work" : "updated it"}</span></li> : null}
+                  {sel.started_by_name && sel.startedWhen ? <li><span className="tm">{tm(sel.startedWhen)}</span><span className="dt"><UserRound size={11} /></span><span className="tx"><b>{sel.started_by_name}</b> ({sel.assigned_to}) started work</span></li> : null}
+                  {sel.status === "Resolved" && sel.resolved_by_name && sel.resolvedWhen ? <li><span className="tm">{tm(sel.resolvedWhen)}</span><span className="dt"><Check size={11} /></span><span className="tx"><b>{sel.resolved_by_name}</b> ({sel.assigned_to}) fixed it{sel.fix_note ? `: ${sel.fix_note}` : ""}</span></li> : null}
+                  {!sel.started_by_name && !sel.resolved_by_name && sel.updatedWhen && sel.logged_by_name ? <li><span className="tm">{tm(sel.updatedWhen)}</span><span className="dt">{sel.status === "Resolved" ? <Check size={11} /> : <UserRound size={11} />}</span><span className="tx"><b>{sel.logged_by_name}</b> {sel.status === "Resolved" ? "marked it resolved" : sel.status === "In Progress" ? "started work" : "updated it"}</span></li> : null}
                   {sel.voidedWhen ? <li><span className="tm">{tm(sel.voidedWhen)}</span><span className="dt"><Ban size={11} /></span><span className="tx"><b>{sel.voided_by_name}</b> voided it: {sel.void_reason}</span></li> : null}
                 </ul>
               </div>

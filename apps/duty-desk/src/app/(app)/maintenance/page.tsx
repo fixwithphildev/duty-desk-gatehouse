@@ -1,6 +1,7 @@
 import { requirePageAccess } from "@/lib/auth";
 import { DD_CAN_EDIT_CHECKLISTS, DD_CAN_EDIT_TICKETS, DD_CAN_VOID } from "@/lib/types";
 import { getMaintenanceTickets, getTicketOrigins } from "@/lib/data/maintenance";
+import { DD_MAINTENANCE_UNITS } from "@/lib/checklist-data";
 import { getReadiness } from "@/lib/data/readiness";
 import { findApartment, aptKey, aptWhere } from "@/lib/apartments";
 import { ageText, whenText } from "@/lib/time";
@@ -15,7 +16,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
   // (blueprint 4.3: "Can view: Assigned tickets"); everyone else sees all.
   let assignedFilter: string[] | undefined;
   if (session.role === "housekeeping") assignedFilter = ["Housekeeping"];
-  if (session.role === "engineering") assignedFilter = ["Engineering", "General Maintenance"];
+  if (session.role === "engineering") assignedFilter = [...DD_MAINTENANCE_UNITS, "Engineering"];
 
   const [tickets, origins, readiness] = await Promise.all([getMaintenanceTickets(assignedFilter), getTicketOrigins(), getReadiness()]);
 
@@ -28,6 +29,9 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
       openedWhen: whenText(t.created_at),
       updatedWhen: t.updated_at !== t.created_at ? whenText(t.updated_at) : null,
       voidedWhen: t.voided_at ? whenText(t.voided_at) : null,
+      startedWhen: t.started_at ? whenText(t.started_at) : null,
+      resolvedWhen: t.resolved_at ? whenText(t.resolved_at) : null,
+      ref: t.ref_no ? `MT-${String(t.ref_no).padStart(4, "0")}` : null,
       age: ageText(t.created_at),
       complaintId: origins.complaint.get(t.id) ?? null,
       checklistId: origins.checklist.get(t.id) ?? null,

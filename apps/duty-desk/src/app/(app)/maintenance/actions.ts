@@ -63,7 +63,13 @@ export async function createTicketAction(formData: FormData): Promise<{ id: stri
 export async function updateTicketStatusAction(id: string, status: "Reported" | "In Progress" | "Resolved") {
   const session = await requireRole(DD_CAN_EDIT_TICKETS);
   if (!["Reported", "In Progress", "Resolved"].includes(status)) throw new Error("Unknown status.");
-  const { error } = await supabaseAdmin.from("maintenance_tickets").update({ status, logged_by_name: session.displayName, updated_at: new Date().toISOString() }).eq("id", id).eq("void", false);
+  const now = new Date().toISOString();
+  // Same record Maintenance Desk keeps: who started or finished it, and when.
+  const work =
+    status === "In Progress" ? { started_by_name: session.displayName, started_at: now }
+      : status === "Resolved" ? { resolved_by_name: session.displayName, resolved_at: now }
+      : { started_by_name: null, started_at: null, resolved_by_name: null, resolved_at: null, fix_note: null };
+  const { error } = await supabaseAdmin.from("maintenance_tickets").update({ status, ...work, logged_by_name: session.displayName, updated_at: now }).eq("id", id).eq("void", false);
   if (error) throw new Error(error.message);
   refresh();
 }

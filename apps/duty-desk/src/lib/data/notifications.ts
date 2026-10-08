@@ -40,7 +40,7 @@ export async function getNotificationsSince(sinceIso: string, role?: DDRole): Pr
   const [checklists, complaints, tickets, ticketUpdates, readyNow, damaged] = await Promise.all([
     supabaseAdmin.from("apartment_checklists").select("id, apartment, created_at").eq("overall_ready", false).eq("status", "submitted").gt("created_at", sinceIso),
     supabaseAdmin.from("complaints").select("id, description, room, created_at").eq("priority", "High").gt("created_at", sinceIso),
-    supabaseAdmin.from("maintenance_tickets").select("id, area, issue_type, created_at").eq("priority", "High").gt("created_at", sinceIso),
+    supabaseAdmin.from("maintenance_tickets").select("id, area, issue_type, created_at").eq("priority", "High").neq("source", "request").gt("created_at", sinceIso),
     // Status changes (e.g. Maintenance Desk marking something Resolved) —
     // deliberately NOT restricted to High priority the way ticket-creation
     // notifications above are. Creation noise is filtered because most new
@@ -53,7 +53,8 @@ export async function getNotificationsSince(sinceIso: string, role?: DDRole): Pr
     // PostgREST can't compare two columns to each other directly.
     supabaseAdmin
       .from("maintenance_tickets")
-      .select("id, area, issue_type, status, logged_by_name, created_at, updated_at")
+      .select("id, area, issue_type, status, assigned_to, logged_by_name, started_by_name, resolved_by_name, created_at, updated_at")
+      .neq("source", "request")
       .gt("updated_at", sinceIso),
     readyForFrontDesk,
     damageForFrontDesk,
@@ -76,9 +77,16 @@ export async function getNotificationsSince(sinceIso: string, role?: DDRole): Pr
   }
   for (const row of ticketUpdates.data ?? []) {
     if (new Date(row.updated_at).getTime() - new Date(row.created_at).getTime() < 2000) continue;
+    // Maintenance Desk records who started and who fixed the job, and their unit.
+    const area = String(row.area).replace(/^apartment\s+/i, "");
+    const message =
+      row.status === "Resolved" && row.resolved_by_name ? `${row.issue_type} (${area}) fixed by ${row.resolved_by_name}, ${row.assigned_to}`
+        : row.status === "In Progress" && row.started_by_name ? `Work started on ${row.issue_type} (${area}) by ${row.started_by_name}, ${row.assigned_to}`
+        : `${row.issue_type} (${area}) marked ${row.status}${row.logged_by_name ? ` by ${row.logged_by_name}` : ""}`;
     items.push({
       id: `tktupd-${row.id}-${row.updated_at}`,
-      message: `${row.issue_type} (${row.area}) marked ${row.status}${row.logged_by_name ? ` by ${row.logged_by_name}` : ""}`,
+      message,
+      tone: row.status === "Resolved" ? "good" : undefined,
       href: `/maintenance?id=${row.id}`,
       createdAt: row.updated_at,
     });
