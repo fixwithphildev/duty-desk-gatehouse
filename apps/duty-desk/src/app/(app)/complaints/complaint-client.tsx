@@ -118,7 +118,7 @@ export function ComplaintsClient({ complaints, initialId, initialApartment, canE
                 </div>
               </li>
             ))}
-            {list.length === 0 ? <li className="empty" style={{ padding: "24px 16px" }}>No complaints match{q.trim() ? ` “${q.trim()}”` : ""}{pri !== "all" ? ` at ${pri.toLowerCase()} priority` : ""}.</li> : null}
+            {list.length === 0 ? <li className="empty" style={{ padding: "24px 16px" }}>{q.trim() || pri !== "all" ? <>No complaints match{q.trim() ? ` “${q.trim()}”` : ""}{pri !== "all" ? ` at ${pri.toLowerCase()} priority` : ""}.</> : complaints.length === 0 ? "No complaints yet." : tab === "open" ? "No open complaints." : tab === "resolved" ? "Nothing resolved yet." : "No complaints yet."}</li> : null}
           </ul>
         </section>
 
@@ -177,14 +177,14 @@ export function ComplaintsClient({ complaints, initialId, initialApartment, canE
                 <ul className="tl" style={{ padding: 0 }}>
                   <li><span className="tm">{sel.loggedWhen.replace(/^Today /, "")}</span><span className="dt"><MessageSquare size={11} /></span><span className="tx"><b>{sel.logged_by_name ?? "Someone"}</b> logged the complaint{sel.ticket_id ? " and sent a repair ticket to Maintenance" : ""}</span></li>
                   {sel.progressWhen ? <li><span className="tm">{sel.progressWhen.replace(/^Today /, "")}</span><span className="dt"><UserRound size={11} /></span><span className="tx">Moved to In progress</span></li> : null}
-                  {sel.resolvedWhen ? <li><span className="tm">{sel.resolvedWhen.replace(/^Today /, "")}</span><span className="dt"><Check size={11} /></span><span className="tx"><b>{sel.resolved_by_name ?? "Someone"}</b> resolved it{sel.resolution_note ? `: “${sel.resolution_note}”` : ""}</span></li> : null}
+                  {sel.resolvedWhen ? <li><span className="tm">{sel.resolvedWhen.replace(/^Today /, "")}</span><span className="dt"><Check size={11} /></span><span className="tx">{sel.resolved_by_name ? <><b>{sel.resolved_by_name}</b> resolved it</> : "Marked resolved"}{sel.resolution_note ? `: “${sel.resolution_note}”` : ""}</span></li> : null}
                   {sel.voidedWhen ? <li><span className="tm">{sel.voidedWhen.replace(/^Today /, "")}</span><span className="dt"><Ban size={11} /></span><span className="tx"><b>{sel.voided_by_name}</b> voided it: {sel.void_reason}</span></li> : null}
                 </ul>
               </div>
             </div>
           </section>
         ) : (
-          <section className="card empty">No complaints yet.</section>
+          <section className="card empty">{complaints.length === 0 ? "No complaints yet." : tab === "open" ? "Nothing open right now. Past complaints are under Resolved and All." : "Nothing to show here."}</section>
         )}
       </div>
 

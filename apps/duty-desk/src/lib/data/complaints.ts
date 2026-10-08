@@ -10,6 +10,7 @@ export interface ComplaintRow {
   priority: "Low" | "Medium" | "High";
   description: string;
   status: "Open" | "In Progress" | "Resolved";
+  updated_at: string | null;
   created_at: string;
   void: boolean;
   void_reason: string | null;

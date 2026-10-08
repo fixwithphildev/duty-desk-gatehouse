@@ -157,7 +157,7 @@ export function ResidentsClient({ residents, readyApts, initialId, canEdit, canV
             </div>
           </section>
         ) : (
-          <section className="card empty">{residents.length ? "Choose a resident to see their stay." : "No residents yet. Record a check-in to add the first."}</section>
+          <section className="card empty">{residents.length === 0 ? "No residents yet. Record a check-in to add the first." : list.length ? "Choose a resident to see their stay." : "Nobody here. Past stays are under Checked out and All."}</section>
         )}
       </div>
 

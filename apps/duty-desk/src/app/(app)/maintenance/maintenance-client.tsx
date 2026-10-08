@@ -204,7 +204,7 @@ export function MaintenanceClient({
                 </div>
               </li>
             ))}
-            {list.length === 0 ? <li className="empty" style={{ padding: "24px 16px" }}>{tickets.length === 0 ? "No repair tickets yet." : `No tickets here${s ? ` matching “${q.trim()}”` : ""}.`}</li> : null}
+            {list.length === 0 ? <li className="empty" style={{ padding: "24px 16px" }}>{tickets.length === 0 ? "No repair tickets yet." : s ? `No tickets match “${q.trim()}”.` : tab === "open" ? `No open tickets${dept !== "all" ? ` for ${dept}` : ""}.` : `No tickets here${dept !== "all" ? ` for ${dept}` : ""}.`}</li> : null}
           </ul>
         </section>
 
@@ -293,7 +293,7 @@ export function MaintenanceClient({
             </div>
           </section>
         ) : (
-          <section className="card empty">No repair tickets yet.</section>
+          <section className="card empty">{tickets.length === 0 ? "No repair tickets yet." : tab === "open" ? "Nothing open right now. Finished tickets are under Resolved and All." : "Nothing to show here."}</section>
         )}
       </div>
 

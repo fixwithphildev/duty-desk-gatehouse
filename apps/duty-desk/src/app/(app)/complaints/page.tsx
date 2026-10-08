@@ -14,7 +14,8 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: {
     loggedWhen: whenText(c.created_at),
     age: ageText(c.created_at),
     progressWhen: c.in_progress_at ? whenText(c.in_progress_at) : null,
-    resolvedWhen: c.resolved_at ? whenText(c.resolved_at) : null,
+    // Complaints resolved before resolve times were recorded: use when it was last changed.
+    resolvedWhen: c.resolved_at ? whenText(c.resolved_at) : c.status === "Resolved" && c.updated_at ? whenText(c.updated_at) : null,
     voidedWhen: c.voided_at ? whenText(c.voided_at) : null,
   }));
   return (
