@@ -11,8 +11,13 @@ name: Merge Gatehouse and Maintenance Desk into Duty Desk's database
 #             would be copied. Writes nothing to any database.
 #   copy    - the same, then copy into Duty Desk's database. Refuses if the
 #             gatehouse or maintenance schema already has tables.
-#   recopy  - empty the gatehouse and maintenance schemas in Duty Desk's
-#             database and copy again (for a fresh copy just before switching).
+#   recopy-gatehouse - empty only the gatehouse schema and copy Gatehouse
+#             again (a fresh copy just before Gatehouse switches over).
+#             Maintenance Desk already runs on its copy, so its schema is
+#             never emptied or recopied.
+#   compare - report, per table, the rows in each old database and in its
+#             copy, so we can see whether anything was added since the copy.
+#             Reads only.
 #   api     - only check that every copied table answers through Supabase's
 #             API with Duty Desk's service key, as the apps will. Reads only.
 #
@@ -39,7 +44,7 @@ jobs:
         id: mode
         run: |
           mode=$(tr -d '[:space:]' < ops/merge-mode)
-          case "$mode" in check|copy|recopy|api) ;; *) echo "ops/merge-mode must be check, copy, recopy or api (got '$mode')"; exit 1;; esac
+          case "$mode" in check|copy|recopy-gatehouse|compare|api) ;; *) echo "ops/merge-mode must be check, copy, recopy-gatehouse, compare or api (got '$mode')"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "Mode: $mode"
 
@@ -112,23 +117,24 @@ jobs:
           echo "($(wc -l < already.txt) tables already there)"
 
       - name: Copy into Duty Desk's database
-        if: steps.mode.outputs.mode == 'copy' || steps.mode.outputs.mode == 'recopy'
+        if: steps.mode.outputs.mode == 'copy' || steps.mode.outputs.mode == 'recopy-gatehouse'
         run: |
-          if [ "${{ steps.mode.outputs.mode }}" = "copy" ] && [ -s already.txt ]; then
-            echo "The gatehouse or maintenance schema already has tables. Use recopy to replace them."; exit 1
+          mode="${{ steps.mode.outputs.mode }}"
+          if [ "$mode" = "copy" ] && [ -s already.txt ]; then
+            echo "The gatehouse or maintenance schema already has tables; copy only runs into empty schemas."; exit 1
           fi
+          if [ "$mode" = "copy" ]; then schemas="gatehouse maintenance"; else schemas="gatehouse"; fi
           {
-            if [ "${{ steps.mode.outputs.mode }}" = "recopy" ]; then
-              echo "drop schema if exists gatehouse cascade;"
-              echo "drop schema if exists maintenance cascade;"
-            fi
-            echo "create schema if not exists gatehouse;"
-            echo "create schema if not exists maintenance;"
-            cat copy/gatehouse.sql
-            cat copy/maintenance.sql
+            # recopy-gatehouse: only Gatehouse's copy is replaced. The maintenance
+            # schema is live (Maintenance Desk runs on it) and is never touched here.
+            if [ "$mode" = "recopy-gatehouse" ]; then echo "drop schema if exists gatehouse cascade;"; fi
+            for s in $schemas; do
+              echo "create schema if not exists $s;"
+              cat copy/$s.sql
+            done
             # The apps reach their tables with the service role only. The
             # default privileges also cover tables added by later migrations.
-            for s in gatehouse maintenance; do
+            for s in $schemas; do
               echo "grant usage on schema $s to service_role;"
               echo "grant all on all tables in schema $s to service_role;"
               echo "grant all on all sequences in schema $s to service_role;"
@@ -143,7 +149,7 @@ jobs:
           echo "Copied."
 
       - name: Check every row arrived and Duty Desk's own tables are unchanged
-        if: steps.mode.outputs.mode == 'copy' || steps.mode.outputs.mode == 'recopy'
+        if: steps.mode.outputs.mode == 'copy' || steps.mode.outputs.mode == 'recopy-gatehouse'
         run: |
           count() {
             q=$(psql "$1" -At -c "select coalesce(string_agg(format('select %L, count(*) from %I.%I', table_name, '$2', table_name), ' union all ' order by table_name), 'select null, null where false') from information_schema.tables where table_schema = '$2' and table_type = 'BASE TABLE'")
@@ -154,11 +160,29 @@ jobs:
           count "$DD" public > dd-public-after.txt
           ok=1
           diff gh-source.txt gh-target.txt && echo "Gatehouse: every table and row matches" || { echo "Gatehouse copy differs from the source"; ok=0; }
-          diff md-source.txt md-target.txt && echo "Maintenance Desk: every table and row matches" || { echo "Maintenance Desk copy differs from the source"; ok=0; }
+          if [ "${{ steps.mode.outputs.mode }}" = "copy" ]; then
+            diff md-source.txt md-target.txt && echo "Maintenance Desk: every table and row matches" || { echo "Maintenance Desk copy differs from the source"; ok=0; }
+          else
+            # Maintenance Desk is live on its copy: it must still be there, with at least what was copied.
+            LC_ALL=C join <(LC_ALL=C sort md-source.txt) <(LC_ALL=C sort md-target.txt) | awk '$3 < $2 { print "maintenance." $1 " has fewer rows than were copied: " $2 " -> " $3; bad = 1 } END { exit bad }' && [ "$(wc -l < md-source.txt)" = "$(wc -l < md-target.txt)" ] && echo "Maintenance Desk's live copy: untouched" || { echo "Maintenance Desk's live copy changed"; ok=0; }
+          fi
           # Duty Desk is live, so its row counts can rise during the run; only a missing table or fewer rows is a problem.
           LC_ALL=C join <(LC_ALL=C sort dd-public-before.txt) <(LC_ALL=C sort dd-public-after.txt) | awk '$3 < $2 { print "Duty Desk table " $1 " lost rows: " $2 " -> " $3; bad = 1 } END { exit bad }' && echo "Duty Desk's own tables: unchanged" || ok=0
           [ "$(wc -l < dd-public-before.txt)" = "$(wc -l < dd-public-after.txt)" ] || { echo "Duty Desk's table list changed"; ok=0; }
           [ "$ok" = 1 ]
+
+      - name: Compare each old database with its copy
+        if: steps.mode.outputs.mode == 'compare'
+        run: |
+          count() {
+            q=$(psql "$1" -At -c "select coalesce(string_agg(format('select %L, count(*) from %I.%I', table_name, '$2', table_name), ' union all ' order by table_name), 'select null, null where false') from information_schema.tables where table_schema = '$2' and table_type = 'BASE TABLE'")
+            psql "$1" -At -F ' ' -c "$q"
+          }
+          count "$DD" gatehouse > gh-target.txt
+          count "$DD" maintenance > md-target.txt
+          echo "table | old database | copy"
+          echo "== Gatehouse"; LC_ALL=C join -a1 -a2 -e 0 -o 0,1.2,2.2 <(LC_ALL=C sort gh-source.txt) <(LC_ALL=C sort gh-target.txt) | awk '{ print $1 " | " $2 " | " $3 ($2 != $3 ? "   <- differs" : "") }'
+          echo "== Maintenance Desk"; LC_ALL=C join -a1 -a2 -e 0 -o 0,1.2,2.2 <(LC_ALL=C sort md-source.txt) <(LC_ALL=C sort md-target.txt) | awk '{ print $1 " | " $2 " | " $3 ($2 != $3 ? "   <- differs" : "") }'
 
       # Exactly what Gatehouse and Maintenance Desk will do after the switch:
       # Duty Desk's URL and service key, with the schema chosen per request.
