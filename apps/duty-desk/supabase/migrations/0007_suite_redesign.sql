@@ -42,3 +42,9 @@ alter table complaints
   add column if not exists in_progress_at timestamptz,
   add column if not exists resolved_at timestamptz,
   add column if not exists resolved_by uuid references staff_accounts(id);
+
+-- Tasks: who ticked a task off and when, so "Done" shows who did it and only
+-- today's finished tasks stay on the list.
+alter table tasks
+  add column if not exists done_at timestamptz,
+  add column if not exists done_by uuid references staff_accounts(id);

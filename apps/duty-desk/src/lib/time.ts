@@ -32,8 +32,9 @@ export function shortName(name: string): string {
   return w.length > 1 ? `${w[0][0]}. ${w.slice(1).join(" ")}` : name;
 }
 
-export function lagosHour(): number {
-  return Number(new Date().toLocaleString("en-GB", { hour: "2-digit", hour12: false, timeZone: TZ }));
+// The hour in Lagos now, or at a given time.
+export function lagosHour(iso?: string): number {
+  return Number((iso ? new Date(iso) : new Date()).toLocaleString("en-GB", { hour: "2-digit", hour12: false, timeZone: TZ })) % 24;
 }
 
 // "Thursday 8 October"

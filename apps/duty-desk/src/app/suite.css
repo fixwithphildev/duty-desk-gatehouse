@@ -890,3 +890,5 @@ select.input { appearance: auto; }
 .photo-add:hover { border-color: var(--acc); color: var(--acc); }
 .photo-add:focus-within { outline: 2px solid var(--acc); outline-offset: 2px; }
 .photo-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+
+.btn.btn-icon { padding-left: 0; padding-right: 0; width: 32px; justify-content: center; flex: none; }

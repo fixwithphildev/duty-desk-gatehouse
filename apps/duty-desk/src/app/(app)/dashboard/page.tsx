@@ -10,9 +10,10 @@ import { getTasks } from "@/lib/data/tasks";
 import { getDutyLog, getLastHandover } from "@/lib/data/dutylog";
 import { getReadiness, countByStatus, todoList } from "@/lib/data/readiness";
 import { aptShort } from "@/lib/apartments";
+import { byDue, taskState } from "@/lib/tasks";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Badge, Kpi, PageHead } from "@/components/suite";
-import { ageText, clockTime, dayText, isPastDue, lagosDayKey, lagosHour, shiftName, todayLong, whenText } from "@/lib/time";
+import { ageText, clockTime, dayText, lagosDayKey, lagosHour, shiftName, todayLong, whenText } from "@/lib/time";
 import { HandoverBanner } from "./handover-banner";
 import { LiveQueue, type QueueItem } from "./live-queue";
 
@@ -41,10 +42,12 @@ export default async function DashboardPage() {
   const myDraft = readiness.find((r) => r.draft?.prepared_by === session.staffId);
   const openComplaints = complaints.filter((x) => !x.void && x.status !== "Resolved");
   const openTickets = tickets.filter((x) => !x.void && x.status !== "Resolved");
-  const liveTasks = tasks.filter((t) => !t.void);
-  const pendingTasks = liveTasks.filter((t) => t.status === "Pending");
-  const late = pendingTasks.filter((t) => isPastDue(t.due_time));
-  const nextTask = pendingTasks.filter((t) => t.due_time && !isPastDue(t.due_time)).sort((a, b) => (a.due_time ?? "").localeCompare(b.due_time ?? ""))[0];
+  // Today's list: overdue, then to do by time, then what's been done today.
+  const dayTasks = tasks.filter((t) => !t.void).map((t) => ({ ...t, state: taskState(t) })).filter((t) => t.state !== "earlier");
+  const late = dayTasks.filter((t) => t.state === "overdue").sort(byDue);
+  const pendingTasks = [...late, ...dayTasks.filter((t) => t.state === "todo").sort(byDue)];
+  const liveTasks = [...pendingTasks, ...dayTasks.filter((t) => t.state === "done")];
+  const nextTask = pendingTasks.find((t) => t.state === "todo" && t.due_time);
   const oldestComplaint = [...openComplaints].sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
 
   // Check-in preps submitted each day for the last 14 days (Lagos days), split Ready / Not ready.
@@ -87,14 +90,14 @@ export default async function DashboardPage() {
         )}
       </PageHead>
 
-      <HandoverBanner handover={handover} />
+      <HandoverBanner handover={handover ? { id: handover.id, officer_name: handover.officer_name, notes: handover.notes, when: whenText(handover.created_at), mine: handover.officer_id === session.staffId } : null} />
 
       <div className="kpis">
         <Kpi icon={DoorOpen} label="Ready to sell" value={c.ready} unit={`/ ${empty} empty`} ctx={c.recheck ? `${c.recheck} re-check due` : "front desk can sell these"} data={readyTrend} sparkTone="ok" />
         <Kpi icon={ClipboardList} label="Checklists to do" value={todo.length} ctx={`${c.unchecked} need checklist · ${c.recheck} re-check`} data={prepTrend} tile={todo.length ? "warn" : ""} />
         <Kpi icon={MessageSquareWarning} label="Open complaints" value={openComplaints.length} ctx={oldestComplaint ? `oldest ${ageText(oldestComplaint.created_at)}${oldestComplaint.room ? " · " + oldestComplaint.room : ""}` : "none open"} data={complaintTrend.map((x) => x.value)} tile={openComplaints.length ? "warn" : ""} />
         <Kpi icon={Wrench} label="Open maintenance" value={openTickets.length} ctx={`${openTickets.filter((t) => t.priority === "High").length} high priority`} data={ticketTrend.map((x) => x.value)} />
-        <Kpi icon={ListTodo} label="Tasks to do" value={pendingTasks.length} unit={`/ ${liveTasks.length}`} ctx={late.length ? `${late.length} late` : nextTask ? `next ${nextTask.due_time} · ${nextTask.description}` : "nothing due"} tile={late.length ? "bad" : ""} />
+        <Kpi icon={ListTodo} label="Tasks to do" value={pendingTasks.length} unit={`/ ${liveTasks.length}`} ctx={late.length ? `${late.length} overdue` : nextTask ? `next ${nextTask.due_time} · ${nextTask.description}` : "nothing due"} tile={late.length ? "bad" : ""} />
       </div>
 
       <div className="g g-main">
@@ -162,12 +165,12 @@ export default async function DashboardPage() {
             <ul className="list">
               {liveTasks.slice(0, 6).map((t) => (
                 <li key={t.id} className="row">
-                  <span className="mono" style={{ fontSize: 12, width: 44, color: t.status === "Pending" && isPastDue(t.due_time) ? "var(--bad-fg)" : "var(--text-3)" }}>{t.due_time || "—"}</span>
+                  <span className="mono" style={{ fontSize: 12, width: 44, color: t.state === "overdue" ? "var(--bad-fg)" : "var(--text-3)" }}>{t.due_time || "—"}</span>
                   <div className="m"><b style={t.status === "Done" ? { textDecoration: "line-through", color: "var(--text-3)" } : undefined}>{t.description}</b><span>{t.assigned_to || "Anyone on duty"}</span></div>
-                  {t.status === "Done" ? <Badge tone="ok" dot={false}>Done</Badge> : isPastDue(t.due_time) ? <Badge tone="bad">Late</Badge> : <Badge tone="neu" dot={false}>To do</Badge>}
+                  {t.status === "Done" ? <Badge tone="ok" dot={false}>Done</Badge> : t.state === "overdue" ? <Badge tone="bad">Overdue</Badge> : <Badge tone="neu" dot={false}>To do</Badge>}
                 </li>
               ))}
-              {liveTasks.length === 0 ? <li className="empty">No tasks yet. <Link href="/tasks" className="link"><Plus size={12} /> Add one</Link></li> : null}
+              {liveTasks.length === 0 ? <li className="empty">No tasks for today. <Link href="/tasks" className="link"><Plus size={12} /> Add one</Link></li> : null}
             </ul>
           </section>
         </div>
