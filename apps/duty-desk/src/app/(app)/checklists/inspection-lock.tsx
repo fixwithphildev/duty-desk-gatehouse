@@ -2,14 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Lock } from "lucide-react";
+import { History, Lock } from "lucide-react";
 import { DD_ALL_ITEMS } from "@/lib/checklist-data";
 import type { InProgressChecklist } from "@/lib/data/checklists";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { takeOverChecklistAction } from "./new/actions";
 
 function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 // Shown instead of the form when someone else is already inspecting the
@@ -44,46 +44,41 @@ export function InspectionLock({ draft, canTakeOver }: { draft: InProgressCheckl
   };
 
   return (
-    <div className="card lock-card">
-      <div className="lock-head">
-        <span className="lock-avatar" aria-hidden="true">{initials}</span>
-        <div>
-          <div className="lock-title"><Lock size={15} /> Apartment {draft.apartment} is being inspected by {draft.prepared_by_name}</div>
-          <div className="cell-sub mono" style={{ maxWidth: "none" }}>
-            Started {fmtTime(draft.started_at)} · {draft.answered} of {total} checked · last saved {fmtTime(draft.updated_at)}
+    <section className="card">
+      <div className="card-h"><Lock size={16} /><h3>Already being inspected</h3></div>
+      <div className="card-b vstack" style={{ gap: 16 }}>
+        <div className="lock-who">
+          <span className="av" aria-hidden="true">{initials}</span>
+          <div className="vstack" style={{ gap: 2 }}>
+            <b>{draft.prepared_by_name}</b>
+            <span className="muted" style={{ fontSize: 13 }}>Started {fmtTime(draft.started_at)} · {draft.answered} of {total} checks done · last saved {fmtTime(draft.updated_at)}</span>
+            {draft.taken_over_from_name && draft.taken_over_at ? <span className="muted" style={{ fontSize: 13 }}>Taken over from {draft.taken_over_from_name} at {fmtTime(draft.taken_over_at)}</span> : null}
           </div>
-          {draft.taken_over_from_name && draft.taken_over_at ? (
-            <div className="cell-sub" style={{ maxWidth: "none" }}>Taken over from {draft.taken_over_from_name} at {fmtTime(draft.taken_over_at)}</div>
-          ) : null}
         </div>
-      </div>
-      <div className="progress-track" style={{ flex: "none" }} role="img" aria-label={`${draft.answered} of ${total} checked`}>
-        <div className="progress-fill" style={{ width: `${(draft.answered / total) * 100}%`, background: "var(--gold)" }} />
-      </div>
-      <p className="gate-copy" style={{ margin: 0 }}>
-        Two people can&apos;t inspect the same apartment at once, so their answers don&apos;t clash. {first} can carry on from any phone or
-        computer; nothing is lost if their phone dies.
-      </p>
-      {canTakeOver ? (
-        confirming ? (
-          <div className="lock-confirm">
-            <span>
-              Take over from {first}? Their {draft.answered} answers are kept, and the checklist will show that you took over and when.
-            </span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-primary" disabled={pending} onClick={takeOver}>
-                {pending ? "Taking over…" : "Yes, take over"}
-              </button>
-              <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => setConfirming(false)}>Cancel</button>
+        <div className="bar-prog" role="img" aria-label={`${draft.answered} of ${total} checked`}><span style={{ width: `${(draft.answered / total) * 100}%` }} /></div>
+        <p style={{ margin: 0, color: "var(--text-2)" }}>
+          Two people can’t inspect the same apartment at once, so their answers don’t clash. {first} can carry on from any phone or computer;
+          nothing is lost if their phone dies.
+        </p>
+        {canTakeOver ? (
+          confirming ? (
+            <div className="pill-note t-info" style={{ flexDirection: "column", alignItems: "stretch" }}>
+              <span>Take over from {first}? Their {draft.answered} answers are kept, and the checklist will show that you took over and when.</span>
+              <div className="hstack">
+                <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={takeOver}>{pending ? "Taking over…" : "Yes, take over"}</button>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => setConfirming(false)}>Cancel</button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div>
-            <button type="button" className="btn btn-ghost" onClick={() => setConfirming(true)}>Take over from {first}</button>
-          </div>
-        )
-      ) : null}
-      {error ? <div className="login-error" style={{ margin: 0 }}>{error}</div> : null}
-    </div>
+          ) : (
+            <div className="pill-note t-info">
+              <History size={16} />
+              <span style={{ flex: 1 }}>If {first} has gone off shift or can’t finish, you can take it over. Their answers are kept, and the record shows you took over and when.</span>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirming(true)}>Take over from {first}</button>
+            </div>
+          )
+        ) : null}
+        {error ? <div className="err-note" role="alert">{error}</div> : null}
+      </div>
+    </section>
   );
 }

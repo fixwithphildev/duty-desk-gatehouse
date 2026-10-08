@@ -877,3 +877,7 @@ hr.sep { border: 0; border-top: 1px solid var(--line-soft); margin: 0; }
 .si-peek:hover { color: var(--text); background: var(--hover); }
 .input-wrap .si-peek svg { position: static; }
 a.si-back { text-decoration: none; }
+label.field.field-wrap { font-size: 14px; color: var(--text); font-weight: 400; }
+select.input { appearance: auto; }
+.qty-in { width: 36px; border: 0; background: transparent; text-align: center; font-size: 12.5px; outline: none; padding: 0; color: var(--text); }
+.cond button:disabled, .decide button:disabled { opacity: .55; cursor: not-allowed; }

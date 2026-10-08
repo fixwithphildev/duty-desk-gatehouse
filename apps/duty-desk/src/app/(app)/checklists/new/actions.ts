@@ -92,6 +92,7 @@ const itemRow = (checklistId: string, item: ChecklistItemInput, linkedTicketId: 
   qty: item.qty,
   condition: item.condition,
   available: item.available,
+  note: item.note?.trim() || null,
   linked_ticket_id: linkedTicketId,
 });
 
@@ -186,7 +187,7 @@ export async function submitChecklistAction(input: {
           priority: item.condition === "Missing" ? "High" : "Medium",
           status: "Reported",
           source: "checklist",
-          notes: `Flagged as ${item.condition} during ${typeLabel} checklist`,
+          notes: `${item.note?.trim() ? item.note.trim() + " — " : ""}Flagged as ${item.condition} during ${typeLabel} checklist`,
           created_by: session.staffId,
           logged_by_name: session.displayName,
         })

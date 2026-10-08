@@ -35,6 +35,7 @@ export interface ChecklistItemRow {
   condition: Condition | null;
   available: string | null;
   linked_ticket_id: string | null;
+  note?: string | null;
 }
 
 // Submitted checklists only. Inspections still in progress are a separate

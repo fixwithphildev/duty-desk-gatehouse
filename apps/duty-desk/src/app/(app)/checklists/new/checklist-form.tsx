@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, CloudOff, LogOut, Trash2 } from "lucide-react";
-import { Field } from "@/components/ui";
-import { DD_ALL_ITEMS, DD_CATEGORIES, DD_CHECKLIST_TYPES, DD_CONDITIONS } from "@/lib/checklist-data";
+import {
+  AlertTriangle, Bath, BedDouble, Check, CheckCircle2, Clock, CloudOff, DoorClosed, DoorOpen, Droplets,
+  Lock, LogOut, Minus, Plus, Trash2, Tv, UtensilsCrossed, Wrench,
+} from "lucide-react";
+import { DD_ALL_ITEMS, DD_CATEGORIES, DD_CHECKLIST_TYPES, ticketDeptFor } from "@/lib/checklist-data";
 import type { ChecklistItemInput, ChecklistType, Condition } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { discardChecklistAction, saveChecklistDraftAction, submitChecklistAction, type SaveResult } from "./actions";
@@ -13,6 +15,7 @@ export interface ItemValue {
   qty?: string;
   condition?: Condition;
   available?: "Yes" | "No";
+  note?: string;
 }
 
 // Answers are batched and saved shortly after each tap, so a whole checklist
@@ -23,6 +26,11 @@ const RETRY_MS = 5_000;
 
 type SaveState = { kind: "saved"; at: string } | { kind: "saving" } | { kind: "offline" } | { kind: "taken"; by: string } | { kind: "gone" };
 
+const CAT_ICON: Record<string, typeof Bath> = { room: BedDouble, kitchen: UtensilsCrossed, bathroom: Bath, electronics: Tv, toiletries: Droplets };
+const DEPT_TAG: Record<string, string> = { Engineering: "ENG", Housekeeping: "HK" };
+const isFlagged = (v: ItemValue | undefined) => v?.condition === "Damaged" || v?.condition === "Missing" || v?.available === "No";
+const isAnswered = (v: ItemValue | undefined) => !!(v?.condition || v?.available);
+
 function fmtClock(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
@@ -30,6 +38,7 @@ function fmtClock(iso: string): string {
 export function ChecklistForm({
   id,
   apartment,
+  where,
   initialType,
   initialValues,
   initialReady,
@@ -40,6 +49,7 @@ export function ChecklistForm({
 }: {
   id: string;
   apartment: string;
+  where: string;
   initialType: ChecklistType;
   initialValues: Record<string, ItemValue>;
   initialReady: boolean | null;
@@ -54,6 +64,7 @@ export function ChecklistForm({
   // The officer's explicit final call. It starts empty and is never picked
   // for them: flagged items are shown, but the decision is theirs.
   const [ready, setReady] = useState<boolean | null>(initialReady);
+  const [cat, setCat] = useState(() => DD_CATEGORIES.find((c) => c.items.some((n) => !isAnswered(initialValues[n])))?.key ?? DD_CATEGORIES[0].key);
   const [save, setSave] = useState<SaveState>({ kind: "saved", at: savedAt });
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -68,15 +79,16 @@ export function ChecklistForm({
   const saving = useRef(false);
   const locked = save.kind === "taken" || save.kind === "gone";
 
-  const toInput = (name: string, v: ItemValue, fillDefaults: boolean): ChecklistItemInput => {
+  const toInput = (name: string, v: ItemValue): ChecklistItemInput => {
     const it = DD_ALL_ITEMS.find((i) => i.name === name)!;
     return {
       name: it.name,
       category: it.categoryLabel,
       kind: it.kind,
       qty: it.hasQty ? v.qty ?? "" : null,
-      condition: it.kind === "condition" ? v.condition ?? (fillDefaults ? "N/A" : null) : null,
-      available: it.kind === "yesno" ? v.available ?? (fillDefaults ? "No" : null) : null,
+      condition: it.kind === "condition" ? v.condition ?? null : null,
+      available: it.kind === "yesno" ? v.available ?? null : null,
+      note: isFlagged(v) ? v.note ?? null : null,
     };
   };
 
@@ -101,7 +113,7 @@ export function ChecklistForm({
     saving.current = true;
     setSave({ kind: "saving" });
     try {
-      const result = await saveChecklistDraftAction({ id, items: names.map((n) => toInput(n, valuesRef.current[n] || {}, false)), ...meta });
+      const result = await saveChecklistDraftAction({ id, items: names.map((n) => toInput(n, valuesRef.current[n] || {})), ...meta });
       handleResult(result);
       return result.ok;
     } catch {
@@ -116,9 +128,9 @@ export function ChecklistForm({
     }
   }, [id]);
 
-  const scheduleSave = () => {
+  const scheduleSave = (delay = SAVE_DELAY_MS) => {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void flush(), SAVE_DELAY_MS);
+    timer.current = setTimeout(() => void flush(), delay);
   };
 
   // Warn before leaving with answers that haven't reached the server yet.
@@ -133,11 +145,11 @@ export function ChecklistForm({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
-  const setVal = (name: string, patch: Partial<ItemValue>) => {
+  const setVal = (name: string, patch: Partial<ItemValue>, delay?: number) => {
     if (locked) return;
     setValues((v) => ({ ...v, [name]: { ...v[name], ...patch } }));
     dirtyItems.current.add(name);
-    scheduleSave();
+    scheduleSave(delay);
   };
   const chooseType = (t: ChecklistType) => {
     if (locked) return;
@@ -151,17 +163,28 @@ export function ChecklistForm({
     dirtyMeta.current.ready = r;
     scheduleSave();
   };
+  const bumpQty = (name: string, d: number) => {
+    const cur = Number(values[name]?.qty || 0);
+    setVal(name, { qty: String(Math.max(0, cur + d)) });
+  };
 
-  const flaggedCount = Object.values(values).filter((v) => v.condition === "Damaged" || v.condition === "Missing").length;
-  const answeredCount = Object.keys(values).filter((k) => values[k].condition || values[k].available).length;
-  const overridingDespiteIssues = ready === true && flaggedCount > 0;
-  const totalItems = DD_ALL_ITEMS.length;
+  const total = DD_ALL_ITEMS.length;
+  const answered = DD_ALL_ITEMS.filter((i) => isAnswered(values[i.name])).length;
+  const flagged = DD_ALL_ITEMS.filter((i) => isFlagged(values[i.name]));
+  const good = DD_ALL_ITEMS.filter((i) => values[i.name]?.condition === "Good" || values[i.name]?.available === "Yes").length;
+  const na = DD_ALL_ITEMS.filter((i) => values[i.name]?.condition === "N/A").length;
+  const left = total - answered;
+  const category = DD_CATEGORIES.find((c) => c.key === cat) ?? DD_CATEGORIES[0];
+  const catDone = (key: string) => DD_CATEGORIES.find((c) => c.key === key)!.items.filter((n) => isAnswered(values[n])).length;
+  const catFlags = (key: string) => DD_CATEGORIES.find((c) => c.key === key)!.items.filter((n) => isFlagged(values[n])).length;
+  const nextCat = DD_CATEGORIES[DD_CATEGORIES.findIndex((c) => c.key === cat) + 1];
+  const r = 48, C = 2 * Math.PI * r, frac = answered / total;
 
   const handleSubmit = () => {
-    if (ready === null || locked) return;
+    if (ready === null || locked || left > 0) return;
     const overallReady = ready;
     setError(null);
-    const items = DD_ALL_ITEMS.map((it) => toInput(it.name, values[it.name] || {}, true));
+    const items = DD_ALL_ITEMS.map((it) => toInput(it.name, values[it.name] || {}));
     startTransition(async () => {
       try {
         await flush();
@@ -190,196 +213,193 @@ export function ChecklistForm({
     router.push("/checklists");
   };
 
+  const typeLabel = DD_CHECKLIST_TYPES.find((t) => t.value === type)?.label ?? "Checklist";
+
   return (
-    <div className="view">
-      <div className="view-head">
-        <div>
-          <div className="eyebrow">Checklist in progress</div>
-          <h2>Apartment {apartment}</h2>
+    <>
+      <div className="phead">
+        <div className="t">
+          <span className="over">{typeLabel} · started {fmtClock(startedAt)} · {preparedByName}{takenOverFrom ? ` · took over from ${takenOverFrom.name} at ${fmtClock(takenOverFrom.at)}` : ""}</span>
+          <h1>Inspecting {apartment}</h1>
+          <p>Answer every line. Damaged or missing items open a maintenance ticket when you submit.</p>
+          <div className={`save-note save-${save.kind}`} role="status" aria-live="polite" style={{ marginTop: 6 }}>
+            {save.kind === "offline" ? (
+              <><CloudOff size={14} /> Not saved — no connection. Keep this page open; it will keep trying.</>
+            ) : save.kind === "saving" ? (
+              <><Clock size={14} /> Saving…</>
+            ) : save.kind === "saved" ? (
+              <><CheckCircle2 size={14} /> Saved {fmtClock(save.at)} · the other officers can see you’re inspecting {apartment}. If your phone dies, open it again and carry on.</>
+            ) : null}
+          </div>
         </div>
-        <button type="button" className="btn btn-ghost" onClick={exit} disabled={locked}>
-          <LogOut size={14} /> Exit · it&apos;s saved
-        </button>
+        <div className="acts">
+          <button type="button" className="btn btn-ghost" onClick={exit} disabled={locked}><LogOut size={15} /> Exit · it’s saved</button>
+        </div>
       </div>
 
       {save.kind === "taken" ? (
-        <div className="login-error" style={{ margin: 0, display: "flex", gap: 9, alignItems: "flex-start" }}>
-          <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>
-            {save.by} has taken over this inspection. Your answers up to now are kept in it.{" "}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => router.push("/checklists")}>Back to checklists</button>
-          </span>
+        <div className="err-note" role="alert">
+          <AlertTriangle size={16} />
+          <span>{save.by} has taken over this inspection. Your answers up to now are kept in it. <button type="button" className="link" onClick={() => router.push("/checklists")}>Back to checklists</button></span>
         </div>
       ) : save.kind === "gone" ? (
-        <div className="login-error" style={{ margin: 0 }}>
-          This checklist has already been submitted or stopped.{" "}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => router.push(`/checklists/${id}`)}>Open it</button>
+        <div className="err-note" role="alert">
+          <AlertTriangle size={16} />
+          <span>This checklist has already been submitted or stopped. <button type="button" className="link" onClick={() => router.push(`/checklists/${id}`)}>Open it</button></span>
         </div>
       ) : null}
 
-      <div className="card">
-        <div className="new-header-grid">
-          <Field label="Apartment / unit number">
-            <input className="input" value={apartment} disabled />
-          </Field>
-          <Field label="Checklist type">
-            <div className="seg">
-              {DD_CHECKLIST_TYPES.map((t) => (
-                <button key={t.value} type="button" disabled={locked} className={`seg-btn ${type === t.value ? "seg-active" : ""}`} onClick={() => chooseType(t.value)}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Prepared by">
-            <input className="input" value={preparedByName} disabled />
-          </Field>
-        </div>
-        <div className="progress-row mono">
-          <span>{answeredCount} / {totalItems} items checked</span>
-          <div className="progress-track">
-            <div
-              className="progress-fill"
-              style={{ width: `${(answeredCount / totalItems) * 100}%`, background: flaggedCount > 0 ? "var(--red)" : "var(--teal)" }}
-            />
+      <div className="insp">
+        <aside className="card rail sticky">
+          <div className="unit">
+            <span className="over">Apartment</span>
+            <b>{apartment}</b>
+            <span className="muted" style={{ fontSize: 12.5 }}>{where}</span>
+            <span className="hint" style={{ display: "block", marginTop: 4 }}>{total} checks · same list for every apartment</span>
           </div>
-          {flaggedCount > 0 ? <span className="progress-flag">{flaggedCount} flagged</span> : null}
-        </div>
-        <div className={`save-note save-${save.kind}`} role="status" aria-live="polite">
-          {save.kind === "offline" ? (
-            <><CloudOff size={14} /> Not saved — no connection. Keep this page open; it will keep trying.</>
-          ) : save.kind === "saving" ? (
-            <>Saving…</>
-          ) : save.kind === "saved" ? (
-            <><CheckCircle2 size={14} /> Saved {fmtClock(save.at)} · the other officers can see you&apos;re inspecting this apartment</>
-          ) : null}
-        </div>
-        <div className="cell-sub" style={{ maxWidth: "none" }}>
-          Started {fmtClock(startedAt)}
-          {takenOverFrom ? ` · taken over from ${takenOverFrom.name} at ${fmtClock(takenOverFrom.at)}` : ""}
-        </div>
-      </div>
+          <div className="seg" role="group" aria-label="Checklist type" style={{ margin: "4px 0 8px" }}>
+            {DD_CHECKLIST_TYPES.map((t) => (
+              <button key={t.value} type="button" disabled={locked} aria-pressed={type === t.value} onClick={() => chooseType(t.value)}>{t.label}</button>
+            ))}
+          </div>
+          <div className="cats">
+            {DD_CATEGORIES.map((c) => {
+              const Icon = CAT_ICON[c.key] ?? Check, d = catDone(c.key), f = catFlags(c.key);
+              return (
+                <button key={c.key} type="button" className="catb" aria-current={cat === c.key} onClick={() => setCat(c.key)}>
+                  <span className="l"><Icon size={16} />{c.label}<span className="n">{d}/{c.items.length}</span></span>
+                  <span className="bar"><span style={{ width: `${(d / c.items.length) * 100}%`, background: f ? "var(--bad)" : undefined }} /></span>
+                  {f ? <span className="flagn">{f} flagged</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
 
-      {DD_CATEGORIES.map((cat) => (
-        <div className="card" key={cat.key}>
-          <div className="card-head"><span>{cat.label}</span></div>
-          <div className="checklist-grid">
-            {cat.items.map((name) => {
+        <section className="card">
+          <div className="card-h">
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <h3>{category.label}</h3>
+              <span className="sub">{catDone(category.key)} of {category.items.length} answered{category.kind === "yesno" ? " · available?" : ""}</span>
+            </div>
+            <span className="sp" />
+            {nextCat ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCat(nextCat.key); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Next: {nextCat.label}</button> : null}
+          </div>
+          <div>
+            {category.items.map((name) => {
               const item = DD_ALL_ITEMS.find((i) => i.name === name)!;
               const v = values[name] || {};
+              const fl = isFlagged(v), done = isAnswered(v) && !fl;
+              const opts = category.kind === "yesno" ? (["Yes", "No"] as const) : (["Good", "Damaged", "Missing", "N/A"] as const);
+              const cur = category.kind === "yesno" ? v.available : v.condition;
+              const dept = category.kind === "condition" ? ticketDeptFor(name) : "Housekeeping";
               return (
-                <div key={name} className="checklist-row">
-                  <span className="checklist-name">{name}</span>
-                  <div className="checklist-controls">
-                    {item.hasQty ? (
-                      <input
-                        className="input input-qty"
-                        type="number"
-                        min="0"
-                        placeholder="Qty"
-                        value={v.qty || ""}
-                        disabled={locked}
-                        onChange={(e) => setVal(name, { qty: e.target.value })}
-                      />
-                    ) : null}
-                    {cat.kind === "condition" ? (
-                      <div className="seg seg-tight">
-                        {DD_CONDITIONS.map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            disabled={locked}
-                            className={`seg-btn seg-xs tone-${c === "Good" ? "teal" : c === "Damaged" || c === "Missing" ? "red" : "neutral"} ${v.condition === c ? "seg-active" : ""}`}
-                            onClick={() => setVal(name, { condition: c })}
-                          >
-                            {c}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="seg seg-tight">
-                        {(["Yes", "No"] as const).map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            disabled={locked}
-                            className={`seg-btn seg-xs ${v.available === c ? "seg-active" : ""}`}
-                            onClick={() => setVal(name, { available: c })}
-                          >
-                            {c}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                <div key={name} className={`irow ${fl ? "flag" : ""} ${done ? "done" : ""}`}>
+                  <div className="nm">
+                    {done ? <span style={{ color: "var(--ok)" }}><CheckCircle2 size={15} /></span> : fl ? <span style={{ color: "var(--bad)" }}><AlertTriangle size={15} /></span> : <span style={{ color: "var(--text-4)" }}><Clock size={15} /></span>}
+                    {name}
+                    <span className="eng" title={`Goes to ${dept} if flagged`}>{DEPT_TAG[dept] ?? ""}</span>
                   </div>
+                  {item.hasQty ? (
+                    <div className="qty" aria-label={`Quantity for ${name}`}>
+                      <button type="button" disabled={locked} onClick={() => bumpQty(name, -1)} aria-label="Fewer"><Minus size={13} /></button>
+                      <input className="qty-in mono" inputMode="numeric" value={v.qty ?? ""} placeholder="–" disabled={locked} onChange={(e) => setVal(name, { qty: e.target.value.replace(/[^0-9]/g, "") })} aria-label={`How many ${name}`} />
+                      <button type="button" disabled={locked} onClick={() => bumpQty(name, 1)} aria-label="More"><Plus size={13} /></button>
+                    </div>
+                  ) : null}
+                  <div className="cond" role="radiogroup" aria-label={name}>
+                    {opts.map((o) => (
+                      <button
+                        key={o}
+                        type="button"
+                        role="radio"
+                        aria-checked={cur === o}
+                        disabled={locked}
+                        className={cur === o ? `on-${o.replace("/", "")}` : ""}
+                        onClick={() => setVal(name, category.kind === "yesno" ? { available: o as "Yes" | "No" } : { condition: o as Condition })}
+                      >
+                        {cur === o && (o === "Good" || o === "Yes") ? <Check size={12} strokeWidth={2.4} /> : null}{o}
+                      </button>
+                    ))}
+                  </div>
+                  {fl ? (
+                    <div className="note">
+                      <input className="input" value={v.note ?? ""} disabled={locked} onChange={(e) => setVal(name, { note: e.target.value }, 1200)} placeholder="What’s wrong? This goes on the ticket" aria-label={`What's wrong with ${name}`} />
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </div>
-        </div>
-      ))}
+        </section>
 
-      <div className="card">
-        <div className="card-head"><span>Final status</span></div>
-        <p className="gate-copy" style={{ marginTop: -8 }}>
-          {flaggedCount > 0
-            ? `${flaggedCount} item(s) flagged Damaged/Missing will open maintenance tickets automatically, whichever you choose below.`
-            : "No issues flagged."}{" "}
-          You decide whether the apartment is ready; the system never picks for you.
-        </p>
-        <div className="seg">
-          {([["Ready", true], ["Not Ready", false]] as const).map(([label, value]) => (
-            <button
-              key={label}
-              type="button"
-              disabled={locked}
-              className={`seg-btn tone-${value ? "teal" : "red"} ${ready === value ? "seg-active" : ""}`}
-              onClick={() => chooseReady(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {overridingDespiteIssues ? (
-          <div className="login-error" style={{ marginTop: 14, marginBottom: 0, display: "flex", gap: 9, alignItems: "flex-start" }}>
-            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>
-              You&apos;re marking this apartment Ready even though {flaggedCount} item(s) are flagged Damaged/Missing. This will still be
-              recorded under your name and a maintenance ticket will still be created — but check-in will proceed.
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="card stop-card">
-        {confirmStop ? (
-          <div className="lock-confirm">
-            <span>Stop this checklist without submitting it? The apartment goes back to its last submitted status, and a record is kept that you stopped it.</span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-ghost" disabled={pending} onClick={stop} style={{ color: "var(--red)" }}>
-                <Trash2 size={14} /> Yes, stop it
+        <aside className="sum">
+          <div className="card sticky">
+            <div className="card-h"><h3>Summary</h3><span className="sp" /><span className="sub mono">{left} left</span></div>
+            <div className="card-b vstack" style={{ gap: 18 }}>
+              <div className="hstack" style={{ gap: 16, flexWrap: "nowrap" }}>
+                <div className="ring">
+                  <svg width="112" height="112" viewBox="0 0 112 112" aria-hidden="true">
+                    <circle cx="56" cy="56" r={r} fill="none" stroke="var(--neu-bg)" strokeWidth="10" />
+                    <circle cx="56" cy="56" r={r} fill="none" stroke={flagged.length ? "var(--bad)" : "var(--ok)"} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${C * frac} ${C}`} transform="rotate(-90 56 56)" />
+                  </svg>
+                  <b>{answered}<small>of {total}</small></b>
+                </div>
+                <dl className="kv" style={{ gridTemplateColumns: "auto auto", gap: "6px 14px" }}>
+                  <dt>Good / Yes</dt><dd className="mono">{good}</dd>
+                  <dt>Flagged</dt><dd className="mono" style={{ color: flagged.length ? "var(--bad-fg)" : "inherit", fontWeight: 600 }}>{flagged.length}</dd>
+                  <dt>N/A</dt><dd className="mono">{na}</dd>
+                </dl>
+              </div>
+              <div className="vstack">
+                <span className="over">Tickets this will open</span>
+                {flagged.length ? (
+                  <div className="flagged">
+                    {flagged.map((i) => {
+                      const v = values[i.name]!, d = i.kind === "yesno" ? "Housekeeping" : ticketDeptFor(i.name);
+                      return (
+                        <div key={i.name}>
+                          <span style={{ color: "var(--bad)", marginTop: 1 }}><Wrench size={15} /></span>
+                          <div><b>{i.name}</b><span className="muted">{v.condition ?? "Missing"} → {d}{v.note ? ` · ${v.note}` : ""}</span></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <span className="hint">None yet. Mark an item Damaged or Missing to queue one.</span>}
+              </div>
+              <div className="vstack">
+                <span className="over">Readiness decision</span>
+                <div className="decide">
+                  <button type="button" disabled={locked} className={ready === true ? "on-ready" : ""} onClick={() => chooseReady(true)} aria-pressed={ready === true}><DoorOpen size={16} /> Ready</button>
+                  <button type="button" disabled={locked} className={ready === false ? "on-notready" : ""} onClick={() => chooseReady(false)} aria-pressed={ready === false}><DoorClosed size={16} /> Not ready</button>
+                </div>
+                {ready === true && flagged.length ? (
+                  <div className="pill-note t-warn"><AlertTriangle size={16} /><span>You’re marking {apartment} Ready with {flagged.length} flagged item{flagged.length > 1 ? "s" : ""}. That’s recorded under your name, and the tickets still open.</span></div>
+                ) : <span className="hint">You decide. The system never picks for you.</span>}
+              </div>
+              {error ? <div className="err-note" role="alert"><AlertTriangle size={16} /><span>{error}</span></div> : null}
+              <button type="button" className="btn btn-primary btn-lg btn-block" disabled={left > 0 || ready === null || pending || locked} onClick={handleSubmit}>
+                <Lock size={16} /> {pending ? "Submitting…" : "Submit and lock"}
               </button>
-              <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => setConfirmStop(false)}>Keep going</button>
+              <span className="hint" style={{ textAlign: "center" }}>
+                {left ? `Answer the ${left} remaining line${left > 1 ? "s" : ""} to submit. Nothing is saved as N/A unless you choose it.` : ready === null ? "Choose Ready or Not ready to submit." : `Signs as ${preparedByName}. Submitted checklists can only be voided by a manager.`}
+              </span>
+              <hr className="sep" />
+              {confirmStop ? (
+                <div className="vstack" style={{ gap: 8 }}>
+                  <span style={{ fontSize: 13, color: "var(--text-2)" }}>Stop without submitting? {apartment} goes back to its last submitted status, and a record is kept that you stopped it.</span>
+                  <div className="hstack">
+                    <button type="button" className="btn btn-danger btn-sm" disabled={pending} onClick={stop}><Trash2 size={13} /> Yes, stop it</button>
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => setConfirmStop(false)}>Keep going</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="btn btn-ghost btn-sm" disabled={locked} onClick={() => setConfirmStop(true)} style={{ alignSelf: "flex-start" }}><Trash2 size={13} /> Stop without submitting</button>
+              )}
             </div>
           </div>
-        ) : (
-          <button type="button" className="btn btn-ghost btn-sm" disabled={locked} onClick={() => setConfirmStop(true)}>
-            <Trash2 size={13} /> Stop this checklist without submitting
-          </button>
-        )}
+        </aside>
       </div>
-
-      <div className="submit-bar" style={error ? { flexDirection: "column", alignItems: "stretch" } : undefined}>
-        {error ? <div className="login-error" style={{ margin: 0 }}>{error}</div> : null}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <div className="mono submit-summary">
-            {ready === null ? "Choose Ready or Not Ready to submit" : <>Submitting as: <strong>{ready ? "Ready" : "Not Ready"}</strong></>}
-          </div>
-          <button type="button" className="btn btn-primary" disabled={ready === null || pending || locked} onClick={handleSubmit}>
-            {pending ? "Submitting…" : "Submit checklist & lock"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }

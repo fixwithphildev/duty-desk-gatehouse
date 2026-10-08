@@ -87,4 +87,6 @@ export interface ChecklistItemInput {
   qty: string | null;
   condition: Condition | null;
   available: "Yes" | "No" | null;
+  // What's wrong, for a flagged item. Goes on the maintenance ticket.
+  note?: string | null;
 }
