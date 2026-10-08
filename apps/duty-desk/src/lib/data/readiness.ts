@@ -47,7 +47,7 @@ const DAY = 24 * 60 * 60 * 1000;
 
 // Wrapped in cache() so the menu and the page share one lookup per request.
 export const getReadiness = cache(async function getReadiness(): Promise<Readiness[]> {
-  const [{ data: rows, error }, drafts] = await Promise.all([
+  const [{ data: rows, error }, drafts, { data: blocking }] = await Promise.all([
     supabaseAdmin
       .from("apartment_checklists")
       .select("id, apartment, type, overall_ready, created_at, staff_accounts!apartment_checklists_prepared_by_fkey(display_name)")
@@ -55,8 +55,17 @@ export const getReadiness = cache(async function getReadiness(): Promise<Readine
       .eq("void", false)
       .order("created_at", { ascending: false }),
     getChecklistsInProgress(),
+    // Problems reported on an apartment that stop it being sold.
+    supabaseAdmin.from("maintenance_tickets").select("id, area, issue_type, status, created_at").eq("blocks_sale", true).eq("void", false),
   ]);
   if (error) throw new Error(error.message);
+  const blocksBy = new Map<string, { id: string; issue: string; status: string; at: string }[]>();
+  for (const t of blocking ?? []) {
+    const a = findApartment(String(t.area).replace(/^apartment\s+/i, ""));
+    if (!a) continue;
+    const k = aptKey(a.name);
+    blocksBy.set(k, [...(blocksBy.get(k) ?? []), { id: t.id, issue: t.issue_type, status: t.status, at: t.created_at }]);
+  }
 
   const prep = new Map<string, Readiness["lastPrep"]>();
   const out = new Map<string, Readiness["lastCheckout"]>();
@@ -97,15 +106,22 @@ export const getReadiness = cache(async function getReadiness(): Promise<Readine
     const k = aptKey(apartment.name);
     const lastPrep = prep.get(k) ?? null, lastCheckout = out.get(k) ?? null, draft = draftBy.get(k) ?? null;
     const prepCounts = !!lastPrep && (!lastCheckout || lastPrep.at > lastCheckout.at);
+    // A reported problem since the last check-in prep keeps it off sale until it's checked again.
+    const blocks = (blocksBy.get(k) ?? []).filter((b) => !lastPrep || b.at > lastPrep.at);
     let status: ReadyStatus = "unchecked", readyUntil: string | null = null, daysLeft: number | null = null;
     if (draft) status = "inspecting";
+    else if (blocks.length) status = "notready";
     else if (prepCounts && lastPrep?.ready) {
       const until = new Date(lastPrep!.at).getTime() + READY_DAYS * DAY;
       readyUntil = new Date(until).toISOString();
       if (until > now) { status = "ready"; daysLeft = Math.max(1, Math.ceil((until - now) / DAY)); }
       else status = "recheck";
     } else if (prepCounts) status = "notready";
-    return { apartment, status, lastPrep, lastCheckout, draft, readyUntil, daysLeft, flags: lastPrep && status === "notready" ? flagsBy.get(lastPrep.id) ?? [] : [] };
+    const flags: Flag[] = status !== "notready" ? [] : [
+      ...(lastPrep && prepCounts && !lastPrep.ready ? flagsBy.get(lastPrep.id) ?? [] : []),
+      ...blocks.map((b) => ({ item: b.issue, problem: "Reported", ticketId: b.id, ticketStatus: b.status })),
+    ];
+    return { apartment, status, lastPrep, lastCheckout, draft, readyUntil, daysLeft, flags };
   });
 });
 

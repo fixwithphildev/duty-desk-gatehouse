@@ -141,7 +141,7 @@ export default async function DashboardPage() {
                 <li key={r.apartment.name}>
                   <Link href={`/board?apt=${encodeURIComponent(r.apartment.name)}`} className="row click" style={{ padding: "9px 0", textDecoration: "none", color: "inherit" }}>
                     <span className="stripe s-bad" />
-                    <div className="m"><b>{r.apartment.name}</b><span>{r.flags.length ? r.flags.map((f) => `${f.item} ${f.problem.toLowerCase()}`).join(", ") : `Not ready since ${whenText(r.lastPrep!.at)}`}</span></div>
+                    <div className="m"><b>{r.apartment.name}</b><span>{r.flags.length ? r.flags.map((f) => `${f.item} ${f.problem.toLowerCase()}`).join(", ") : r.lastPrep ? `Not ready since ${whenText(r.lastPrep.at)}` : "Problem reported"}</span></div>
                     <span className="age">{aptShort(r.apartment)}</span>
                     <Badge tone="bad">{plural(r.flags.length, "flag")}</Badge>
                   </Link>

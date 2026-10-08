@@ -36,10 +36,12 @@ export function toBoardApt(r: Readiness, staffId: string): BoardApt {
       meta = `Ready ${plural(daysAgo(p!.at), "day")} ago`;
       detail = `Submitted Ready ${plural(daysAgo(p!.at), "day")} ago and still unsold. A Ready check-in prep lasts ${READY_DAYS} days; check it again before front desk sells it.`;
       break;
-    case "notready":
-      meta = r.flags.length ? `${plural(r.flags.length, "flag")} · ${whenText(p!.at)}` : whenText(p!.at);
-      detail = `Problem found ${whenText(p!.at)} by ${p!.by}. Sellable again once repaired and a new check-in prep is submitted Ready.`;
+    case "notready": {
+      const fromPrep = p && !p.ready;
+      meta = r.flags.length ? `${plural(r.flags.length, "flag")}${fromPrep ? ` · ${whenText(p.at)}` : ""}` : fromPrep ? whenText(p.at) : "Problem reported";
+      detail = `${fromPrep ? `Problem found ${whenText(p.at)} by ${p.by}` : "A problem was reported since the last check-in prep"}. Sellable again once repaired and a new check-in prep is submitted Ready.`;
       break;
+    }
     case "inspecting":
       meta = `${d!.answered}/${total} · ${shortName(d!.prepared_by_name)}`;
       detail = `${d!.prepared_by_name} started at ${clockTime(d!.started_at)} · ${d!.answered} of ${total} checks done · saved ${clockTime(d!.updated_at)}. Front desk can sell it once the check-in prep is submitted Ready.`;

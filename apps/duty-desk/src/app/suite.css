@@ -881,3 +881,12 @@ label.field.field-wrap { font-size: 14px; color: var(--text); font-weight: 400; 
 select.input { appearance: auto; }
 .qty-in { width: 36px; border: 0; background: transparent; text-align: center; font-size: 12.5px; outline: none; padding: 0; color: var(--text); }
 .cond button:disabled, .decide button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Repair photos */
+.photos { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.photos a { width: 88px; height: 88px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); display: block; background: var(--subtle); }
+.photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-add { width: 88px; height: 88px; border-radius: 10px; border: 1px dashed var(--line); display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12.5px; color: var(--text-2); cursor: pointer; position: relative; background: var(--surface); }
+.photo-add:hover { border-color: var(--acc); color: var(--acc); }
+.photo-add:focus-within { outline: 2px solid var(--acc); outline-offset: 2px; }
+.photo-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }

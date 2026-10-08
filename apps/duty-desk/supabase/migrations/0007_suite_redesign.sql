@@ -31,3 +31,14 @@ create index if not exists resident_profiles_staying_idx
 -- it's fixed and a new check-in prep is submitted Ready.
 alter table maintenance_tickets
   add column if not exists blocks_sale boolean not null default false;
+
+-- Complaints: which team is handling it, the note left when it's resolved,
+-- the repair ticket it opened (if something was broken), and when it moved
+-- along, for the complaint's activity timeline.
+alter table complaints
+  add column if not exists assigned_to text not null default 'Resident Officers',
+  add column if not exists resolution_note text,
+  add column if not exists ticket_id uuid references maintenance_tickets(id),
+  add column if not exists in_progress_at timestamptz,
+  add column if not exists resolved_at timestamptz,
+  add column if not exists resolved_by uuid references staff_accounts(id);

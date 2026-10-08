@@ -95,6 +95,8 @@ export const DD_COMPLAINT_CATEGORIES = ["Noise", "Cleanliness", "Service", "Bill
 export const DD_PRIORITIES = ["Low", "Medium", "High"] as const;
 export const DD_COMPLAINT_STATUSES = ["Open", "In Progress", "Resolved"] as const;
 export const DD_TICKET_DEPTS = ["Engineering", "Housekeeping", "General Maintenance"];
+// Teams a complaint can be assigned to: the Resident Officers themselves, or a maintenance department.
+export const DD_COMPLAINT_TEAMS = ["Resident Officers", ...DD_TICKET_DEPTS];
 export const DD_TICKET_STATUSES = ["Reported", "In Progress", "Resolved"] as const;
 
 // Best-effort split for tickets auto-created from a flagged checklist item:
