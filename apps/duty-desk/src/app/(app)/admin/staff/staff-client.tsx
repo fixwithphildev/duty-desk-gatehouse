@@ -63,10 +63,18 @@ export function StaffClient({
     <div className="view">
       <div className="view-head">
         <h2>Staff Accounts</h2>
-        <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>
-          <Plus size={15} /> New account
-        </button>
+        {assignable.length > 0 ? (
+          <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>
+            <Plus size={15} /> New account
+          </button>
+        ) : null}
       </div>
+
+      {assignable.length === 0 ? (
+        <p className="gate-copy" style={{ margin: 0 }}>
+          You can see every account here. Only the Resident Manager, General Manager or Super Admin can add people, reset a usercode or disable an account.
+        </p>
+      ) : null}
 
       <div className="table-wrap">
         <table className="table">

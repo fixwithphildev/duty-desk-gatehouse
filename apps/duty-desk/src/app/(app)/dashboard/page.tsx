@@ -9,6 +9,7 @@ import { getPendingTasksCount } from "@/lib/data/tasks";
 import { getLastHandover } from "@/lib/data/dutylog";
 import { StatCard, Badge } from "@/components/ui";
 import { TrendChart } from "@/components/trend-chart";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { priorityTone } from "@/lib/checklist-data";
 import { HandoverBanner } from "./handover-banner";
 
@@ -54,9 +55,12 @@ export default async function DashboardPage() {
           <h1>Good {partOfDay}, {firstName}</h1>
           <p className="dash-hero-sub">Here&apos;s what needs you on today&apos;s duty.</p>
         </div>
-        {canCreateChecklist ? (
-          <Link href="/checklists/new" className="btn btn-primary"><Plus size={16} /> New checklist</Link>
-        ) : null}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <AutoRefresh />
+          {canCreateChecklist ? (
+            <Link href="/checklists/new" className="btn btn-primary"><Plus size={16} /> New checklist</Link>
+          ) : null}
+        </div>
       </div>
 
       <HandoverBanner handover={lastHandover} />

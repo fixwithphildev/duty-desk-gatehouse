@@ -185,6 +185,25 @@ a.stat-card:hover { border-color: var(--hair); transform: translateY(-2px); }
 .gate-result.tone-teal { background: var(--teal-soft); color: var(--teal); }
 .gate-result.tone-red { background: var(--red-soft); color: var(--red); }
 .gate-result.tone-neutral { background: var(--surface-2); color: var(--muted); }
+.gate-result.tone-gold { background: var(--gold-soft); color: var(--gold-ink); }
+
+/* Pages that refresh on their own show when they last did. */
+.live-pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--teal); background: var(--teal-soft); white-space: nowrap; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); animation: livePulse 2s ease-in-out infinite; }
+.live-time { font-size: 11.5px; font-weight: 500; opacity: 0.85; }
+@keyframes livePulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+/* Checklists saved as you go: save status, someone else's inspection, stop. */
+.save-note { display: flex; align-items: center; gap: 7px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.save-note.save-saved { color: var(--teal); }
+.save-note.save-offline { color: var(--red); font-weight: 600; }
+.lock-card { display: flex; flex-direction: column; gap: 14px; border-left: 3px solid var(--gold); }
+.lock-head { display: flex; gap: 14px; align-items: center; }
+.lock-avatar { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; }
+.lock-title { display: flex; align-items: center; gap: 8px; font-family: var(--font-serif), serif; font-size: 19px; font-weight: 500; }
+.lock-confirm { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); font-size: 14px; }
+.stop-card { padding-top: 14px; padding-bottom: 14px; }
 .gate-status { font-weight: 700; font-size: 14px; }
 .gate-meta { font-size: 12px; opacity: 0.85; }
 
@@ -388,6 +407,8 @@ select.select {
 .notification-toast-msg { font-size: 13px; line-height: 1.45; flex: 1; }
 .notification-toast-close { background: transparent; border: none; color: var(--muted); flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; margin: -6px -4px 0 0; }
 .notification-toast svg:first-child { color: var(--red); flex-shrink: 0; margin-top: 1px; }
+.notification-toast-good { border-left-color: var(--teal); }
+.notification-toast-good svg:first-child { color: var(--teal); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

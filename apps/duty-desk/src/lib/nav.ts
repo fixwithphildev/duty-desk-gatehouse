@@ -1,4 +1,4 @@
-import type { DDRole } from "./types";
+import { DD_STAFF_VIEW_ROLES, type DDRole } from "./types";
 
 export interface NavItem {
   href: string;
@@ -23,6 +23,8 @@ export const DD_NAV: NavItem[] = [
 // Dashboard and Account are always reachable so there's always a safe landing page.
 export const DD_ROLE_ALLOWED_PREFIXES: Record<DDRole, string[]> = {
   resident_officer: ["/dashboard", "/checklists", "/complaints", "/maintenance", "/dutylog", "/residents", "/tasks", "/reports", "/account"],
+  supervisor: ["/dashboard", "/checklists", "/complaints", "/maintenance", "/dutylog", "/residents", "/tasks", "/reports", "/admin", "/account"],
+  resident_manager: ["/dashboard", "/checklists", "/complaints", "/maintenance", "/dutylog", "/residents", "/tasks", "/reports", "/admin", "/account"],
   general_manager: ["/dashboard", "/checklists", "/complaints", "/maintenance", "/dutylog", "/residents", "/tasks", "/reports", "/admin", "/account"],
   super_admin: ["/dashboard", "/checklists", "/complaints", "/maintenance", "/dutylog", "/residents", "/tasks", "/reports", "/admin", "/account"],
   front_desk: ["/dashboard", "/checklists", "/complaints", "/account"],
@@ -35,5 +37,5 @@ export function isPathAllowed(role: DDRole, pathname: string): boolean {
 }
 
 export function navForRole(role: DDRole): NavItem[] {
-  return DD_NAV.filter((item) => isPathAllowed(role, item.href) && (item.iconKey !== "admin" || role === "general_manager" || role === "super_admin"));
+  return DD_NAV.filter((item) => isPathAllowed(role, item.href) && (item.iconKey !== "admin" || DD_STAFF_VIEW_ROLES.includes(role)));
 }

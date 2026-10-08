@@ -2,15 +2,27 @@
 
 import { useState } from "react";
 import { Search, DoorOpen, DoorClosed } from "lucide-react";
-import type { ChecklistRow } from "@/lib/data/checklists";
+import type { ChecklistRow, InProgressChecklist } from "@/lib/data/checklists";
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function GateLookup({ latestByApartment }: { latestByApartment: Record<string, ChecklistRow> }) {
+export function GateLookup({
+  latestByApartment,
+  inProgressByApartment,
+  totalItems,
+}: {
+  latestByApartment: Record<string, ChecklistRow>;
+  inProgressByApartment: Record<string, InProgressChecklist>;
+  totalItems: number;
+}) {
   const [lookup, setLookup] = useState("");
-  const result = lookup.trim() ? latestByApartment[lookup.trim().toLowerCase()] : null;
+  const key = lookup.trim().toLowerCase();
+  const result = key ? latestByApartment[key] : null;
+  // Someone is checking it right now: don't sell it until that's submitted,
+  // even if the last submitted checklist said Ready.
+  const inspecting = key ? inProgressByApartment[key] : null;
 
   return (
     <div className="card gate-card">
@@ -21,7 +33,18 @@ export function GateLookup({ latestByApartment }: { latestByApartment: Record<st
         <input className="input input-plain" placeholder="e.g. 12B" value={lookup} onChange={(e) => setLookup(e.target.value)} />
       </div>
       {lookup.trim() ? (
-        result ? (
+        inspecting ? (
+          <div className="gate-result tone-gold">
+            <DoorClosed size={18} />
+            <div>
+              <div className="gate-status">BEING CHECKED NOW — wait until it&apos;s submitted</div>
+              <div className="gate-meta mono">
+                {inspecting.prepared_by_name} started at {fmtTime(inspecting.started_at)} · {inspecting.answered}/{totalItems} checked
+                {result ? ` · last result: ${result.overall_ready ? "Ready" : "Not Ready"}` : ""}
+              </div>
+            </div>
+          </div>
+        ) : result ? (
           <div className={`gate-result tone-${result.overall_ready ? "teal" : "red"}`}>
             {result.overall_ready ? <DoorOpen size={18} /> : <DoorClosed size={18} />}
             <div>
