@@ -107,7 +107,7 @@ export function MaintenanceClient({
 
   const pick = (id: string) => {
     setSelId(id);
-    if (window.matchMedia("(max-width: 1280px)").matches) setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    if (window.matchMedia("(max-width: 900px)").matches) setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   };
 
   const run = (fn: () => Promise<void>) => {

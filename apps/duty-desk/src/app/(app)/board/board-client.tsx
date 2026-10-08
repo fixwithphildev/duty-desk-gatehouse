@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { Search, DoorOpen, DoorClosed, ClipboardCheck, History, Users } from "lucide-react";
+import { Search, DoorOpen, DoorClosed, ClipboardCheck, History, Users, KeyRound, LogOut, AlertTriangle } from "lucide-react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { StartPrepButton } from "@/components/start-prep-button";
+import { CheckInDrawer, CheckOutDrawer, ReportProblemDrawer } from "@/components/stay-drawers";
 import { MAIN_FLOORS, STUDIO_FLOORS, WINGS, suggestApartments, findApartment } from "@/lib/apartments";
 import type { BoardApt } from "@/lib/board";
 import type { ReadyStatus } from "@/lib/data/readiness";
@@ -15,7 +16,10 @@ type Bld = "both" | "main" | "studio";
 const FILTERS: [Filter, string][] = [["all", "All"], ["ready", "Ready to sell"], ["recheck", "Re-check"], ["notready", "Not ready"], ["unchecked", "Needs checklist"], ["inspecting", "Inspecting"], ["occupied", "Occupied"]];
 const TICKET_TONE: Record<string, string> = { Reported: "t-warn", "In Progress": "t-info", Resolved: "t-ok" };
 
-export function BoardClient({ apts, canPrep, initialApt, readyDays, totalChecks }: { apts: BoardApt[]; canPrep: boolean; initialApt: string; readyDays: number; totalChecks: number }) {
+type Act = { kind: "in" | "out" | "report"; apt: BoardApt } | null;
+
+export function BoardClient({ apts, canPrep, canStay, canReport, initialApt, readyDays, totalChecks }: { apts: BoardApt[]; canPrep: boolean; canStay: boolean; canReport: boolean; initialApt: string; readyDays: number; totalChecks: number }) {
+  const [act, setAct] = useState<Act>(null);
   const [q, setQ] = useState(initialApt);
   const [focus, setFocus] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
@@ -24,6 +28,7 @@ export function BoardClient({ apts, canPrep, initialApt, readyDays, totalChecks 
   const isMain = (a: BoardApt) => a.building === "Main Building";
   const count = (f: Filter, list = apts) => (f === "all" ? list.length : list.filter((a) => a.status === f).length);
   const todo = apts.filter((a) => a.status === "unchecked" || a.status === "recheck").sort((a, b) => (a.status === "unchecked" ? 0 : 1) - (b.status === "unchecked" ? 0 : 1) || a.name.localeCompare(b.name));
+  const leaving = apts.filter((a) => a.stay?.leavesToday).sort((a, b) => a.name.localeCompare(b.name));
   const mine = apts.find((a) => a.draft?.mine);
   const headStart = mine ?? todo[0];
 
@@ -55,6 +60,7 @@ export function BoardClient({ apts, canPrep, initialApt, readyDays, totalChecks 
       {count("recheck", list) ? <span className="badge t-warn"><span className="d" />{count("recheck", list)} re-check</span> : null}
       {count("notready", list) ? <span className="badge t-bad"><span className="d" />{count("notready", list)} not ready</span> : null}
       {count("unchecked", list) ? <span className="badge t-neu">{count("unchecked", list)} need checklist</span> : null}
+      {count("occupied", list) ? <span className="badge t-neu">{count("occupied", list)} occupied</span> : null}
     </div>
   );
 
@@ -76,7 +82,25 @@ export function BoardClient({ apts, canPrep, initialApt, readyDays, totalChecks 
 
       <div className="g todo-grid">
         <section className="card">
-          <div className="card-h"><h3>Your to-do</h3><span className="sp" /><span className="badge t-warn"><span className="d" />{todo.length} check-in prep{todo.length === 1 ? "" : "s"}</span></div>
+          <div className="card-h">
+            <h3>Your to-do</h3><span className="sp" />
+            {leaving.length ? <span className="badge t-info"><span className="d" />{leaving.length} check-out{leaving.length === 1 ? "" : "s"}</span> : null}
+            <span className="badge t-warn"><span className="d" />{todo.length} check-in prep{todo.length === 1 ? "" : "s"}</span>
+          </div>
+          {leaving.length ? (
+            <div className="todo-sec">
+              <span className="over">Check-outs today · {leaving.length}</span>
+              <ul className="list">
+                {leaving.map((a) => (
+                  <li key={a.name} className="row" style={{ padding: "10px 0" }}>
+                    <span className="stripe s-info" />
+                    <div className="m"><b>{a.name}</b><span>{a.stay!.guest} · {a.short}</span></div>
+                    {canStay ? <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAct({ kind: "out", apt: a })}><LogOut size={14} /> Record check-out</button> : <span className="badge t-neu">Leaves today</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className="todo-sec">
             <span className="over">Check-in preps to do · {todo.length}</span>
             <ul className="list">
@@ -126,7 +150,7 @@ export function BoardClient({ apts, canPrep, initialApt, readyDays, totalChecks 
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <LookupResult a={selected} typed={typed} matches={sugg.length} canPrep={canPrep} readyDays={readyDays} totalChecks={totalChecks} />
+            <LookupResult a={selected} typed={typed} matches={sugg.length} canPrep={canPrep} canStay={canStay} canReport={canReport} onAct={(kind, apt) => setAct({ kind, apt })} readyDays={readyDays} totalChecks={totalChecks} />
           </div>
         </section>
       </div>
@@ -185,11 +209,15 @@ export function BoardClient({ apts, canPrep, initialApt, readyDays, totalChecks 
           <p className="hint" style={{ padding: "0 20px 16px", margin: 0 }}>Studios use the same {totalChecks}-check check-in prep as the main building.</p>
         </section>
       ) : null}
+
+      <CheckInDrawer open={act?.kind === "in"} onClose={() => setAct(null)} apartment={act?.kind === "in" ? { name: act.apt.name, where: act.apt.where } : null} readyApts={[]} />
+      <CheckOutDrawer open={act?.kind === "out"} onClose={() => setAct(null)} stay={act?.kind === "out" && act.apt.stay ? { id: act.apt.stay.id, guest: act.apt.stay.guest, apartment: act.apt.name, where: act.apt.where } : null} />
+      <ReportProblemDrawer open={act?.kind === "report"} onClose={() => setAct(null)} apartment={act?.kind === "report" ? { name: act.apt.name, where: act.apt.where } : null} occupied={act?.apt.status === "occupied"} />
     </>
   );
 }
 
-function LookupResult({ a, typed, matches, canPrep, readyDays, totalChecks }: { a: BoardApt | undefined; typed: string; matches: number; canPrep: boolean; readyDays: number; totalChecks: number }) {
+function LookupResult({ a, typed, matches, canPrep, canStay, canReport, onAct, readyDays, totalChecks }: { a: BoardApt | undefined; typed: string; matches: number; canPrep: boolean; canStay: boolean; canReport: boolean; onAct: (kind: "in" | "out" | "report", a: BoardApt) => void; readyDays: number; totalChecks: number }) {
   if (!typed) {
     return (
       <div className="res neu">
@@ -248,7 +276,10 @@ function LookupResult({ a, typed, matches, canPrep, readyDays, totalChecks }: { 
           </div>
         ) : null}
         <div className="hstack" style={{ marginTop: 8 }}>
+          {a.status === "ready" && canStay ? <button type="button" className="btn btn-primary btn-sm" onClick={() => onAct("in", a)}><KeyRound size={14} /> Record check-in</button> : null}
+          {a.status === "occupied" && canStay && a.stay ? <button type="button" className="btn btn-primary btn-sm" onClick={() => onAct("out", a)}><LogOut size={14} /> Record check-out</button> : null}
           {a.status === "ready" ? start("Check again") : a.status === "occupied" ? null : start()}
+          {canReport && a.status !== "inspecting" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAct("report", a)}><AlertTriangle size={14} /> Report a problem</button> : null}
           {history}
         </div>
         {a.status === "ready" ? <span className="hint">Ready lasts {readyDays} days from the check-in prep. Every apartment uses the same {totalChecks} checks.</span> : null}

@@ -21,7 +21,9 @@ alter table resident_profiles
   add column if not exists checked_out_by uuid references staff_accounts(id),
   add column if not exists keys_returned text,          -- 'Yes' | 'Partly' | 'No'
   add column if not exists damage jsonb,                -- [{ "item": "...", "charge": 15000 }]
-  add column if not exists checkout_notes text;
+  add column if not exists checkout_notes text,
+  add column if not exists damage_charged_at timestamptz, -- front desk charged the guest for the damage
+  add column if not exists damage_charged_by uuid references staff_accounts(id);
 
 create index if not exists resident_profiles_staying_idx
   on resident_profiles (lower(room))

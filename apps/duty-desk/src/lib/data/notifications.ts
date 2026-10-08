@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { DDRole } from "@/lib/types";
+import { naira, damageTotal } from "@/lib/money";
 
 export interface NotificationItem {
   id: string;
@@ -31,7 +32,12 @@ export async function getNotificationsSince(sinceIso: string, role?: DDRole): Pr
           .eq("void", false)
           .gt("created_at", sinceIso)
       : Promise.resolve({ data: [] as Array<Record<string, unknown>> });
-  const [checklists, complaints, tickets, ticketUpdates, readyNow] = await Promise.all([
+  // And when a guest leaves with damage to charge.
+  const damageForFrontDesk =
+    role === "front_desk"
+      ? supabaseAdmin.from("resident_profiles").select("id, name, room, damage, checked_out_at").not("damage", "is", null).eq("void", false).gt("checked_out_at", sinceIso)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> });
+  const [checklists, complaints, tickets, ticketUpdates, readyNow, damaged] = await Promise.all([
     supabaseAdmin.from("apartment_checklists").select("id, apartment, created_at").eq("overall_ready", false).eq("status", "submitted").gt("created_at", sinceIso),
     supabaseAdmin.from("complaints").select("id, description, room, created_at").eq("priority", "High").gt("created_at", sinceIso),
     supabaseAdmin.from("maintenance_tickets").select("id, area, issue_type, created_at").eq("priority", "High").gt("created_at", sinceIso),
@@ -50,29 +56,30 @@ export async function getNotificationsSince(sinceIso: string, role?: DDRole): Pr
       .select("id, area, issue_type, status, logged_by_name, created_at, updated_at")
       .gt("updated_at", sinceIso),
     readyForFrontDesk,
+    damageForFrontDesk,
   ]);
 
   const items: NotificationItem[] = [];
   for (const row of checklists.data ?? []) {
-    items.push({ id: `chk-${row.id}`, message: `Apartment ${row.apartment} marked Not Ready`, href: "/checklists", createdAt: row.created_at });
+    items.push({ id: `chk-${row.id}`, message: `Apartment ${row.apartment} marked Not Ready`, href: `/checklists/${row.id}`, createdAt: row.created_at });
   }
   for (const row of complaints.data ?? []) {
     items.push({
       id: `cmp-${row.id}`,
       message: `High priority complaint${row.room ? ` — Room ${row.room}` : ""}: ${row.description}`,
-      href: "/complaints",
+      href: `/complaints?id=${row.id}`,
       createdAt: row.created_at,
     });
   }
   for (const row of tickets.data ?? []) {
-    items.push({ id: `tkt-${row.id}`, message: `High priority maintenance — ${row.area}: ${row.issue_type}`, href: "/maintenance", createdAt: row.created_at });
+    items.push({ id: `tkt-${row.id}`, message: `High priority maintenance — ${row.area}: ${row.issue_type}`, href: `/maintenance?id=${row.id}`, createdAt: row.created_at });
   }
   for (const row of ticketUpdates.data ?? []) {
     if (new Date(row.updated_at).getTime() - new Date(row.created_at).getTime() < 2000) continue;
     items.push({
       id: `tktupd-${row.id}-${row.updated_at}`,
       message: `${row.issue_type} (${row.area}) marked ${row.status}${row.logged_by_name ? ` by ${row.logged_by_name}` : ""}`,
-      href: "/maintenance",
+      href: `/maintenance?id=${row.id}`,
       createdAt: row.updated_at,
     });
   }
@@ -81,9 +88,19 @@ export async function getNotificationsSince(sinceIso: string, role?: DDRole): Pr
     items.push({
       id: `rdy-${row.id}`,
       message: `Apartment ${row.apartment} is ready to sell${by ? ` — checked by ${by}` : ""}`,
-      href: "/checklists",
+      href: `/frontdesk?apt=${encodeURIComponent(String(row.apartment))}`,
       createdAt: row.created_at as string,
       tone: "good",
+    });
+  }
+  for (const row of (damaged.data ?? []) as Array<Record<string, unknown>>) {
+    const d = Array.isArray(row.damage) ? (row.damage as { charge: number }[]) : [];
+    if (!d.length) continue;
+    items.push({
+      id: `dmg-${row.id}`,
+      message: `${row.name} left ${row.room} with damage to charge: ${naira(damageTotal(d))}`,
+      href: "/frontdesk",
+      createdAt: row.checked_out_at as string,
     });
   }
   return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

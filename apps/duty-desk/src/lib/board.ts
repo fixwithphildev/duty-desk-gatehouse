@@ -2,7 +2,7 @@ import "server-only";
 import { aptShort, aptWhere } from "@/lib/apartments";
 import { DD_ALL_ITEMS } from "@/lib/checklist-data";
 import { STATUS_LABEL, READY_DAYS, type Readiness, type ReadyStatus } from "@/lib/data/readiness";
-import { clockTime, dayText, daysAgo, shortName, whenText } from "@/lib/time";
+import { clockTime, dayText, daysAgo, lagosDayKey, shortName, whenText } from "@/lib/time";
 import type { DraftInfo } from "@/components/start-prep-button";
 
 // One apartment as the Readiness Board, the front desk page and search show it.
@@ -20,6 +20,8 @@ export interface BoardApt {
   flags: { item: string; problem: string; ticketStatus: string | null }[];
   draft: DraftInfo | null;
   lastPrepId: string | null;
+  // The guest staying, when it's Occupied.
+  stay: { id: string; guest: string; until: string | null; leavesToday: boolean } | null;
 }
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -40,6 +42,12 @@ export function toBoardApt(r: Readiness, staffId: string): BoardApt {
       const fromPrep = p && !p.ready;
       meta = r.flags.length ? `${plural(r.flags.length, "flag")}${fromPrep ? ` · ${whenText(p.at)}` : ""}` : fromPrep ? whenText(p.at) : "Problem reported";
       detail = `${fromPrep ? `Problem found ${whenText(p.at)} by ${p.by}` : "A problem was reported since the last check-in prep"}. Sellable again once repaired and a new check-in prep is submitted Ready.`;
+      break;
+    }
+    case "occupied": {
+      const s = r.stay!, gone = s.until ? s.until <= lagosDayKey(new Date().toISOString()) : false;
+      meta = s.until ? (gone ? "Leaves today" : `Out ${dayText(s.until)}`) : shortName(s.guest);
+      detail = `${s.guest} checked in ${whenText(s.since)}${s.until ? `, leaving ${gone ? "today" : dayText(s.until)}` : ""}. It can’t be sold until the check-out is recorded and a new check-in prep is submitted Ready.`;
       break;
     }
     case "inspecting":
@@ -64,6 +72,7 @@ export function toBoardApt(r: Readiness, staffId: string): BoardApt {
     flags: r.flags.map((f) => ({ item: f.item, problem: f.problem, ticketStatus: f.ticketStatus })),
     draft: d ? { id: d.id, by: d.prepared_by_name, mine: d.prepared_by === staffId } : null,
     lastPrepId: p?.id ?? null,
+    stay: r.stay ? { id: r.stay.id, guest: r.stay.guest, until: r.stay.until, leavesToday: !!r.stay.until && r.stay.until <= lagosDayKey(new Date().toISOString()) } : null,
   };
 }
 

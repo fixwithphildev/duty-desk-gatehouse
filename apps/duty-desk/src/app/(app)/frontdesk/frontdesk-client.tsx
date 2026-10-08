@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Search, DoorOpen, DoorClosed, Lock, Bell } from "lucide-react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { suggestApartments, findApartment } from "@/lib/apartments";
@@ -14,7 +14,7 @@ const GROUPS: [string, (a: BoardApt) => boolean][] = [
 ];
 const loc = (a: BoardApt) => (a.type === "Studio" ? `L${a.floor} ${a.building.slice(-1)}` : a.floor === "G" ? "G" : `L${a.floor}`);
 
-export function FrontDeskClient({ apts, justReady, readyDays, initialApt }: { initialApt: string; apts: BoardApt[]; justReady: { name: string; type: string; at: string; by: string }[]; readyDays: number }) {
+export function FrontDeskClient({ apts, justReady, readyDays, initialApt, damage }: { initialApt: string; apts: BoardApt[]; justReady: { name: string; type: string; at: string; by: string }[]; readyDays: number; damage?: ReactNode }) {
   const [q, setQ] = useState(initialApt);
   const [focus, setFocus] = useState(false);
   const byName = useMemo(() => new Map(apts.map((a) => [a.name, a])), [apts]);
@@ -36,10 +36,12 @@ export function FrontDeskClient({ apts, justReady, readyDays, initialApt }: { in
       <div className="phead">
         <div className="t">
           <h1>Apartments you can sell</h1>
-          <p>Only apartments a Resident Officer has checked and marked Ready in the last {readyDays} days. This page updates on its own; nothing here can be changed.</p>
+          <p>Only apartments a Resident Officer has checked and marked Ready in the last {readyDays} days. This page updates on its own.</p>
         </div>
         <div className="acts"><span className="badge t-ok"><span className="d" />{ready.length} ready to sell</span><AutoRefresh /></div>
       </div>
+
+      {damage}
 
       {justReady.length ? (
         <section className="card">

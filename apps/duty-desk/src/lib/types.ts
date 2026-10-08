@@ -40,6 +40,8 @@ export const DD_CAN_EDIT_TICKETS: DDRole[] = ["resident_officer", "supervisor", 
 export const DD_CAN_EDIT_DUTY_LOG: DDRole[] = ["resident_officer", "supervisor", "resident_manager", "super_admin"];
 export const DD_CAN_EDIT_RESIDENTS: DDRole[] = ["resident_officer", "supervisor", "resident_manager", "super_admin"];
 export const DD_CAN_EDIT_TASKS: DDRole[] = ["resident_officer", "supervisor", "resident_manager", "super_admin"];
+// Front desk charges guests for damage found at check-out, and marks it charged.
+export const DD_CAN_CHARGE_DAMAGE: DDRole[] = ["front_desk", "resident_officer", "supervisor", "resident_manager", "super_admin"];
 
 // Voiding a mistaken record is a correction with real accountability
 // weight, so it's reserved for a higher tier than routine create/edit —

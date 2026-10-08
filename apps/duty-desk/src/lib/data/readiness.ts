@@ -11,9 +11,9 @@ import { getChecklistsInProgress, type InProgressChecklist } from "@/lib/data/ch
 //  - Not ready: the latest check-in prep was submitted Not ready. It stays red until a new
 //    check-in prep says Ready, even once the repairs are done.
 //  - Needs checklist: never inspected, or a guest has checked out since the last check-in prep.
-//  - Occupied: a guest is staying (once check-ins are recorded in Duty Desk).
-// Only check-in preps decide Ready. A check-out inspection marks the guest as gone, so the
-// apartment then needs a new check-in prep.
+//  - Occupied: a guest's check-in was recorded and their check-out hasn't been yet.
+// Only check-in preps decide Ready. A recorded check-out (or a check-out inspection) marks the
+// guest as gone, so the apartment then needs a new check-in prep.
 export type ReadyStatus = "ready" | "recheck" | "notready" | "inspecting" | "unchecked" | "occupied";
 export const READY_DAYS = 3;
 export const STATUS_LABEL: Record<ReadyStatus, string> = {
@@ -32,9 +32,17 @@ export interface Flag {
   ticketStatus: string | null;
 }
 
+export interface Stay {
+  id: string;
+  guest: string;
+  since: string; // checked in at
+  until: string | null; // planned check-out date, "2026-10-09"
+}
+
 export interface Readiness {
   apartment: Apartment;
   status: ReadyStatus;
+  stay: Stay | null;
   lastPrep: { id: string; ready: boolean; at: string; by: string } | null;
   lastCheckout: { at: string; by: string } | null;
   draft: InProgressChecklist | null;
@@ -47,7 +55,7 @@ const DAY = 24 * 60 * 60 * 1000;
 
 // Wrapped in cache() so the menu and the page share one lookup per request.
 export const getReadiness = cache(async function getReadiness(): Promise<Readiness[]> {
-  const [{ data: rows, error }, drafts, { data: blocking }] = await Promise.all([
+  const [{ data: rows, error }, drafts, { data: blocking }, { data: stays }] = await Promise.all([
     supabaseAdmin
       .from("apartment_checklists")
       .select("id, apartment, type, overall_ready, created_at, staff_accounts!apartment_checklists_prepared_by_fkey(display_name)")
@@ -57,6 +65,13 @@ export const getReadiness = cache(async function getReadiness(): Promise<Readine
     getChecklistsInProgress(),
     // Problems reported on an apartment that stop it being sold.
     supabaseAdmin.from("maintenance_tickets").select("id, area, issue_type, status, created_at").eq("blocks_sale", true).eq("void", false),
+    // Guests staying now, and check-outs in the last 90 days.
+    supabaseAdmin
+      .from("resident_profiles")
+      .select("id, name, room, check_out, checked_in_at, checked_out_at")
+      .not("checked_in_at", "is", null)
+      .eq("void", false)
+      .or(`checked_out_at.is.null,checked_out_at.gte.${new Date(Date.now() - 90 * DAY).toISOString().slice(0, 10)}`),
   ]);
   if (error) throw new Error(error.message);
   const blocksBy = new Map<string, { id: string; issue: string; status: string; at: string }[]>();
@@ -75,6 +90,20 @@ export const getReadiness = cache(async function getReadiness(): Promise<Readine
     const k = aptKey(a.name), by = (r.staff_accounts as { display_name?: string } | null)?.display_name ?? "—";
     if (r.type === "check_in_prep" && !prep.has(k)) prep.set(k, { id: r.id as string, ready: r.overall_ready as boolean, at: r.created_at as string, by });
     if (r.type === "check_out_inspection" && !out.has(k)) out.set(k, { at: r.created_at as string, by });
+  }
+  // The latest recorded check-out counts like a check-out inspection: the apartment needs a new prep.
+  const stayBy = new Map<string, Stay>();
+  for (const s of stays ?? []) {
+    const a = findApartment(s.room as string);
+    if (!a) continue;
+    const k = aptKey(a.name);
+    if (s.checked_out_at) {
+      const o = out.get(k);
+      if (!o || s.checked_out_at > o.at) out.set(k, { at: s.checked_out_at as string, by: s.name as string });
+    } else {
+      const cur = stayBy.get(k);
+      if (!cur || (s.checked_in_at as string) > cur.since) stayBy.set(k, { id: s.id as string, guest: s.name as string, since: s.checked_in_at as string, until: (s.check_out as string | null) ?? null });
+    }
   }
   const draftBy = new Map<string, InProgressChecklist>();
   for (const d of drafts) { const a = findApartment(d.apartment); if (a) draftBy.set(aptKey(a.name), d); }
@@ -105,11 +134,14 @@ export const getReadiness = cache(async function getReadiness(): Promise<Readine
   return APARTMENTS.map((apartment) => {
     const k = aptKey(apartment.name);
     const lastPrep = prep.get(k) ?? null, lastCheckout = out.get(k) ?? null, draft = draftBy.get(k) ?? null;
+    // A check-out since the guest checked in means they've gone, even if nobody recorded it here.
+    const stay = stayBy.get(k) && !(lastCheckout && lastCheckout.at > stayBy.get(k)!.since) ? stayBy.get(k)! : null;
     const prepCounts = !!lastPrep && (!lastCheckout || lastPrep.at > lastCheckout.at);
     // A reported problem since the last check-in prep keeps it off sale until it's checked again.
     const blocks = (blocksBy.get(k) ?? []).filter((b) => !lastPrep || b.at > lastPrep.at);
     let status: ReadyStatus = "unchecked", readyUntil: string | null = null, daysLeft: number | null = null;
-    if (draft) status = "inspecting";
+    if (stay) status = "occupied";
+    else if (draft) status = "inspecting";
     else if (blocks.length) status = "notready";
     else if (prepCounts && lastPrep?.ready) {
       const until = new Date(lastPrep!.at).getTime() + READY_DAYS * DAY;
@@ -121,7 +153,7 @@ export const getReadiness = cache(async function getReadiness(): Promise<Readine
       ...(lastPrep && prepCounts && !lastPrep.ready ? flagsBy.get(lastPrep.id) ?? [] : []),
       ...blocks.map((b) => ({ item: b.issue, problem: "Reported", ticketId: b.id, ticketStatus: b.status })),
     ];
-    return { apartment, status, lastPrep, lastCheckout, draft, readyUntil, daysLeft, flags };
+    return { apartment, status, stay, lastPrep, lastCheckout, draft, readyUntil, daysLeft, flags };
   });
 });
 
@@ -129,6 +161,12 @@ export function countByStatus(list: Readiness[]): Record<ReadyStatus, number> {
   const c: Record<ReadyStatus, number> = { ready: 0, recheck: 0, notready: 0, inspecting: 0, unchecked: 0, occupied: 0 };
   for (const r of list) c[r.status]++;
   return c;
+}
+
+// Guests due to leave today (Lagos), by apartment name.
+export function leavingToday(list: Readiness[]): Readiness[] {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+  return list.filter((r) => r.stay?.until && r.stay.until <= today).sort((a, b) => a.apartment.name.localeCompare(b.apartment.name));
 }
 
 // Check-in preps waiting to be done: never inspected / checked out first, then re-checks.

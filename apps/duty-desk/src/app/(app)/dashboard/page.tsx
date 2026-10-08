@@ -8,7 +8,7 @@ import { getComplaints, getComplaintsDailyTrend } from "@/lib/data/complaints";
 import { getMaintenanceTickets, getTicketsDailyTrend } from "@/lib/data/maintenance";
 import { getTasks } from "@/lib/data/tasks";
 import { getDutyLog, getLastHandover } from "@/lib/data/dutylog";
-import { getReadiness, countByStatus, todoList } from "@/lib/data/readiness";
+import { getReadiness, countByStatus, leavingToday, todoList } from "@/lib/data/readiness";
 import { aptShort } from "@/lib/apartments";
 import { byDue, taskState } from "@/lib/tasks";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -39,6 +39,7 @@ export default async function DashboardPage() {
   const c = countByStatus(readiness), todo = todoList(readiness), empty = readiness.length - c.occupied;
   const inspecting = readiness.filter((r) => r.status === "inspecting");
   const repairs = readiness.filter((r) => r.status === "notready");
+  const leaving = leavingToday(readiness);
   const myDraft = readiness.find((r) => r.draft?.prepared_by === session.staffId);
   const openComplaints = complaints.filter((x) => !x.void && x.status !== "Resolved");
   const openTickets = tickets.filter((x) => !x.void && x.status !== "Resolved");
@@ -123,6 +124,23 @@ export default async function DashboardPage() {
               <span><i style={{ border: "1px dashed var(--line-strong)" }} />Needs checklist {c.unchecked}</span><span><i style={{ background: "var(--neu)" }} />Occupied {c.occupied}</span>
             </div>
             <hr className="sep" />
+            {leaving.length ? (
+              <>
+                <span className="over">Check-outs today · {leaving.length}</span>
+                <ul className="list">
+                  {leaving.slice(0, 6).map((r) => (
+                    <li key={r.apartment.name}>
+                      <Link href={`/board?apt=${encodeURIComponent(r.apartment.name)}`} className="row click" style={{ padding: "9px 0", textDecoration: "none", color: "inherit" }}>
+                        <span className="stripe s-info" />
+                        <div className="m"><b>{r.apartment.name}</b><span>{r.stay!.guest} · record the check-out when they leave</span></div>
+                        <span className="age">{aptShort(r.apartment)}</span>
+                        <Badge tone="info">Leaves today</Badge>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
             <span className="over">Checklists to do · {todo.length}</span>
             <ul className="list">
               {todo.slice(0, 6).map((r) => (
