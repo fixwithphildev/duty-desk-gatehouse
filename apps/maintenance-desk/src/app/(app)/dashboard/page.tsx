@@ -26,6 +26,7 @@ export default async function DashboardPage() {
   const doneToday = live.filter((j) => j.resolvedToday).sort((a, b) => (b.resolvedAt ?? "").localeCompare(a.resolvedAt ?? ""));
   const attention = [...open].sort((a, b) => PRI_RANK[a.priority] - PRI_RANK[b.priority] || (a.status === "Reported" ? 0 : 1) - (b.status === "Reported" ? 0 : 1) || a.createdAt.localeCompare(b.createdAt)).slice(0, 7);
   const allOpen = jobs.filter((j) => !j.void && j.status !== "Resolved");
+  const noUnit = isTech ? 0 : allOpen.filter((j) => j.needsUnit).length;
 
   const h = lagosHour(), greet = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const name = session.role === "head_of_operations" ? "" : `, ${/^(Mr|Mrs|Ms|Dr)\.? /.test(session.displayName) ? session.displayName : session.displayName.split(" ")[0]}`;
@@ -85,7 +86,7 @@ export default async function DashboardPage() {
       <div className="kpis k4">
         <Kpi icon={Columns3} label="Duty Desk jobs open" value={boardOpen.length} ctx={`${high} high priority · ${boardOpen.filter((j) => j.status === "Reported").length} not started`} tile={high ? "bad" : ""} />
         <Kpi icon={Users} label="Requests open" value={reqOpen.length} ctx={`${reqOpen.filter((j) => j.status === "Reported").length} not started`} />
-        <Kpi icon={Wrench} label="In progress" value={prog.length} ctx={`${new Set(prog.map((j) => j.startedBy).filter(Boolean)).size} technicians working`} />
+        <Kpi icon={Wrench} label="In progress" value={prog.length} ctx={`${pl(new Set(prog.map((j) => j.startedBy).filter(Boolean)).size, "technician")} working`} />
         <Kpi icon={CheckCircle2} label="Finished today" value={doneToday.length} ctx={doneToday[0] ? `last by ${doneToday[0].resolvedBy ?? "someone"} at ${doneToday[0].resolvedAt ? clockTime(doneToday[0].resolvedAt) : ""}` : "nothing yet"} />
       </div>
 
@@ -120,6 +121,14 @@ export default async function DashboardPage() {
                 </li>
               );
             })}
+            {noUnit ? (
+              <li>
+                <Link href="/board?unit=needs" className="row click" style={{ textDecoration: "none", color: "inherit", ["--uc" as string]: "var(--warn)" }}>
+                  <span className="u-ic"><Wrench size={15} /></span>
+                  <div className="m"><b>Needs a unit</b><span>{pl(noUnit, "older job")} filed under “Engineering”. Open and choose its unit.</span></div>
+                </Link>
+              </li>
+            ) : null}
           </ul>
         </section>
       </div>

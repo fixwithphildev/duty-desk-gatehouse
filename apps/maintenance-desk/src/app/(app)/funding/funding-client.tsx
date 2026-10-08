@@ -8,6 +8,7 @@ import { Badge, Kpi } from "@/components/suite";
 import { FundBars } from "@/components/fund-ui";
 import { FUND_STAGE, TX_LABEL, fundDiff, fundNet, fundPct, type Funding } from "@/lib/funding";
 import type { JobView } from "@/lib/jobs";
+import { shortDate } from "@/lib/periods";
 import { UNIT_COLOR, formatNaira as naira } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { recordFundingAction, requestBalanceAction } from "./actions";
@@ -98,7 +99,7 @@ export function FundingClient({ jobs, officers, canManage, today, initialJob }: 
       "BALANCE REQUEST · MAINTENANCE DESK", "",
       `Job: ${j.ref} · ${j.title}`, `Area: ${j.area}`, `Unit: ${j.unit}`, `Finished: ${j.resolvedWhen ?? ""}${j.resolvedBy ? " by " + j.resolvedBy : ""}`, "",
       `Amount needed:      ${naira(fu.need)}`,
-      ...fu.tx.filter((x) => !x.void).map((x) => `${(TX_LABEL[x.kind] + " (" + x.tx_date + (x.reference ? ", " + x.reference : "") + "):").padEnd(44)}${x.kind === "return" ? "-" : ""}${naira(x.amount)}`),
+      ...fu.tx.filter((x) => !x.void).map((x) => `${(TX_LABEL[x.kind] + " (" + shortDate(x.tx_date) + (x.reference ? ", " + x.reference : "") + "):").padEnd(44)}${x.kind === "return" ? "-" : ""}${naira(x.amount)}`),
       `Actually spent:     ${naira(j.cost)}`, "",
       `BALANCE DUE FROM FINANCE: ${naira(fundDiff(fu, j.cost))}`,
     ];
@@ -139,7 +140,7 @@ export function FundingClient({ jobs, officers, canManage, today, initialJob }: 
           <div className="hstack" style={{ gap: 8 }}><b>{j.title}</b><Badge tone={st.tone} dot={false}>{st.label}</Badge></div>
           <span className="muted" style={{ fontSize: 12.5 }}><i className="dot-u" style={{ background: UNIT_COLOR[j.unit] ?? "var(--neu)" }} /><span className="mono">{j.ref}</span> · {j.area} · {j.unit}{j.requester ? ` · ${j.requester.role} request` : ""} · {j.status === "Resolved" ? `finished ${j.resolvedWhen ?? ""}` : j.status === "In Progress" ? "in progress" : "not started"}</span>
           <FundBars f={fu} spent={j.cost} />
-          {live.length ? <span className="hint">{live.map((x) => `${x.tx_date}: ${TX_LABEL[x.kind].toLowerCase()} ${naira(x.amount)}${x.reference ? ` (${x.reference})` : ""}`).join(" · ")}</span> : null}
+          {live.length ? <span className="hint">{live.map((x) => `${shortDate(x.tx_date)}: ${TX_LABEL[x.kind].toLowerCase()} ${naira(x.amount)}${x.reference ? ` (${x.reference})` : ""}`).join(" · ")}</span> : null}
         </div>
         <div className="vstack fund-side">
           <span className={`fund-big ${j.status === "Resolved" && d > 0 ? "owed" : j.status === "Resolved" && d < 0 ? "ret" : ""}`}>{j.status !== "Resolved" ? `${fundPct(fu)}% released` : d > 0 ? `Finance owes ${naira(d)}` : d < 0 ? `Return ${naira(-d)}` : "Settled"}</span>

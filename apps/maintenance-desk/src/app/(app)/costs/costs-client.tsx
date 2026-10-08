@@ -96,7 +96,7 @@ export function CostsClient({
   const s = q.trim().toLowerCase();
   const log = all.filter((p) => inPeriod(p, period) && (!s || `${p.item} ${p.supplier ?? ""} ${p.jobRef ?? ""} ${p.jobArea ?? ""} ${p.recordedBy} ${p.unit}`.toLowerCase().includes(s)));
   const sup = new Map<string, number>();
-  for (const p of mo) sup.set(p.supplier || "—", (sup.get(p.supplier || "—") ?? 0) + p.total);
+  for (const p of mo) { const k = p.supplier || "Supplier not given"; sup.set(k, (sup.get(k) ?? 0) + p.total); }
   const smax = Math.max(1, ...sup.values());
 
   const unitJobs = options.filter((o) => (!form.unit || o.unit === form.unit) && (!o.old || o.id === form.job)).sort((a, b) => ["In Progress", "Reported", "Resolved"].indexOf(a.status) - ["In Progress", "Reported", "Resolved"].indexOf(b.status));

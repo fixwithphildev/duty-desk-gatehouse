@@ -58,3 +58,10 @@ export const stLabel = (s: string) => (s === "In Progress" ? "In progress" : s);
 
 // Done with nothing recorded on Costs: the unit still has to add what it bought, or mark "nothing bought".
 export const missingCost = (j: JobView) => !j.void && j.status === "Resolved" && j.lines.length === 0 && !j.noPurchase;
+
+// Who asked for a request: "Mrs. Funke Okoye (COO)", or just "Head of Security" when the name is the role.
+export function askedBy(r: JobView["requester"]): string {
+  if (!r) return "";
+  const what = r.unit ? `${r.unit}, maintenance` : r.role;
+  return what && what !== r.name ? `${r.name} (${what})` : r.name;
+}

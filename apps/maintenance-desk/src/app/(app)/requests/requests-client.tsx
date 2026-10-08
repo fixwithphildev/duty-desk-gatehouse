@@ -9,7 +9,7 @@ import { Drawer } from "@/components/drawer";
 import { Field } from "@/components/ui";
 import { Badge, Kpi, priTone, stTone } from "@/components/suite";
 import { JobDrawer, type Me } from "@/components/job-drawer";
-import { missingCost, stLabel, type JobView } from "@/lib/jobs";
+import { askedBy, missingCost, stLabel, type JobView } from "@/lib/jobs";
 import { COMMON_AREAS, MD_PRIORITIES, MD_UNITS, REQUEST_ROLES, UNIT_COLOR, formatNaira as naira } from "@/lib/types";
 import { APARTMENTS } from "@/lib/apartments";
 import { isRedirectError, errorMessage } from "@/lib/utils";
@@ -70,11 +70,11 @@ export function RequestsClient({
   const wmax = Math.max(1, ...byWho.values());
   const open = jobs.find((j) => j.id === openId) ?? null;
 
-  // People in Maintenance who can ask for work: the Manager and Supervisor, and each unit's technicians.
+  // People in Maintenance who can ask for work: you first, then the Manager and Supervisor, and each unit's technicians.
   const people: { value: string; label: string; group: string }[] = [
-    ...team.office.map((p) => ({ value: `${p.name}|`, label: `${p.name} · ${p.role}`, group: "Office" })),
-    ...MD_UNITS.flatMap((u) => (team.byUnit[u] ?? []).map((name) => ({ value: `${name}|${u}`, label: `${name} · ${u}`, group: u }))),
     { value: `${me.name}|${me.unit ?? ""}`, label: `${me.name} (you)`, group: "You" },
+    ...team.office.filter((p) => p.name !== me.name).map((p) => ({ value: `${p.name}|`, label: `${p.name} · ${p.role}`, group: "Office" })),
+    ...MD_UNITS.flatMap((u) => (team.byUnit[u] ?? []).filter((name) => name !== me.name).map((name) => ({ value: `${name}|${u}`, label: `${name} · ${u}`, group: u }))),
   ];
 
   const spentLine = (j: JobView) =>
@@ -143,7 +143,7 @@ export function RequestsClient({
                 <div className="vstack" style={{ gap: 4, minWidth: 0 }}>
                   <div className="hstack" style={{ gap: 8 }}><b>{j.title}</b><Badge tone={stTone(j.status)} dot={false}>{stLabel(j.status)}</Badge></div>
                   <span className="muted" style={{ fontSize: 12.5 }}>
-                    <i className="dot-u" style={{ background: UNIT_COLOR[j.unit] ?? "var(--neu)" }} /><span className="mono">{j.ref}</span> · {j.area} · {j.unit} · asked by <b style={{ fontWeight: 600, color: "var(--text-2)" }}>{j.requester?.name} ({j.requester?.unit ? `${j.requester.unit}, maintenance` : j.requester?.role})</b> · {j.createdWhen}
+                    <i className="dot-u" style={{ background: UNIT_COLOR[j.unit] ?? "var(--neu)" }} /><span className="mono">{j.ref}</span> · {j.area} · {j.unit} · asked by <b style={{ fontWeight: 600, color: "var(--text-2)" }}>{askedBy(j.requester)}</b> · {j.createdWhen}
                   </span>
                   {canMoney ? <span className="hint">{spentLine(j)}</span> : null}
                 </div>

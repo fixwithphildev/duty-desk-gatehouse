@@ -8,7 +8,8 @@ import { Drawer } from "@/components/drawer";
 import { Badge, priTone, stTone } from "@/components/suite";
 import { FundBars, fundNote } from "@/components/fund-ui";
 import { FUND_STAGE, TX_LABEL } from "@/lib/funding";
-import { stLabel, type JobView } from "@/lib/jobs";
+import { askedBy, stLabel, type JobView } from "@/lib/jobs";
+import { shortDate } from "@/lib/periods";
 import { MD_UNITS, formatNaira as naira } from "@/lib/types";
 import { shrinkPhoto } from "@/lib/photo";
 import { isRedirectError, errorMessage } from "@/lib/utils";
@@ -55,6 +56,9 @@ export function JobDrawer({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const photoRef = useRef<HTMLInputElement>(null);
+  // The start, finish and void forms open near the top of the panel: bring them into view.
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (step) boxRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [step]);
 
   const id = job?.id;
   useEffect(() => { setStep(null); setError(null); setBuy({ item: "", q: "1", u: "" }); setReason(""); }, [id]);
@@ -136,7 +140,7 @@ export function JobDrawer({
       {job.requester ? (
         <div className="req-box">
           <span className="over">Request · not from Duty Desk</span>
-          <b>{job.requester.name} · {job.requester.unit ? `${job.requester.unit}, maintenance` : job.requester.role}</b>
+          <b>{askedBy(job.requester)}</b>
           <span className="muted" style={{ fontSize: 12.5 }}>Asked {job.createdWhen}</span>
         </div>
       ) : null}
@@ -155,7 +159,7 @@ export function JobDrawer({
       ) : null}
 
       {step === "start" || step === "resolve" ? (
-        <div className="work-box">
+        <div className="work-box" ref={boxRef}>
           <span className="over">{step === "resolve" ? "Finish the job" : "Start the job"}</span>
           <div className="hstack" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
             <div className="field" style={{ flex: 1 }}>
@@ -184,7 +188,7 @@ export function JobDrawer({
       ) : null}
 
       {step === "void" ? (
-        <div className="work-box">
+        <div className="work-box" ref={boxRef}>
           <span className="over">Void this job</span>
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>It stays on record, on Duty Desk too, marked voided with your reason. Use it for mistakes and duplicates.</p>
           <div className="field"><label htmlFor="jd-reason">Reason (required)</label><textarea className="input" id="jd-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Duplicate of MT-0040" /></div>
@@ -201,7 +205,7 @@ export function JobDrawer({
             {f.tx.filter((x) => !x.void).length ? (
               <ul className="fund-tx">
                 {f.tx.filter((x) => !x.void).map((x) => (
-                  <li key={x.id}><span className="mono">{x.tx_date}</span><span><b>{TX_LABEL[x.kind]}</b>{x.reference ? ` · ${x.reference}` : ""}{x.finance_officer ? ` · ${x.finance_officer}` : ""}{x.pays_back ? ` · pays back ${x.pays_back}` : ""}</span><b className={`mono ${x.kind === "return" ? "neg" : ""}`}>{x.kind === "return" ? "−" : ""}{naira(x.amount)}</b></li>
+                  <li key={x.id}><span className="mono">{shortDate(x.tx_date)}</span><span><b>{TX_LABEL[x.kind]}</b>{x.reference ? ` · ${x.reference}` : ""}{x.finance_officer ? ` · ${x.finance_officer}` : ""}{x.pays_back ? ` · pays back ${x.pays_back}` : ""}</span><b className={`mono ${x.kind === "return" ? "neg" : ""}`}>{x.kind === "return" ? "−" : ""}{naira(x.amount)}</b></li>
                 ))}
               </ul>
             ) : null}
