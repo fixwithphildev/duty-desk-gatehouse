@@ -51,7 +51,7 @@ export function AccountClient({ username, displayName, role, recent }: { usernam
               <dt>Username</dt><dd className="mono">{username}</dd>
               <dt>Role</dt><dd>{DD_ROLE_LABELS[role]}</dd>
             </dl>
-            <span className="hint">To change your name or role, ask the Resident Manager or Admin (IT).</span>
+            <span className="hint">To change your name or role, ask the Admin (IT).</span>
             <hr className="sep" />
             <span className="over">Recent sign-ins</span>
             <ul className="list">
