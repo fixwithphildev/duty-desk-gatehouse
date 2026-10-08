@@ -15,6 +15,7 @@ export interface SessionPayload {
   displayName: string;
   role: DDRole;
   persistent: boolean;
+  iat?: number; // when the session was signed, in seconds (set by jose)
 }
 
 function getSecret(): Uint8Array {

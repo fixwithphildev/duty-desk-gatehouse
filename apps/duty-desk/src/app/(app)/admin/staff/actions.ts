@@ -34,6 +34,8 @@ export async function createStaffAction(input: {
     display_name: displayName,
     role: input.role,
     usercode_hash: usercodeHash,
+    // The code we generate is one-time: they choose their own at first sign-in.
+    must_change_code: true,
     created_by: session.staffId,
   });
   if (error) throw new Error(error.message);
@@ -69,7 +71,7 @@ export async function resetUsercodeAction(id: string): Promise<{ usercode: strin
   const usercodeHash = await hashUsercode(usercode);
   const { error } = await supabaseAdmin
     .from("staff_accounts")
-    .update({ usercode_hash: usercodeHash, failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() })
+    .update({ usercode_hash: usercodeHash, must_change_code: true, failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
 

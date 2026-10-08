@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, CheckCircle2, ClipboardCopy, KeyRound, Lock, Plus, Search, ShieldCheck, Unlock, Users } from "lucide-react";
+import { Ban, CheckCircle2, ClipboardCopy, KeyRound, Plus, Search, ShieldCheck, Unlock, Users } from "lucide-react";
 import { Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { Badge, Kpi } from "@/components/suite";
@@ -85,7 +85,7 @@ export function StaffClient({
 
   const copy = async () => {
     if (!reveal) return;
-    try { await navigator.clipboard.writeText(`Username: ${reveal.username}\nUsercode: ${reveal.usercode}`); setCopied(true); } catch { setCopied(false); }
+    try { await navigator.clipboard.writeText(`Username: ${reveal.username}\nOne-time code: ${reveal.usercode}`); setCopied(true); } catch { setCopied(false); }
   };
 
   const mine = ROLE_ORDER.filter((r) => assignable.includes(r)).map((r) => DD_ROLE_LABELS[r]);
@@ -93,14 +93,14 @@ export function StaffClient({
   return (
     <>
       <div className="phead">
-        <div className="t"><h1>Staff accounts</h1><p>Who can sign in to Duty Desk. Only the Resident Manager, Supervisor and Admin can see this page. People sign in with a username and a usercode.</p></div>
+        <div className="t"><h1>Staff accounts</h1><p>Who can sign in to Duty Desk. Only the Resident Manager, Supervisor and Admin can see this page. People sign in with a username and a one-time code, then choose their own usercode.</p></div>
         <div className="acts">{assignable.length ? <button type="button" className="btn btn-primary" onClick={() => { setForm(EMPTY); setUserTouched(false); setError(null); setOpen(true); }}><Plus size={15} /> Add staff account</button> : null}</div>
       </div>
 
       <div className="kpis k4">
         <Kpi icon={Users} label="Active accounts" value={active.length} ctx={`${accounts.length} in total`} />
         <Kpi icon={ShieldCheck} label="Resident Officers" value={active.filter((a) => a.role === "resident_officer").length} ctx="on every shift" />
-        <Kpi icon={Lock} label="Locked out" value={accounts.filter(isLocked).length} ctx="too many wrong usercodes" tile={accounts.some(isLocked) ? "warn" : ""} />
+        <Kpi icon={KeyRound} label="Waiting to choose a code" value={active.filter((a) => a.must_change_code).length} ctx="new or reset accounts" />
         <Kpi icon={Ban} label="Switched off" value={accounts.filter((a) => a.disabled).length} ctx="can’t sign in" />
       </div>
 
@@ -130,7 +130,7 @@ export function StaffClient({
                     <td style={{ whiteSpace: "normal" }}><b style={{ fontWeight: 600 }}>{a.display_name}</b>{self ? <span className="muted"> (you)</span> : null}</td>
                     <td>{DD_ROLE_LABELS[a.role]}</td>
                     <td className="mono">{a.username}</td>
-                    <td>{a.disabled ? <Badge tone="neu" dot={false}>Switched off</Badge> : locked ? <Badge tone="warn">Locked</Badge> : <Badge tone="ok" dot={false}>Active</Badge>}</td>
+                    <td>{a.disabled ? <Badge tone="neu" dot={false}>Switched off</Badge> : locked ? <Badge tone="bad">Locked</Badge> : a.must_change_code ? <Badge tone="warn">Must choose a code</Badge> : <Badge tone="ok" dot={false}>Active</Badge>}</td>
                     <td className="mono" style={{ color: "var(--text-3)" }}>{lastSeen[a.id] ?? "Never"}</td>
                     <td className="r">
                       {can ? (
@@ -188,7 +188,7 @@ export function StaffClient({
             </select>
           </div>
         </div>
-        <span className="hint">A usercode is made for them. You’ll see it once, to pass on in person.</span>
+        <span className="hint">A one-time code is made for them. You’ll see it once, to pass on in person. They choose their own usercode when they first sign in.</span>
         {error ? <div className="err-note" role="alert">{error}</div> : null}
       </Drawer>
 
@@ -196,15 +196,15 @@ export function StaffClient({
         open={!!reveal}
         onClose={() => setReveal(null)}
         over="Staff accounts"
-        title={reveal?.reset ? "New usercode" : "Account ready"}
+        title={reveal?.reset ? "New one-time code" : "Account ready"}
         sub={reveal?.name}
         footer={<><button type="button" className="btn btn-secondary" onClick={copy}><ClipboardCopy size={15} /> {copied ? "Copied" : "Copy"}</button><button type="button" className="btn btn-primary" onClick={() => setReveal(null)}>Done</button></>}
       >
         {reveal ? (
           <div className="code-box">
             <span className="over">Give these to {reveal.name}</span>
-            <dl className="kv"><dt>Username</dt><dd className="mono"><b>{reveal.username}</b></dd><dt>Usercode</dt><dd className="mono code-big">{reveal.usercode}</dd></dl>
-            <span className="hint">{reveal.reset ? "The old usercode no longer works. " : ""}It’s shown only once. If it’s lost, reset it here. They can change it from My account after signing in.</span>
+            <dl className="kv"><dt>Username</dt><dd className="mono"><b>{reveal.username}</b></dd><dt>One-time code</dt><dd className="mono code-big">{reveal.usercode}</dd></dl>
+            <span className="hint">{reveal.reset ? "The old usercode no longer works, and they’re signed out everywhere. " : ""}It works once: they choose their own usercode the first time they sign in. It’s shown only here; if it’s lost, reset it.</span>
           </div>
         ) : null}
       </Drawer>

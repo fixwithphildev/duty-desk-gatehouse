@@ -48,7 +48,7 @@ export function LoginForm() {
               <User size={16} />
               <input className="input" id="username" name="username" autoComplete="username" autoCapitalize="off" autoCorrect="off" spellCheck={false} required autoFocus />
             </div>
-            <span className="hint">Assigned by your supervisor.</span>
+            <span className="hint">Given to you when your account was made.</span>
           </div>
           <div className="field">
             <label htmlFor="usercode">Usercode</label>
@@ -69,13 +69,13 @@ export function LoginForm() {
                 {showCode ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
             </div>
-            <span className="hint">The letters and numbers your supervisor gave you, or the one you set yourself.</span>
+            <span className="hint">The one-time code you were given, or the usercode you chose.</span>
           </div>
           <label className="check">
             <input type="checkbox" name="persistent" /> Keep me signed in on this device (personal phones only)
           </label>
           <SubmitButton />
-          <span className="hint" style={{ textAlign: "center" }}>Forgot your usercode? Ask your supervisor.</span>
+          <span className="hint" style={{ textAlign: "center" }}>Forgot your usercode? Ask the Admin or the Resident Manager to reset it.</span>
         </form>
       </section>
     </div>
