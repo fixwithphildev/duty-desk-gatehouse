@@ -1,0 +1,155 @@
+name: Merge Gatehouse and Maintenance Desk into Duty Desk's database
+
+# One-time job for "Consolidating to one Supabase project" (SETUP.md).
+# It copies the tables of the Gatehouse and Maintenance Desk projects into
+# their own schemas (gatehouse, maintenance) inside Duty Desk's project, so
+# one paid Supabase project holds all three departments.
+#
+# Runs when the ops/merge-databases branch is pushed. What it does depends on
+# the word in ops/merge-mode:
+#   check   - back up all three databases, prepare the copy and report what
+#             would be copied. Writes nothing to any database.
+#   copy    - the same, then copy into Duty Desk's database. Refuses if the
+#             gatehouse or maintenance schema already has tables.
+#   recopy  - empty the gatehouse and maintenance schemas in Duty Desk's
+#             database and copy again (for a fresh copy just before switching).
+#
+# The Gatehouse and Maintenance Desk databases are only ever read. In Duty
+# Desk's database only the gatehouse and maintenance schemas are written;
+# its own public schema is checked before and after to prove it's untouched.
+# The copy runs in one transaction: if any part fails, nothing is kept.
+
+on:
+  push:
+    branches: [ops/merge-databases]
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    env:
+      DD: ${{ secrets.DUTY_DESK_DB_URL }}
+      GH: ${{ secrets.GATEHOUSE_DB_URL }}
+      MD: ${{ secrets.MAINTENANCE_DESK_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read mode
+        id: mode
+        run: |
+          mode=$(tr -d '[:space:]' < ops/merge-mode)
+          case "$mode" in check|copy|recopy) ;; *) echo "ops/merge-mode must be check, copy or recopy (got '$mode')"; exit 1;; esac
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Mode: $mode"
+
+      # Same client as backup.yml: pg_dump must match Supabase's Postgres 17.
+      - name: Install postgresql-client 17
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl ca-certificates gnupg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Fresh backup of all three databases
+        run: |
+          mkdir -p backup
+          pg_dump "$DD" --no-owner --no-privileges -f backup/duty-desk.sql
+          pg_dump "$GH" --no-owner --no-privileges -f backup/gatehouse.sql
+          pg_dump "$MD" --no-owner --no-privileges -f backup/maintenance-desk.sql
+          ls -l backup
+
+      - name: Upload the backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: before-merge-backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 60
+
+      - name: Prepare the copies
+        run: |
+          mkdir -p copy
+          # Rename public.* to the new schema everywhere except inside the
+          # data rows of COPY blocks, so guest notes that happen to contain
+          # "public." are copied exactly.
+          to_schema() {
+            awk -v S="$1" '
+              incopy { print; if ($0 == "\\.") incopy = 0; next }
+              /^COPY public\./ { sub(/^COPY public\./, "COPY " S "."); print; incopy = 1; next }
+              /^CREATE SCHEMA / || /^COMMENT ON SCHEMA / || /^ALTER SCHEMA / { next }
+              { gsub(/public\./, S "."); gsub(/SCHEMA public/, "SCHEMA " S); print }
+            '
+          }
+          pg_dump "$GH" --no-owner --no-privileges --schema=public | to_schema gatehouse > copy/gatehouse.sql
+          pg_dump "$MD" --no-owner --no-privileges --schema=public | to_schema maintenance > copy/maintenance.sql
+          for f in copy/gatehouse.sql copy/maintenance.sql; do
+            left=$(awk 'incopy { if ($0 == "\\.") incopy = 0; next } /^COPY / { incopy = 1; next } /public\./ { n++ } END { print n + 0 }' "$f")
+            echo "$f: $(grep -c '^CREATE TABLE' "$f") tables, $left leftover references to public"
+            if [ "$left" != "0" ]; then echo "Something still points at public in $f; stopping."; exit 1; fi
+          done
+
+      - name: Count rows in the source databases
+        run: |
+          count() { # url schema -> "table count" lines
+            q=$(psql "$1" -At -c "select coalesce(string_agg(format('select %L, count(*) from %I.%I', table_name, '$2', table_name), ' union all ' order by table_name), 'select null, null where false') from information_schema.tables where table_schema = '$2' and table_type = 'BASE TABLE'")
+            psql "$1" -At -F ' ' -c "$q"
+          }
+          count "$GH" public > gh-source.txt
+          count "$MD" public > md-source.txt
+          count "$DD" public > dd-public-before.txt
+          echo "== Gatehouse (to copy)"; cat gh-source.txt
+          echo "== Maintenance Desk (to copy)"; cat md-source.txt
+          echo "== Duty Desk's own tables (must not change)"; cat dd-public-before.txt
+          echo "== Tables already in Duty Desk's gatehouse / maintenance schemas"
+          psql "$DD" -At -c "select table_schema || '.' || table_name from information_schema.tables where table_schema in ('gatehouse', 'maintenance') order by 1" | tee already.txt
+          echo "($(wc -l < already.txt) tables already there)"
+
+      - name: Copy into Duty Desk's database
+        if: steps.mode.outputs.mode != 'check'
+        run: |
+          if [ "${{ steps.mode.outputs.mode }}" = "copy" ] && [ -s already.txt ]; then
+            echo "The gatehouse or maintenance schema already has tables. Use recopy to replace them."; exit 1
+          fi
+          {
+            if [ "${{ steps.mode.outputs.mode }}" = "recopy" ]; then
+              echo "drop schema if exists gatehouse cascade;"
+              echo "drop schema if exists maintenance cascade;"
+            fi
+            echo "create schema if not exists gatehouse;"
+            echo "create schema if not exists maintenance;"
+            cat copy/gatehouse.sql
+            cat copy/maintenance.sql
+            # The apps reach their tables with the service role only. The
+            # default privileges also cover tables added by later migrations.
+            for s in gatehouse maintenance; do
+              echo "grant usage on schema $s to service_role;"
+              echo "grant all on all tables in schema $s to service_role;"
+              echo "grant all on all sequences in schema $s to service_role;"
+              echo "grant all on all routines in schema $s to service_role;"
+              echo "alter default privileges in schema $s grant all on tables to service_role;"
+              echo "alter default privileges in schema $s grant all on sequences to service_role;"
+              echo "alter default privileges in schema $s grant all on routines to service_role;"
+            done
+            echo "notify pgrst, 'reload schema';"
+          } > restore.sql
+          psql "$DD" --single-transaction -v ON_ERROR_STOP=1 -q -f restore.sql
+          echo "Copied."
+
+      - name: Check every row arrived and Duty Desk's own tables are unchanged
+        if: steps.mode.outputs.mode != 'check'
+        run: |
+          count() {
+            q=$(psql "$1" -At -c "select coalesce(string_agg(format('select %L, count(*) from %I.%I', table_name, '$2', table_name), ' union all ' order by table_name), 'select null, null where false') from information_schema.tables where table_schema = '$2' and table_type = 'BASE TABLE'")
+            psql "$1" -At -F ' ' -c "$q"
+          }
+          count "$DD" gatehouse > gh-target.txt
+          count "$DD" maintenance > md-target.txt
+          count "$DD" public > dd-public-after.txt
+          ok=1
+          diff gh-source.txt gh-target.txt && echo "Gatehouse: every table and row matches" || { echo "Gatehouse copy differs from the source"; ok=0; }
+          diff md-source.txt md-target.txt && echo "Maintenance Desk: every table and row matches" || { echo "Maintenance Desk copy differs from the source"; ok=0; }
+          # Duty Desk is live, so its row counts can rise during the run; only a missing table or fewer rows is a problem.
+          LC_ALL=C join <(LC_ALL=C sort dd-public-before.txt) <(LC_ALL=C sort dd-public-after.txt) | awk '$3 < $2 { print "Duty Desk table " $1 " lost rows: " $2 " -> " $3; bad = 1 } END { exit bad }' && echo "Duty Desk's own tables: unchanged" || ok=0
+          [ "$(wc -l < dd-public-before.txt)" = "$(wc -l < dd-public-after.txt)" ] || { echo "Duty Desk's table list changed"; ok=0; }
+          [ "$ok" = 1 ]
