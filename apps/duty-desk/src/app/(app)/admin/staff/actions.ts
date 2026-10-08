@@ -50,6 +50,7 @@ async function getTargetRole(id: string): Promise<DDRole> {
 
 export async function setAccountDisabledAction(id: string, disabled: boolean) {
   const session = await requireRole(DD_ADMIN_ROLES);
+  if (id === session.staffId) throw new Error("You can’t switch off your own account.");
   const targetRole = await getTargetRole(id);
   if (!canManageAccount(session.role, targetRole)) throw new Error("You aren't permitted to manage that account.");
 
@@ -60,6 +61,7 @@ export async function setAccountDisabledAction(id: string, disabled: boolean) {
 
 export async function resetUsercodeAction(id: string): Promise<{ usercode: string }> {
   const session = await requireRole(DD_ADMIN_ROLES);
+  if (id === session.staffId) throw new Error("Change your own usercode from My account.");
   const targetRole = await getTargetRole(id);
   if (!canManageAccount(session.role, targetRole)) throw new Error("You aren't permitted to manage that account.");
 

@@ -892,3 +892,37 @@ select.input { appearance: auto; }
 .photo-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
 
 .btn.btn-icon { padding-left: 0; padding-right: 0; width: 32px; justify-content: center; flex: none; }
+
+/* Reports: dot links, busy-times heat map, ranked lists */
+a.dot { display: block; flex: none; }
+.heat-grid { display: grid; grid-template-columns: 34px repeat(6, minmax(0, 1fr)); gap: 4px; }
+.heat-x { font-family: var(--f-mono); font-size: 10.5px; color: var(--text-3); text-align: center; }
+.heat-y { font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; }
+.heat-cell { aspect-ratio: 1.8; border-radius: 6px; background: var(--subtle); box-shadow: inset 0 0 0 1px var(--line-soft); }
+.heat-cell.h1 { background: color-mix(in srgb, var(--acc) 25%, var(--surface)); }
+.heat-cell.h2 { background: color-mix(in srgb, var(--acc) 48%, var(--surface)); }
+.heat-cell.h3 { background: color-mix(in srgb, var(--acc) 72%, var(--surface)); }
+.heat-cell.h4 { background: var(--acc); }
+.heat-scale { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-3); margin-top: 10px; }
+.heat-scale i { width: 14px; height: 10px; border-radius: 3px; display: inline-block; }
+.rank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.rank li { display: grid; grid-template-columns: 22px minmax(0, 1fr) 36px; gap: 10px; align-items: center; }
+.rank .n { font-family: var(--f-mono); font-size: 12px; color: var(--text-3); }
+.rank b { display: block; font-size: 13.5px; font-weight: 500; }
+.rank small { display: block; font-size: 12px; color: var(--text-3); margin: 1px 0 5px; }
+.rank .tr { display: block; height: 6px; border-radius: 3px; background: var(--neu-bg); overflow: hidden; }
+.rank .tr span { display: block; height: 100%; background: var(--acc); border-radius: 3px; }
+.rank .v { font-family: var(--f-mono); font-size: 13px; text-align: right; }
+.dl-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.dl-row:last-child { border-bottom: 0; }
+.dl-row .t { flex: 1; min-width: 160px; }
+.dl-row .t b { display: block; font-size: 14px; font-weight: 500; }
+.dl-row .t span { font-size: 12.5px; color: var(--text-3); }
+.seg a.seg-link { height: 28px; padding: 0 11px; border-radius: 7px; font-size: 12.5px; color: var(--text-2); display: inline-flex; align-items: center; white-space: nowrap; text-decoration: none; }
+.seg a.seg-link:hover { color: var(--text); }
+.seg a.seg-link[aria-pressed="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--sh-1); }
+/* Report charts keep a sensible height when a card goes full width */
+.card-b > svg[role="img"] { display: block; max-height: 240px; margin: 0 auto; }
+@media (max-width: 1100px) { .ig-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+@media (max-width: 520px) { .ig-kpis { grid-template-columns: minmax(0, 1fr) !important; } }
+.heat-grid { max-width: 440px; } .heat-scale { max-width: 440px; }
