@@ -50,3 +50,6 @@ alter table complaints
 alter table tasks
   add column if not exists done_at timestamptz,
   add column if not exists done_by uuid references staff_accounts(id);
+
+-- Let the API see the new columns and links straight away.
+notify pgrst, 'reload schema';
