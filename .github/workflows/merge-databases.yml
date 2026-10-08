@@ -176,7 +176,8 @@ jobs:
                 -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Accept-Profile: $s" -H "Prefer: count=exact")
               rows=$(grep -i '^content-range' h.txt | sed 's|.*/||' | tr -d '\r')
               echo "$s.$t: HTTP $code, $rows rows"
-              [ "$code" = 200 ] || fail=1
+              # 206 = a page of a longer table (we ask for one row); both mean it answered.
+              [ "$code" = 200 ] || [ "$code" = 206 ] || fail=1
             done
           done
           if [ "$fail" = 0 ]; then echo "Every copied table answers through the API."; fi
