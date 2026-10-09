@@ -107,7 +107,7 @@ export default async function ViewChecklistPage({ params }: { params: { id: stri
           <div className="seal"><Lock size={26} /></div>
           <h2 style={{ margin: 0, fontSize: 22 }}>{name} submitted as {checklist.overall_ready ? "Ready" : "Not ready"}</h2>
           <p className="muted" style={{ margin: 0, maxWidth: "56ch" }}>
-            Signed by {checklist.prepared_by_name}, {whenText(checklist.created_at)}. {flagged.length ? `${flagged.length} item${flagged.length > 1 ? "s were" : " was"} flagged and sent to maintenance.` : "Nothing was flagged."} Locked records can only be voided by a manager, with a reason.
+            Signed by {checklist.prepared_by_name}, {whenText(checklist.created_at)}. {flagged.length ? `${flagged.length} item${flagged.length > 1 ? "s were" : " was"} flagged and sent to maintenance.` : "Nothing was flagged."} Locked records can only be voided by a Supervisor or a manager, with a reason.
           </p>
           <div className="hstack" style={{ justifyContent: "center" }}>
             <Badge tone={checklist.overall_ready ? "ok" : "bad"}>{checklist.overall_ready ? "Ready" : "Not ready"}</Badge>

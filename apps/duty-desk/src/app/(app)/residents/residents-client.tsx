@@ -151,7 +151,7 @@ export function ResidentsClient({ residents, readyApts, initialId, canEdit, canV
               {error ? <div className="err-note" role="alert">{error}</div> : null}
               {sel.state !== "void" ? (
                 <div className="hstack" style={{ justifyContent: "space-between" }}>
-                  {canVoid ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidReason(""); setVoidOpen(true); }}><Ban size={13} /> Void</button> : <span className="hint">Only a manager can void a record.</span>}
+                  {canVoid ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidReason(""); setVoidOpen(true); }}><Ban size={13} /> Void</button> : <span className="hint">Only a Supervisor or a manager can void a record.</span>}
                   {sel.state === "in" && canEdit ? <button type="button" className="btn btn-primary btn-sm" onClick={() => setCheckOut(true)}><LogOut size={14} /> Record check-out</button> : null}
                 </div>
               ) : null}

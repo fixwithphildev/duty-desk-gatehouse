@@ -85,7 +85,7 @@ export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, init
       <div className="g todo-grid">
         <section className="card">
           <div className="card-h">
-            <h3>Your to-do</h3><span className="sp" />
+            <h3>{canPrep ? "Your to-do" : "Officers’ to-do"}</h3><span className="sp" />
             {leaving.length ? <span className="badge t-info"><span className="d" />{leaving.length} check-out{leaving.length === 1 ? "" : "s"}</span> : null}
             <span className="badge t-warn"><span className="d" />{todo.length} check-in prep{todo.length === 1 ? "" : "s"}</span>
           </div>

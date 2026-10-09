@@ -412,7 +412,7 @@ export function ChecklistForm({
                 <Lock size={16} /> {pending ? "Submitting…" : "Submit and lock"}
               </button>
               <span className="hint" style={{ textAlign: "center" }}>
-                {left ? `Answer the ${left} remaining line${left > 1 ? "s" : ""} to submit. Nothing is saved as N/A unless you choose it.` : ready === null ? "Choose Ready or Not ready to submit." : `Signs as ${preparedByName}. Submitted checklists can only be voided by a manager.`}
+                {left ? `Answer the ${left} remaining line${left > 1 ? "s" : ""} to submit. Nothing is saved as N/A unless you choose it.` : ready === null ? "Choose Ready or Not ready to submit." : `Signs as ${preparedByName}. Submitted checklists can only be voided by a Supervisor or a manager.`}
               </span>
               <hr className="sep" />
               {confirmStop ? (

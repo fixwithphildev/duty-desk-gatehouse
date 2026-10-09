@@ -162,7 +162,7 @@ export function ComplaintsClient({ complaints, initialId, initialApartment, canE
               {actError ? <div className="err-note" role="alert">{actError}</div> : null}
               {!sel.void ? (
                 <div className="hstack" style={{ justifyContent: "space-between" }}>
-                  {canVoid ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidReason(""); setVoidOpen(true); }}><Ban size={13} /> Void</button> : <span className="hint">Only a manager can void a complaint.</span>}
+                  {canVoid ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidReason(""); setVoidOpen(true); }}><Ban size={13} /> Void</button> : <span className="hint">Only a Supervisor or a manager can void a complaint.</span>}
                   {canEdit ? (
                     <div className="hstack">
                       {si < 1 ? <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => callAction(updateComplaintStatusAction)(sel.id, "In Progress"))}>Mark in progress</button> : null}

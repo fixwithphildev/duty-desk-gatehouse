@@ -65,7 +65,7 @@ export function AccountClient({ username, displayName, role, recent }: { usernam
               ))}
               {recent.length === 0 ? <li className="empty" style={{ padding: "8px 0" }}>No sign-ins recorded yet.</li> : null}
             </ul>
-            {recent.some((e) => !e.success) ? <span className="hint">If a failed sign-in wasn’t you, change your usercode and tell the Resident Manager.</span> : null}
+            {recent.some((e) => !e.success) ? <span className="hint">If a failed sign-in wasn’t you, change your usercode and tell the Admin.</span> : null}
           </div>
         </section>
 

@@ -16,7 +16,7 @@ interface Handover {
 }
 
 // The last shift's handover note, until someone on the next shift acknowledges it.
-export function HandoverBanner({ handover }: { handover: Handover | null }) {
+export function HandoverBanner({ handover, canAck }: { handover: Handover | null; canAck: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export function HandoverBanner({ handover }: { handover: Handover | null }) {
         {error ? <p className="err-note" role="alert" style={{ marginTop: 8 }}>{error}</p> : null}
       </div>
       <div className="acts">
-        {handover.mine ? <span className="hint">Waiting for the next shift to acknowledge</span> : (
+        {handover.mine || !canAck ? <span className="hint">Waiting for the next shift to acknowledge</span> : (
           <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={acknowledge}>
             <Check size={14} /> {pending ? "Saving…" : "Acknowledge"}
           </button>

@@ -30,7 +30,7 @@ export function NewCodeForm({ name, username }: { name: string; username: string
         <ul className="bul">
           <li><ShieldCheck size={18} /><span>Only you will know it. Nobody else, not even the Admin, can see it.</span></li>
           <li><KeyRound size={18} /><span>Use at least 6 letters and numbers that are easy for you to remember and hard to guess.</span></li>
-          <li><Lock size={18} /><span>If you forget it, the Admin or the Resident Manager can give you a new one-time code.</span></li>
+          <li><Lock size={18} /><span>If you forget it, the Admin can give you a new one-time code.</span></li>
         </ul>
       </section>
       <section className="si-form">

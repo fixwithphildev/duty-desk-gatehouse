@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, ClipboardCheck, ClipboardList, DoorOpen, ListTodo, MessageSquareWarning, Wrench, LayoutGrid, BookOpen, Plus } from "lucide-react";
 import { requireSession } from "@/lib/auth";
-import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
+import { DD_CAN_EDIT_CHECKLISTS, DD_CAN_EDIT_DUTY_LOG } from "@/lib/types";
 import { getAllChecklists } from "@/lib/data/checklists";
 import { getComplaints, getComplaintsDailyTrend } from "@/lib/data/complaints";
 import { getMaintenanceTickets, getTicketsDailyTrend } from "@/lib/data/maintenance";
@@ -73,6 +73,7 @@ export default async function DashboardPage() {
   const hour = lagosHour();
   const partOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
   const canPrep = DD_CAN_EDIT_CHECKLISTS.includes(session.role);
+  const canAck = DD_CAN_EDIT_DUTY_LOG.includes(session.role);
   const W = 560, H = 190, L = 28, B = 22, bw = (W - L) / 14;
   const max = Math.max(4, ...perDay.map((p) => p.ready + p.not));
 
@@ -81,7 +82,7 @@ export default async function DashboardPage() {
       <PageHead
         over={`${todayLong()} · ${shiftName()}`}
         title={`Good ${partOfDay}, ${firstName}`}
-        sub={<>{plural(todo.length, "apartment")} need{todo.length === 1 ? "s" : ""} a check-in prep before front desk can sell {todo.length === 1 ? "it" : "them"}. {plural(inspecting.length, "inspection")} in progress.{handover ? " The last shift’s handover is waiting for you." : ""}</>}
+        sub={<>{plural(todo.length, "apartment")} need{todo.length === 1 ? "s" : ""} a check-in prep before front desk can sell {todo.length === 1 ? "it" : "them"}. {plural(inspecting.length, "inspection")} in progress.{handover && canAck ? " The last shift’s handover is waiting for you." : ""}</>}
       >
         <AutoRefresh />
         {canPrep && myDraft ? (
@@ -91,7 +92,7 @@ export default async function DashboardPage() {
         )}
       </PageHead>
 
-      <HandoverBanner handover={handover ? { id: handover.id, officer_name: handover.officer_name, notes: handover.notes, when: whenText(handover.created_at), mine: handover.officer_id === session.staffId } : null} />
+      <HandoverBanner handover={handover ? { id: handover.id, officer_name: handover.officer_name, notes: handover.notes, when: whenText(handover.created_at), mine: handover.officer_id === session.staffId } : null} canAck={canAck} />
 
       <div className="kpis">
         <Kpi icon={DoorOpen} label="Ready to sell" value={c.ready} unit={`/ ${empty} empty`} ctx={c.recheck ? `${c.recheck} re-check due` : "front desk can sell these"} data={readyTrend} sparkTone="ok" />

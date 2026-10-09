@@ -2,7 +2,7 @@
 
 import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { DD_CAN_EDIT_DUTY_LOG, DD_CAN_VOID } from "@/lib/types";
 
@@ -24,11 +24,11 @@ async function addDutyLogEntryAction__run(input: { notes: string; handover: bool
   refresh();
 }
 
-// Any signed-in officer on the next shift can acknowledge a handover note. It's about
-// confirming they've read it, not an editing permission. The writer can't acknowledge
+// An officer on the next shift (or the Supervisor or Admin) acknowledges a handover note,
+// confirming they've read it. Managers only view, so they can't. The writer can't acknowledge
 // their own note.
 async function acknowledgeHandoverAction__run(id: string) {
-  const session = await requireSession();
+  const session = await requireRole(DD_CAN_EDIT_DUTY_LOG);
   const { data: entry } = await supabaseAdmin.from("duty_log_entries").select("officer_id").eq("id", id).maybeSingle();
   if (entry?.officer_id === session.staffId) throw new Error("The next shift acknowledges your handover note, not you.");
 

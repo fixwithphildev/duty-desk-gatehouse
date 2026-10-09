@@ -84,7 +84,7 @@ export function DutyLogClient({ entries, draft, shiftNow, canEdit, canVoid }: { 
         {e.void ? <span className="hint">Voided by {e.voided_by_name ?? "a manager"}: {e.void_reason}</span>
           : e.handover ? (
             e.acknowledged_at ? <span className="hint"><CheckCheck size={13} style={{ verticalAlign: "-2px" }} /> Acknowledged by {e.acknowledged_by_name ?? "the next shift"} · {e.ackWhen}</span>
-              : e.mine ? <span className="hint">Waiting for the next shift to acknowledge</span>
+              : e.mine || !canEdit ? <span className="hint">Waiting for the next shift to acknowledge</span>
                 : <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 8 }} disabled={pending} onClick={() => run(() => callAction(acknowledgeHandoverAction)(e.id))}><Check size={14} /> Acknowledge</button>
           ) : null}
       </div>
@@ -105,7 +105,7 @@ export function DutyLogClient({ entries, draft, shiftNow, canEdit, canVoid }: { 
             <b>Handover from {waiting[0].officer_name} needs acknowledging</b>
             <p style={{ whiteSpace: "pre-line" }}>{waiting[0].notes}</p>
           </div>
-          <div className="acts"><button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => callAction(acknowledgeHandoverAction)(waiting[0].id))}><Check size={14} /> Acknowledge</button></div>
+          <div className="acts">{canEdit ? <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => callAction(acknowledgeHandoverAction)(waiting[0].id))}><Check size={14} /> Acknowledge</button> : <span className="hint">Waiting for the next shift</span>}</div>
         </section>
       ) : null}
       {actError ? <div className="err-note" role="alert" style={{ marginBottom: 14 }}>{actError}</div> : null}
@@ -142,7 +142,7 @@ export function DutyLogClient({ entries, draft, shiftNow, canEdit, canVoid }: { 
               </div>
             </section>
           ) : null}
-          <div className="pill-note" style={{ background: "var(--subtle)", border: "1px solid var(--line)" }}><Lock size={16} /><span>Entries can’t be edited once saved. A General Manager or IT can void a wrong entry, with a reason.</span></div>
+          <div className="pill-note" style={{ background: "var(--subtle)", border: "1px solid var(--line)" }}><Lock size={16} /><span>Entries can’t be edited once saved. A Supervisor, a manager or the Admin can void a wrong entry, with a reason.</span></div>
         </div>
       </div>
 
