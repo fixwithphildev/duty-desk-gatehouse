@@ -1,8 +1,10 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase";
 
-export interface PatrolRow {
+// A patrol: an officer walks a route, then finishes it with notes.
+export interface Patrol {
   id: string;
+  officer_id: string | null;
   officer_name: string;
   route: string;
   started_at: string;
@@ -12,37 +14,50 @@ export interface PatrolRow {
   void: boolean;
   void_reason: string | null;
   voided_by_name: string | null;
-  voided_at: string | null;
 }
 
-export async function getPatrols(): Promise<PatrolRow[]> {
-  // Explicit FK names — patrols has two foreign keys into staff_accounts
-  // (officer_id and voided_by) now, so a bare "staff_accounts(display_name)"
-  // is ambiguous to PostgREST.
-  const { data, error } = await supabaseAdmin
-    .from("patrols")
-    .select(
-      "id, route, started_at, ended_at, notes, status, void, void_reason, voided_at, " +
-        "staff_accounts!patrols_officer_id_fkey(display_name), voider:staff_accounts!patrols_voided_by_fkey(display_name)"
-    )
-    .order("started_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
-    id: row.id as string,
-    route: row.route as string,
-    started_at: row.started_at as string,
-    ended_at: row.ended_at as string | null,
-    notes: row.notes as string | null,
-    status: row.status as PatrolRow["status"],
-    void: row.void as boolean,
-    void_reason: row.void_reason as string | null,
-    voided_at: row.voided_at as string | null,
-    officer_name: (row.staff_accounts as { display_name?: string } | null)?.display_name ?? "—",
-    voided_by_name: (row.voider as { display_name?: string } | null)?.display_name ?? null,
+// Explicit FK names: patrols has two foreign keys into staff_accounts
+// (officer_id and voided_by), so a bare join is ambiguous to PostgREST.
+const COLS =
+  "id, officer_id, route, started_at, ended_at, notes, status, void, void_reason, " +
+  "officer:staff_accounts!patrols_officer_id_fkey(display_name), voider:staff_accounts!patrols_voided_by_fkey(display_name)";
+
+const name = (v: unknown) => (v as { display_name?: string } | null)?.display_name ?? null;
+
+export async function getPatrols(): Promise<Patrol[]> {
+  const rows: Array<Record<string, unknown>> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabaseAdmin.from("patrols").select(COLS).order("started_at", { ascending: false }).range(offset, offset + 999);
+    if (error) throw new Error(error.message);
+    rows.push(...((data ?? []) as unknown as Array<Record<string, unknown>>));
+    if (!data || data.length < 1000) break;
+  }
+  return rows.map((r) => ({
+    id: r.id as string,
+    officer_id: (r.officer_id as string | null) ?? null,
+    officer_name: name(r.officer) ?? "—",
+    route: r.route as string,
+    started_at: r.started_at as string,
+    ended_at: (r.ended_at as string | null) ?? null,
+    notes: (r.notes as string | null) || null,
+    status: r.status as Patrol["status"],
+    void: !!r.void,
+    void_reason: (r.void_reason as string | null) ?? null,
+    voided_by_name: name(r.voider),
   }));
 }
 
-export async function getActivePatrolsCount(): Promise<number> {
-  const { count } = await supabaseAdmin.from("patrols").select("id", { count: "exact", head: true }).eq("status", "In Progress");
-  return count ?? 0;
+export async function startPatrol(route: string, officerId: string): Promise<void> {
+  const { error } = await supabaseAdmin.from("patrols").insert({ officer_id: officerId, route, status: "In Progress" });
+  if (error) throw new Error(error.message);
+}
+
+export async function finishPatrol(id: string, notes: string | null): Promise<void> {
+  const { error } = await supabaseAdmin.from("patrols").update({ status: "Completed", ended_at: new Date().toISOString(), notes }).eq("id", id).eq("status", "In Progress");
+  if (error) throw new Error(error.message);
+}
+
+export async function voidPatrol(id: string, reason: string, staffId: string): Promise<void> {
+  const { error } = await supabaseAdmin.from("patrols").update({ void: true, void_reason: reason, voided_by: staffId, voided_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error(error.message);
 }

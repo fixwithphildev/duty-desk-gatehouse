@@ -1,57 +1,52 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
-import { GH_CAN_EDIT, GH_CAN_VOID } from "@/lib/types";
+import { requireRole } from "@/lib/auth";
+import { GH_CAN_EDIT, GH_CAN_VOID, GH_INCIDENT_STATUSES, GH_SEVERITIES, type IncidentStatus, type Severity } from "@/lib/types";
+import { GH_INCIDENT_CATEGORIES } from "@/lib/constants";
+import { createIncident, setIncidentStatus, voidIncident } from "@/lib/data/incidents";
 
-export async function createIncidentAction(input: {
-  title: string;
-  category: string;
-  severity: string;
-  location: string;
-  description: string;
-}) {
+const refresh = () => revalidatePath("/", "layout");
+
+async function createIncidentAction__run(input: { title: string; category: string; severity: string; location: string; description: string }): Promise<{ id: string }> {
   const session = await requireRole(GH_CAN_EDIT);
-  if (!input.title.trim()) throw new Error("Title is required.");
-
-  const { error } = await supabaseAdmin.from("incidents").insert({
-    title: input.title.trim(),
-    category: input.category,
-    severity: input.severity,
-    location: input.location.trim() || null,
-    description: input.description.trim() || null,
-    status: "Open",
-    reported_by: session.staffId,
-  });
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/incidents");
-  revalidatePath("/dashboard");
+  if (!input.title.trim()) throw new Error("Say what happened, in a few words.");
+  if (!GH_INCIDENT_CATEGORIES.includes(input.category)) throw new Error("Choose a category.");
+  if (!GH_SEVERITIES.includes(input.severity as Severity)) throw new Error("Choose a severity.");
+  const r = await createIncident(
+    { title: input.title.trim(), category: input.category, severity: input.severity as Severity, location: input.location.trim() || null, description: input.description.trim() || null },
+    session.staffId
+  );
+  refresh();
+  return r;
 }
 
-export async function updateIncidentStatusAction(id: string, status: "Open" | "In Progress" | "Resolved") {
-  await requireSession();
-  const { error } = await supabaseAdmin.from("incidents").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/incidents");
-  revalidatePath("/dashboard");
+// Management only reads; officers, the Supervisor and the Admin move an
+// incident along. Resolving needs notes on what was done.
+async function setIncidentStatusAction__run(id: string, status: IncidentStatus, notes = "") {
+  const session = await requireRole(GH_CAN_EDIT);
+  if (!GH_INCIDENT_STATUSES.includes(status)) throw new Error("Unknown status.");
+  if (status === "Resolved" && !notes.trim()) throw new Error("Say how it was resolved.");
+  await setIncidentStatus(id, status, session.staffId, status === "Resolved" ? notes.trim() : null);
+  refresh();
 }
 
-// Corrects a mistaken entry without editing or deleting it — the original
-// row stays fully visible, just marked not-actionable, with a required
-// reason and who/when. Reserved for Supervisor/Management/Super Admin —
-// a higher tier than routine logging/editing.
-export async function voidIncidentAction(id: string, reason: string) {
+async function voidIncidentAction__run(id: string, reason: string) {
   const session = await requireRole(GH_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void an incident.");
+  await voidIncident(id, reason.trim(), session.staffId);
+  refresh();
+}
 
-  const { error } = await supabaseAdmin
-    .from("incidents")
-    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+export async function createIncidentAction(...args: Parameters<typeof createIncidentAction__run>) {
+  return guarded(() => createIncidentAction__run(...args));
+}
 
-  revalidatePath("/incidents");
-  revalidatePath("/dashboard");
+export async function setIncidentStatusAction(...args: Parameters<typeof setIncidentStatusAction__run>) {
+  return guarded(() => setIncidentStatusAction__run(...args));
+}
+
+export async function voidIncidentAction(...args: Parameters<typeof voidIncidentAction__run>) {
+  return guarded(() => voidIncidentAction__run(...args));
 }

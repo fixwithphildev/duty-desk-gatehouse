@@ -1,43 +1,47 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
 import { GH_CAN_EDIT, GH_CAN_VOID } from "@/lib/types";
+import { finishPatrol, getPatrols, startPatrol, voidPatrol } from "@/lib/data/patrols";
 
-export async function startPatrolAction(input: { route: string }) {
+const refresh = () => revalidatePath("/", "layout");
+
+async function startPatrolAction__run(route: string) {
   const session = await requireRole(GH_CAN_EDIT);
-  if (!input.route.trim()) throw new Error("Route is required.");
-
-  const { error } = await supabaseAdmin.from("patrols").insert({
-    officer_id: session.staffId,
-    route: input.route.trim(),
-    status: "In Progress",
-  });
-  if (error) throw new Error(error.message);
-  revalidatePath("/patrols");
-  revalidatePath("/dashboard");
+  if (!route.trim()) throw new Error("Say which route you’re walking.");
+  const mine = (await getPatrols()).find((p) => !p.void && p.status === "In Progress" && p.officer_id === session.staffId);
+  if (mine) throw new Error(`You’re already on a patrol (${mine.route}). Finish it first.`);
+  await startPatrol(route.trim(), session.staffId);
+  refresh();
 }
 
-export async function completePatrolAction(id: string, notes: string) {
-  await requireRole(GH_CAN_EDIT);
-  const { error } = await supabaseAdmin
-    .from("patrols")
-    .update({ status: "Completed", ended_at: new Date().toISOString(), notes: notes.trim() || null })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/patrols");
-  revalidatePath("/dashboard");
+// An officer finishes their own patrol; the Supervisor or Admin can finish anyone's.
+async function finishPatrolAction__run(id: string, notes: string) {
+  const session = await requireRole(GH_CAN_EDIT);
+  const p = (await getPatrols()).find((x) => x.id === id);
+  if (!p) throw new Error("That patrol wasn’t found.");
+  if (session.role === "security_officer" && p.officer_id !== session.staffId) throw new Error(`This is ${p.officer_name}’s patrol. They, the Supervisor or the Admin can finish it.`);
+  await finishPatrol(id, notes.trim() || null);
+  refresh();
 }
 
-export async function voidPatrolAction(id: string, reason: string) {
+async function voidPatrolAction__run(id: string, reason: string) {
   const session = await requireRole(GH_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a patrol.");
-  const { error } = await supabaseAdmin
-    .from("patrols")
-    .update({ void: true, void_reason: reason.trim(), voided_by: session.staffId, voided_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/patrols");
-  revalidatePath("/dashboard");
+  await voidPatrol(id, reason.trim(), session.staffId);
+  refresh();
+}
+
+export async function startPatrolAction(...args: Parameters<typeof startPatrolAction__run>) {
+  return guarded(() => startPatrolAction__run(...args));
+}
+
+export async function finishPatrolAction(...args: Parameters<typeof finishPatrolAction__run>) {
+  return guarded(() => finishPatrolAction__run(...args));
+}
+
+export async function voidPatrolAction(...args: Parameters<typeof voidPatrolAction__run>) {
+  return guarded(() => voidPatrolAction__run(...args));
 }

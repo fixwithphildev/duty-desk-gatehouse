@@ -126,19 +126,33 @@ export async function getSession(): Promise<SessionPayload | null> {
 // Call at the top of any authenticated Server Component / Server Action.
 // Redirects to /login if there's no valid session, and re-checks the
 // account hasn't been disabled since the token was issued.
-export async function requireSession(): Promise<SessionPayload> {
+// A new account, or one whose usercode was just reset, must choose its own
+// usercode before anything else: every page sends it to /new-code (the only
+// caller that passes allowCodeChange). If the reset happened after this
+// session was signed in, the session is ended instead, so whoever is still
+// signed in on a shared desk can't choose the new code for that person.
+export async function requireSession(opts: { allowCodeChange?: boolean } = {}): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) redirect("/login");
 
   const { data: account } = await supabaseAdmin
     .from("staff_accounts")
-    .select("disabled")
+    .select("disabled, must_change_code, updated_at")
     .eq("id", session.staffId)
     .maybeSingle();
 
   if (!account || account.disabled) {
     cookies().delete(SESSION_COOKIE);
     redirect("/login");
+  }
+
+  if (account.must_change_code) {
+    const signedInAt = (session.iat ?? 0) * 1000;
+    if (signedInAt < new Date(account.updated_at).getTime() - 1000) {
+      cookies().delete(SESSION_COOKIE);
+      redirect("/login");
+    }
+    if (!opts.allowCodeChange) redirect("/new-code");
   }
 
   return session;
@@ -152,9 +166,9 @@ export async function requireRole(allowed: GHRole[]): Promise<SessionPayload> {
   return session;
 }
 
-// Enforces the per-role page visibility from the blueprint 4.3 permission
-// matrix (e.g. only Security Supervisor/Super Admin can reach /admin, even
-// by typing the URL). Pass the page's own literal route.
+// Enforces per-role page visibility (e.g. only the Security Supervisor and
+// Admin can reach Staff Accounts, even by typing the address).
+// Pass the page's own literal route, e.g. requirePageAccess("/admin/staff").
 export async function requirePageAccess(pathname: string): Promise<SessionPayload> {
   const session = await requireSession();
   if (!isPathAllowed(session.role, pathname)) {

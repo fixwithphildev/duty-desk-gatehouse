@@ -1,146 +1,137 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Plus, DoorOpen, Ban } from "lucide-react";
-import { Badge, Field } from "@/components/ui";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Ban, CalendarDays, Check, Package, PackageCheck, Plus, Search, Timer } from "lucide-react";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { Drawer } from "@/components/drawer";
-import { statusTone } from "@/lib/types";
-import { isRedirectError, errorMessage } from "@/lib/utils";
-import { logItemOutAction, markItemReturnedAction, voidItemLogAction } from "./actions";
-import type { ItemLogRow } from "@/lib/data/items";
+import { Badge, Kpi } from "@/components/suite";
+import type { ItemLog } from "@/lib/data/items";
+import { fmtDur, pl } from "@/lib/gate";
+import { errorMessage, isRedirectError } from "@/lib/utils";
+import { callAction } from "@/lib/action";
+import { bookItemInAction, logItemOutAction, voidItemAction } from "./actions";
 
-function fmtTime(iso: string | null): string {
-  return !iso ? "—" : new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
+type Tab = "out" | "back" | "all";
+const TZ = "Africa/Lagos";
+const dayKey = (t: number | string) => new Date(t).toLocaleDateString("en-CA", { timeZone: TZ });
+const when = (iso: string, now: number) => {
+  const t = new Date(iso).toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+  if (dayKey(iso) === dayKey(now)) return `Today ${t}`;
+  if (dayKey(iso) === dayKey(now - 86400_000)) return `Yesterday ${t}`;
+  return `${new Date(iso).toLocaleDateString("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" })}, ${t}`;
+};
+const EMPTY = { item: "", carriedBy: "", authorizedBy: "" };
+const DAY = 24 * 60;
 
-const EMPTY = { itemDesc: "", carriedBy: "", authorizedBy: "" };
-
-export function ItemsClient({ logs, canEdit, canVoid }: { logs: ItemLogRow[]; canEdit: boolean; canVoid: boolean }) {
+export function ItemsClient({ items, now, focusId, canEdit, canVoid }: { items: ItemLog[]; now: number; focusId: string | null; canEdit: boolean; canVoid: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [tab, setTab] = useState<Tab>("out");
+  const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY);
-  const [pending, startTransition] = useTransition();
+  const [f, setF] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [voiding, setVoiding] = useState<ItemLog | null>(null);
+  const [reason, setReason] = useState("");
+  const [rowErr, setRowErr] = useState<string | null>(null);
 
-  const [voidTarget, setVoidTarget] = useState<ItemLogRow | null>(null);
-  const [voidReason, setVoidReason] = useState("");
-  const [voidError, setVoidError] = useState<string | null>(null);
+  const mins = (iso: string, to?: string | null) => Math.max(0, Math.round(((to ? new Date(to).getTime() : now) - new Date(iso).getTime()) / 60000));
+  const live = items.filter((i) => !i.void);
+  const outNow = live.filter((i) => i.status === "Out");
+  const longOut = outNow.filter((i) => mins(i.out_at) >= DAY);
+  const backToday = live.filter((i) => i.in_at && dayKey(i.in_at) === dayKey(now));
+  const week = live.filter((i) => now - new Date(i.out_at).getTime() < 7 * 86400_000);
 
-  const outItems = logs.filter((i) => i.status === "Out");
-  const history = logs.filter((i) => i.status !== "Out");
+  useEffect(() => {
+    if (!focusId) return;
+    const it = items.find((i) => i.id === focusId);
+    if (it && it.status !== "Out") setTab("all");
+    setTimeout(() => document.getElementById(`it-${focusId}`)?.scrollIntoView({ block: "center" }), 50);
+  }, [focusId, items]);
 
-  const submit = () => {
-    if (!form.itemDesc.trim() || !form.carriedBy.trim()) return;
-    setError(null);
-    startTransition(async () => {
-      try {
-        await logItemOutAction(form);
-        setForm(EMPTY);
-        setOpen(false);
-      } catch (e) {
-        if (isRedirectError(e)) throw e;
-        setError(errorMessage(e));
-      }
-    });
-  };
+  const run = (fn: () => Promise<void>, onErr: (m: string) => void) =>
+    start(async () => { try { await fn(); router.refresh(); } catch (e) { if (isRedirectError(e)) throw e; onErr(errorMessage(e)); } });
 
-  const markReturned = (id: string) => startTransition(async () => { await markItemReturnedAction(id); });
-
-  const submitVoid = () => {
-    if (!voidTarget || !voidReason.trim()) return;
-    setVoidError(null);
-    startTransition(async () => {
-      try {
-        await voidItemLogAction(voidTarget.id, voidReason);
-        setVoidTarget(null);
-        setVoidReason("");
-      } catch (e) {
-        if (isRedirectError(e)) throw e;
-        setVoidError(errorMessage(e));
-      }
-    });
-  };
+  const s = q.trim().toLowerCase();
+  const list = items
+    .filter((i) => (tab === "all" ? true : tab === "out" ? !i.void && i.status === "Out" : !i.void && i.status === "Returned"))
+    .filter((i) => !s || `${i.item} ${i.carried_by} ${i.authorized_by ?? ""} ${i.logged_by_name ?? ""}`.toLowerCase().includes(s))
+    .sort((a, b) => (tab === "out" ? a.out_at.localeCompare(b.out_at) : (b.in_at ?? b.out_at).localeCompare(a.in_at ?? a.out_at)));
+  const n = (t: Tab) => (t === "all" ? items.length : t === "out" ? outNow.length : live.filter((i) => i.status === "Returned").length);
 
   return (
-    <div className="view">
-      <div className="view-head">
-        <h2>Items Book</h2>
-        {canEdit ? <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}><Plus size={15} /> Log item out</button> : null}
-      </div>
-
-      <div className="card">
-        <div className="card-head"><span>Currently out ({outItems.length})</span></div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead><tr><th>Item</th><th>Carried by</th><th>Authorized by</th><th>Out since</th><th /></tr></thead>
-            <tbody>
-              {outItems.map((i) => (
-                <tr key={i.id}>
-                  <td className="cell-title" data-label="Item">{i.item_desc}</td>
-                  <td data-label="Carried by">{i.carried_by}</td>
-                  <td data-label="Authorized by">{i.authorized_by || "—"}</td>
-                  <td className="mono" data-label="Out since">{fmtTime(i.out_at)}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      {canEdit ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => markReturned(i.id)}><DoorOpen size={13} /> Mark returned</button> : null}
-                      {canVoid ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => { setVoidTarget(i); setVoidReason(""); setVoidError(null); }}><Ban size={13} /> Void</button> : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {outItems.length === 0 ? <tr><td colSpan={5} style={{ padding: 16, textAlign: "center", opacity: 0.6 }}>Nothing currently out.</td></tr> : null}
-            </tbody>
-          </table>
+    <>
+      <div className="phead">
+        <div className="t"><h1>Items Book</h1><p>Anything carried out through the gate: what it is, who carried it and who authorised it, until it’s booked back in.</p></div>
+        <div className="acts">
+          <AutoRefresh />
+          {canEdit ? <button type="button" className="btn btn-primary" onClick={() => { setF(EMPTY); setError(null); setOpen(true); }}><Plus size={15} /> Log item out</button> : null}
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-head"><span>History</span></div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead><tr><th>Item</th><th>Carried by</th><th>Out</th><th>In</th><th>Status</th></tr></thead>
-            <tbody>
-              {history.map((i) => (
-                <tr key={i.id} style={i.void ? { opacity: 0.6 } : undefined}>
-                  <td className="cell-title" data-label="Item">
-                    {i.item_desc}
-                    {i.void ? (
-                      <div className="cell-sub" style={{ color: "var(--red)" }}>Voided by {i.voided_by_name} — {i.void_reason}</div>
-                    ) : canVoid ? (
-                      <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => { setVoidTarget(i); setVoidReason(""); setVoidError(null); }}><Ban size={12} /> Void</button>
-                    ) : null}
-                  </td>
-                  <td data-label="Carried by">{i.carried_by}</td>
-                  <td className="mono" data-label="Out">{fmtTime(i.out_at)}</td>
-                  <td className="mono" data-label="In">{fmtTime(i.in_at)}</td>
-                  <td data-label="Status">{i.void ? <Badge tone="neutral">Voided</Badge> : <Badge tone={statusTone(i.status)}>{i.status}</Badge>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="kpis k4">
+        <Kpi icon={Package} label="Out now" value={outNow.length} ctx={outNow[0] ? `oldest ${fmtDur(mins([...outNow].sort((a, b) => a.out_at.localeCompare(b.out_at))[0].out_at))}` : "everything is back"} />
+        <Kpi icon={Timer} label="Out over a day" value={longOut.length} ctx={longOut.length ? "check they’re coming back" : "none"} tile={longOut.length ? "warn" : ""} />
+        <Kpi icon={PackageCheck} label="Booked back in today" value={backToday.length} ctx={backToday[0] ? `last: ${backToday.sort((a, b) => (b.in_at ?? "").localeCompare(a.in_at ?? ""))[0].item}` : "nothing yet"} />
+        <Kpi icon={CalendarDays} label="Logged out this week" value={week.length} ctx="last 7 days" />
       </div>
 
-      <Drawer open={open} onClose={() => setOpen(false)} title="Log an item out">
-        {error ? <div className="login-error">{error}</div> : null}
-        <Field label="Item description"><input className="input" value={form.itemDesc} onChange={(e) => setForm({ ...form, itemDesc: e.target.value })} placeholder="e.g. Company laptop, tag #IT-042" /></Field>
-        <Field label="Carried by"><input className="input" value={form.carriedBy} onChange={(e) => setForm({ ...form, carriedBy: e.target.value })} /></Field>
-        <Field label="Authorized by"><input className="input" value={form.authorizedBy} onChange={(e) => setForm({ ...form, authorizedBy: e.target.value })} placeholder="Optional" /></Field>
-        <button type="button" className="btn btn-primary drawer-submit" disabled={!form.itemDesc.trim() || !form.carriedBy.trim() || pending} onClick={submit}>
-          {pending ? "Logging…" : "Log item out"}
-        </button>
+      <section className="card">
+        <div className="tabs" role="tablist">
+          {([["out", "Out now"], ["back", "Back in"], ["all", "All"]] as [Tab, string][]).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l} <span className="ct">{n(k)}</span></button>)}
+        </div>
+        <div className="hstack" style={{ padding: "12px 20px", borderBottom: "1px solid var(--line-soft)" }}>
+          <div className="input-wrap" style={{ maxWidth: 360, flex: 1 }}><Search size={15} /><input className="input" style={{ height: 36 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search item, carrier or who authorised" aria-label="Search items" /></div>
+        </div>
+        {rowErr ? <div className="err-note" role="alert" style={{ margin: "12px 20px 0" }}>{rowErr}</div> : null}
+        <ul className="list">
+          {list.map((i) => {
+            const m = mins(i.out_at, i.in_at);
+            const tone = i.void ? "neu" : i.status === "Returned" ? "ok" : m >= DAY ? "warn" : "info";
+            return (
+              <li key={i.id} id={`it-${i.id}`} className="row" style={{ ...(i.void ? { opacity: 0.55 } : {}), ...(focusId === i.id ? { background: "var(--acc-bg)" } : {}) }}>
+                <span className={`stripe s-${tone}`} />
+                <div className="m">
+                  <b>{i.item}</b>
+                  <span>Carried by {i.carried_by}{i.authorized_by ? ` · authorised by ${i.authorized_by}` : " · no authorisation noted"} · out {when(i.out_at, now)}{i.logged_by_name ? ` by ${i.logged_by_name}` : ""}{i.in_at ? ` · back ${when(i.in_at, now)}${i.in_by_name ? ` (${i.in_by_name})` : ""}` : ""}</span>
+                  {i.void ? <span style={{ display: "block" }}>Voided{i.voided_by_name ? ` by ${i.voided_by_name}` : ""}: {i.void_reason}</span> : null}
+                </div>
+                {i.void ? <Badge tone="neu" dot={false}>Voided</Badge> : i.status === "Returned" ? <Badge tone="ok" dot={false}>Back · {fmtDur(m)}</Badge> : <span className="age" style={{ color: m >= DAY ? "var(--warn-fg)" : undefined }}>out {fmtDur(m)}</span>}
+                {canEdit && !i.void && i.status === "Out" ? <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => { setRowErr(null); run(() => callAction(bookItemInAction)(i.id), setRowErr); }}><Check size={14} /> Book in</button> : null}
+                {canVoid && !i.void ? <button type="button" className="btn btn-ghost btn-sm btn-icon" aria-label={`Void ${i.item}`} title="Void" onClick={() => { setReason(""); setRowErr(null); setVoiding(i); }}><Ban size={13} /></button> : null}
+              </li>
+            );
+          })}
+          {list.length === 0 ? <li className="empty">{s ? "Nothing matches that search." : tab === "out" ? "Nothing is out right now." : "Nothing here yet."}</li> : null}
+        </ul>
+      </section>
+
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        over="Items Book"
+        title="Log an item going out"
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button><button type="button" className="btn btn-primary" disabled={pending} onClick={() => { setError(null); run(async () => { await callAction(logItemOutAction)(f); setOpen(false); setF(EMPTY); }, setError); }}><Plus size={15} /> {pending ? "Saving…" : "Log item out"}</button></>}
+      >
+        <div className="field"><label htmlFor="it-what">What is going out</label><input className="input" id="it-what" value={f.item} onChange={(e) => setF({ ...f, item: e.target.value })} placeholder="e.g. 2 extension reels, aluminium ladder" autoFocus /></div>
+        <div className="field"><label htmlFor="it-who">Carried by</label><input className="input" id="it-who" value={f.carriedBy} onChange={(e) => setF({ ...f, carriedBy: e.target.value })} placeholder="Full name" /></div>
+        <div className="field"><label htmlFor="it-auth">Authorised by <span className="muted">(optional)</span></label><input className="input" id="it-auth" value={f.authorizedBy} onChange={(e) => setF({ ...f, authorizedBy: e.target.value })} placeholder="Who allowed it out, e.g. the Maintenance Manager" /></div>
+        <span className="hint">It shows as out until someone at the gate books it back in.</span>
+        {error ? <div className="err-note" role="alert">{error}</div> : null}
       </Drawer>
 
-      <Drawer open={!!voidTarget} onClose={() => setVoidTarget(null)} title="Void this entry">
-        {voidError ? <div className="login-error">{voidError}</div> : null}
-        <p className="gate-copy" style={{ marginTop: 0 }}>This keeps the original entry visible for the record — it won&apos;t be edited or deleted, just marked voided with your reason attached.</p>
-        {voidTarget ? <p style={{ fontSize: 13, fontWeight: 600, marginTop: 0 }}>{voidTarget.item_desc}</p> : null}
-        <Field label="Reason (required)">
-          <textarea className="textarea" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Logged against the wrong item" />
-        </Field>
-        <button type="button" className="btn btn-primary drawer-submit" disabled={!voidReason.trim() || pending} onClick={submitVoid}>
-          {pending ? "Voiding…" : "Void entry"}
-        </button>
+      <Drawer
+        open={!!voiding}
+        onClose={() => setVoiding(null)}
+        over="Items Book"
+        title={voiding ? `Void: ${voiding.item}` : ""}
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoiding(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!reason.trim() || pending} onClick={() => voiding && run(async () => { await callAction(voidItemAction)(voiding.id, reason); setVoiding(null); }, setRowErr)}>{pending ? "Voiding…" : "Void entry"}</button></>}
+      >
+        <p className="muted" style={{ margin: 0 }}>For mistakes and duplicates. The entry stays on record, marked voided with your reason.</p>
+        <div className="field"><label htmlFor="it-reason">Reason (required)</label><textarea className="input" id="it-reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+        {rowErr ? <div className="err-note" role="alert">{rowErr}</div> : null}
       </Drawer>
-    </div>
+    </>
   );
 }

@@ -1,144 +1,146 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Plus, AlertOctagon, CheckCircle2, Ban } from "lucide-react";
-import { Badge, Field } from "@/components/ui";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Ban, BellRing, CalendarDays, Check, Hourglass, OctagonAlert } from "lucide-react";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { Drawer } from "@/components/drawer";
-import { GH_SEVERITIES, severityTone } from "@/lib/types";
-import { GH_ALERT_TYPES } from "@/lib/constants";
-import type { AlertRow } from "@/lib/data/alerts";
-import { isRedirectError, errorMessage } from "@/lib/utils";
-import { raiseAlertAction, acknowledgeAlertAction, voidAlertAction } from "./actions";
+import { RaiseAlert } from "@/components/raise-alert";
+import { Badge, Kpi, type Tone } from "@/components/suite";
+import type { Alert } from "@/lib/data/alerts";
+import { sevTone } from "@/lib/types";
+import { fmtDur } from "@/lib/gate";
+import { errorMessage, isRedirectError } from "@/lib/utils";
+import { callAction } from "@/lib/action";
+import { acknowledgeAlertAction, resolveAlertAction, voidAlertAction } from "./actions";
 
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
+type Tab = "open" | "resolved" | "all";
+const TZ = "Africa/Lagos";
+const dayKey = (t: number | string) => new Date(t).toLocaleDateString("en-CA", { timeZone: TZ });
+const when = (iso: string, now: number) => {
+  const t = new Date(iso).toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+  if (dayKey(iso) === dayKey(now)) return `Today ${t}`;
+  if (dayKey(iso) === dayKey(now - 86400_000)) return `Yesterday ${t}`;
+  return `${new Date(iso).toLocaleDateString("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" })}, ${t}`;
+};
+const STATUS: Record<Alert["status"], [string, Tone]> = { Unacknowledged: ["Not acknowledged", "bad"], Acknowledged: ["Waiting for the all-clear", "warn"], Resolved: ["Resolved", "ok"] };
+const gap = (a: string, b: string) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000));
 
-const EMPTY = { type: GH_ALERT_TYPES[0], severity: "Medium", message: "", location: "" };
-
-export function AlertsClient({ alerts, canEdit, canVoid }: { alerts: AlertRow[]; canEdit: boolean; canVoid: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY);
-  const [pending, startTransition] = useTransition();
+export function AlertsClient({ alerts, now, initialId, canEdit, canVoid }: { alerts: Alert[]; now: number; initialId: string | null; canEdit: boolean; canVoid: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [tab, setTab] = useState<Tab>("open");
+  const [openId, setOpenId] = useState<string | null>(initialId);
+  const [step, setStep] = useState<null | "resolve" | "void">(null);
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const [voidTarget, setVoidTarget] = useState<AlertRow | null>(null);
-  const [voidReason, setVoidReason] = useState("");
-  const [voidError, setVoidError] = useState<string | null>(null);
+  useEffect(() => { const a = alerts.find((x) => x.id === initialId); if (a && (a.status === "Resolved" || a.void)) setTab("all"); }, [initialId, alerts]);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (openId) url.searchParams.set("id", openId); else url.searchParams.delete("id");
+    window.history.replaceState(null, "", url.toString());
+    setStep(null); setNotes(""); setError(null);
+  }, [openId]);
 
-  const submit = () => {
-    if (!form.message.trim()) return;
-    setError(null);
-    startTransition(async () => {
-      try {
-        await raiseAlertAction(form);
-        setForm(EMPTY);
-        setOpen(false);
-      } catch (e) {
-        if (isRedirectError(e)) throw e;
-        setError(errorMessage(e));
-      }
-    });
-  };
+  const run = (fn: () => Promise<void>) =>
+    start(async () => { try { setError(null); await fn(); router.refresh(); } catch (e) { if (isRedirectError(e)) throw e; setError(errorMessage(e)); } });
 
-  const acknowledge = (id: string) => startTransition(async () => { await acknowledgeAlertAction(id); });
+  const live = alerts.filter((a) => !a.void);
+  const unack = live.filter((a) => a.status === "Unacknowledged");
+  const waiting = live.filter((a) => a.status === "Acknowledged");
+  const month = live.filter((a) => now - new Date(a.created_at).getTime() < 30 * 86400_000);
+  const acked = month.filter((a) => a.acknowledged_at);
+  const avgAck = acked.length ? Math.round(acked.reduce((s, a) => s + gap(a.created_at, a.acknowledged_at!), 0) / acked.length) : 0;
 
-  const submitVoid = () => {
-    if (!voidTarget || !voidReason.trim()) return;
-    setVoidError(null);
-    startTransition(async () => {
-      try {
-        await voidAlertAction(voidTarget.id, voidReason);
-        setVoidTarget(null);
-        setVoidReason("");
-      } catch (e) {
-        if (isRedirectError(e)) throw e;
-        setVoidError(errorMessage(e));
-      }
-    });
-  };
+  const inTab = (a: Alert, t: Tab) => (t === "all" ? true : t === "open" ? !a.void && a.status !== "Resolved" : !a.void && a.status === "Resolved");
+  const list = alerts.filter((a) => inTab(a, tab)).sort((a, b) => (tab === "open" ? (a.status === "Unacknowledged" ? 0 : 1) - (b.status === "Unacknowledged" ? 0 : 1) || b.created_at.localeCompare(a.created_at) : b.created_at.localeCompare(a.created_at)));
+  const sel = alerts.find((a) => a.id === openId) ?? null;
 
   return (
-    <div className="view">
-      <div className="view-head">
-        <h2>Alerts</h2>
-        {canEdit ? <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}><Plus size={15} /> Raise alert</button> : null}
+    <>
+      <div className="phead">
+        <div className="t"><h1>Alerts</h1><p>Property-wide alerts: fire, medical emergency, security breach, lockdown. An alert shows on every Gatehouse screen until someone acknowledges it, and stays there until it’s resolved with notes.</p></div>
+        <div className="acts"><AutoRefresh />{canEdit ? <RaiseAlert /> : null}</div>
       </div>
 
-      <div className="alert-list">
-        {alerts.map((a) => (
-          <div key={a.id} className={`alert-card tone-${severityTone(a.severity)}`} style={a.void ? { opacity: 0.6 } : undefined}>
-            <AlertOctagon size={18} />
-            <div className="alert-main">
-              <div className="alert-top">
-                <span className="alert-type">{a.type}</span>
-                <Badge tone={severityTone(a.severity)}>{a.severity}</Badge>
-              </div>
-              <div className="alert-msg">{a.message}</div>
-              <div className="alert-meta mono">{a.location ?? "—"} · raised by {a.raised_by_name} · {fmtTime(a.created_at)}</div>
-              {a.void ? (
-                <div className="alert-meta" style={{ color: "var(--red)", marginTop: 4 }}>Voided by {a.voided_by_name} — {a.void_reason}</div>
-              ) : null}
-            </div>
-            {a.void ? (
-              <Badge tone="neutral">Voided</Badge>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-                {a.status !== "Acknowledged" ? (
-                  canEdit ? (
-                    <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => acknowledge(a.id)}>
-                      <CheckCircle2 size={13} /> Acknowledge
-                    </button>
-                  ) : (
-                    <Badge tone="amber">Unacknowledged</Badge>
-                  )
-                ) : (
-                  <Badge tone="green">Acknowledged</Badge>
-                )}
-                {canVoid ? (
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => { setVoidTarget(a); setVoidReason(""); setVoidError(null); }}>
-                    <Ban size={13} /> Void
-                  </button>
-                ) : null}
-              </div>
-            )}
-          </div>
-        ))}
-        {alerts.length === 0 ? <div className="empty-state"><AlertOctagon size={26} strokeWidth={1.5} /><div className="empty-title">No alerts raised</div></div> : null}
+      <div className="kpis k4">
+        <Kpi icon={BellRing} label="Not acknowledged" value={unack.length} ctx={unack[0] ? `${unack[0].type} · ${when(unack[0].created_at, now)}` : "none"} tile={unack.length ? "bad" : ""} />
+        <Kpi icon={Hourglass} label="Waiting for the all-clear" value={waiting.length} ctx={waiting[0] ? `${waiting[0].type}${waiting[0].location ? ` · ${waiting[0].location}` : ""}` : "none"} tile={waiting.length ? "warn" : ""} />
+        <Kpi icon={CalendarDays} label="Raised in the last 30 days" value={month.length} ctx={`${month.filter((a) => a.severity === "Critical").length} critical`} />
+        <Kpi icon={Check} label="Time to acknowledge" value={avgAck ? fmtDur(avgAck) : "—"} ctx="average, last 30 days" />
       </div>
 
-      <Drawer open={open} onClose={() => setOpen(false)} title="Raise an alert">
-        {error ? <div className="login-error">{error}</div> : null}
-        <Field label="Type">
-          <select className="select" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            {GH_ALERT_TYPES.map((t) => <option key={t}>{t}</option>)}
-          </select>
-        </Field>
-        <Field label="Severity">
-          <div className="seg">
-            {GH_SEVERITIES.map((s) => (
-              <button key={s} type="button" className={`seg-btn tone-${severityTone(s)} ${form.severity === s ? "seg-active" : ""}`} onClick={() => setForm({ ...form, severity: s })}>{s}</button>
-            ))}
-          </div>
-        </Field>
-        <Field label="Location"><input className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
-        <Field label="Message"><textarea className="textarea" rows={3} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} /></Field>
-        <button type="button" className="btn btn-primary drawer-submit" disabled={!form.message.trim() || pending} onClick={submit}>
-          {pending ? "Raising…" : "Raise alert"}
-        </button>
-      </Drawer>
+      <section className="card">
+        <div className="tabs" role="tablist">
+          {([["open", "Open"], ["resolved", "Resolved"], ["all", "All"]] as [Tab, string][]).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l} <span className="ct">{alerts.filter((a) => inTab(a, k)).length}</span></button>)}
+        </div>
+        <ul className="list">
+          {list.map((a) => {
+            const [label, tone] = a.void ? ["Voided", "neu" as Tone] : STATUS[a.status];
+            return (
+              <li key={a.id}>
+                <button type="button" className="row click" onClick={() => setOpenId(a.id)} style={{ width: "100%", textAlign: "left", background: openId === a.id ? "var(--acc-bg)" : "transparent", border: 0, color: "inherit", ...(a.void ? { opacity: 0.55 } : {}) }}>
+                  <span className={`stripe s-${a.void ? "neu" : tone}`} />
+                  <div className="m">
+                    <b>{a.type}{a.location ? ` · ${a.location}` : ""}</b>
+                    <span>{a.message}</span>
+                    <span style={{ display: "block" }}>Raised {when(a.created_at, now)} by {a.raised_by_name}{a.acknowledged_at ? ` · acknowledged by ${a.acknowledged_by_name ?? "—"} after ${fmtDur(gap(a.created_at, a.acknowledged_at))}` : ""}{a.resolved_at ? ` · resolved by ${a.resolved_by_name ?? "—"}` : ""}</span>
+                  </div>
+                  <Badge tone={tone}>{label}</Badge>
+                  <Badge tone={sevTone(a.severity)} dot={false}>{a.severity}</Badge>
+                </button>
+              </li>
+            );
+          })}
+          {list.length === 0 ? <li className="empty">{tab === "open" ? "No open alerts. All clear." : "No alerts yet."}</li> : null}
+        </ul>
+      </section>
 
-      <Drawer open={!!voidTarget} onClose={() => setVoidTarget(null)} title="Void this alert">
-        {voidError ? <div className="login-error">{voidError}</div> : null}
-        <p className="gate-copy" style={{ marginTop: 0 }}>This keeps the original entry visible for the record — it won&apos;t be edited or deleted, just marked voided with your reason attached.</p>
-        {voidTarget ? <p style={{ fontSize: 13, fontWeight: 600, marginTop: 0 }}>{voidTarget.message}</p> : null}
-        <Field label="Reason (required)">
-          <textarea className="textarea" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Raised by mistake" />
-        </Field>
-        <button type="button" className="btn btn-primary drawer-submit" disabled={!voidReason.trim() || pending} onClick={submitVoid}>
-          {pending ? "Voiding…" : "Void alert"}
-        </button>
+      <Drawer
+        open={!!sel}
+        onClose={() => setOpenId(null)}
+        over={sel ? `Alert · ${sel.severity}` : ""}
+        title={sel ? `${sel.type}${sel.location ? ` · ${sel.location}` : ""}` : ""}
+        sub={sel ? <span className="hstack">{sel.void ? <Badge tone="neu" dot={false}>Voided</Badge> : <Badge tone={STATUS[sel.status][1]}>{STATUS[sel.status][0]}</Badge>}</span> : undefined}
+        footer={sel && !sel.void ? (
+          <>
+            {canVoid ? <button type="button" className="btn btn-ghost" onClick={() => { setNotes(""); setStep("void"); }}><Ban size={15} /> Void</button> : null}
+            <span style={{ flex: 1 }} />
+            {canEdit && sel.status === "Unacknowledged" && !step ? <button type="button" className="btn btn-danger" disabled={pending} onClick={() => run(() => callAction(acknowledgeAlertAction)(sel.id))}><Check size={15} /> Acknowledge</button> : null}
+            {canEdit && sel.status !== "Resolved" && !step ? <button type="button" className="btn btn-secondary" onClick={() => { setNotes(""); setStep("resolve"); }}>Resolve with notes</button> : null}
+            {step === "resolve" ? <><button type="button" className="btn btn-ghost" onClick={() => setStep(null)}>Cancel</button><button type="button" className="btn btn-primary" disabled={pending || !notes.trim()} onClick={() => run(async () => { await callAction(resolveAlertAction)(sel.id, notes); setStep(null); })}><Check size={15} /> {pending ? "Saving…" : "Resolve"}</button></> : null}
+            {step === "void" ? <><button type="button" className="btn btn-ghost" onClick={() => setStep(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={pending || !notes.trim()} onClick={() => run(async () => { await callAction(voidAlertAction)(sel.id, notes); setStep(null); })}>{pending ? "Voiding…" : "Void alert"}</button></> : null}
+          </>
+        ) : undefined}
+      >
+        {sel ? (
+          <>
+            {step === "resolve" ? (
+              <div className="work-box">
+                <span className="over">Resolve</span>
+                <div className="field"><label htmlFor="al-res">What happened and the all-clear</label><textarea className="input" id="al-res" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. False alarm, smoke from the generator. Fire team checked, all clear at 22:20." autoFocus /></div>
+              </div>
+            ) : null}
+            {step === "void" ? (
+              <div className="work-box">
+                <span className="over">Void this alert</span>
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>Only for an alert raised by mistake. It stays on record, marked voided with your reason.</p>
+                <div className="field"><label htmlFor="al-void">Reason (required)</label><textarea className="input" id="al-void" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} autoFocus /></div>
+              </div>
+            ) : null}
+            {error ? <div className="err-note" role="alert">{error}</div> : null}
+            <p style={{ margin: 0, fontSize: 14, whiteSpace: "pre-wrap" }}>{sel.message}</p>
+            <ul className="tl" style={{ padding: 0 }}>
+              <li><span className="tm">{when(sel.created_at, now).replace(/^Today /, "")}</span><span className="dt"><OctagonAlert size={11} /></span><span className="tx"><b>{sel.raised_by_name}</b> raised it</span></li>
+              {sel.acknowledged_at ? <li><span className="tm">{when(sel.acknowledged_at, now).replace(/^Today /, "")}</span><span className="dt"><Check size={11} /></span><span className="tx"><b>{sel.acknowledged_by_name ?? "Someone"}</b> acknowledged it after {fmtDur(gap(sel.created_at, sel.acknowledged_at))}</span></li> : null}
+              {sel.resolved_at ? <li><span className="tm">{when(sel.resolved_at, now).replace(/^Today /, "")}</span><span className="dt"><Check size={11} /></span><span className="tx"><b>{sel.resolved_by_name ?? "Someone"}</b> resolved it: {sel.resolution_notes}</span></li> : null}
+              {sel.void ? <li><span className="tm">—</span><span className="dt"><Ban size={11} /></span><span className="tx"><b>{sel.voided_by_name ?? "Someone"}</b> voided it: {sel.void_reason}</span></li> : null}
+            </ul>
+            {!canEdit ? <span className="hint">View only. Officers, the Supervisor and the Admin acknowledge and resolve alerts.</span> : null}
+          </>
+        ) : null}
       </Drawer>
-    </div>
+    </>
   );
 }

@@ -1,43 +1,39 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateUsercode, hashUsercode } from "@/lib/usercode";
-import { GH_ADMIN_ROLES, assignableRolesFor, canManageAccount, type GHRole } from "@/lib/types";
+import { GH_STAFF_VIEW_ROLES, canManageAccount, creatableRolesFor, type GHRole } from "@/lib/types";
 
-export async function createStaffAction(input: {
+async function createStaffAction__run(input: {
   username: string;
   displayName: string;
   role: GHRole;
 }): Promise<{ username: string; usercode: string }> {
-  const session = await requireRole(GH_ADMIN_ROLES);
+  // Only the Admin creates accounts.
+  const session = await requireRole(["super_admin"]);
   const username = input.username.trim();
   const displayName = input.displayName.trim();
-  if (!username || !displayName) throw new Error("Username and display name are required.");
-  if (!assignableRolesFor(session.role).includes(input.role)) {
-    throw new Error("You aren't permitted to create an account with that role.");
-  }
+  if (!username || !displayName) throw new Error("Username and full name are required.");
+  if (!/^[a-z0-9][a-z0-9._-]{2,}$/i.test(username)) throw new Error("Usernames use letters, numbers and dots, like musa.ibrahim.");
+  if (!creatableRolesFor(session.role).includes(input.role)) throw new Error("You aren't permitted to create an account with that role.");
 
-  const { data: existing } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("id")
-    .eq("username_lower", username.toLowerCase())
-    .maybeSingle();
+  const { data: existing } = await supabaseAdmin.from("staff_accounts").select("id").eq("username_lower", username.toLowerCase()).maybeSingle();
   if (existing) throw new Error("That username is already taken.");
 
   const usercode = generateUsercode();
-  const usercodeHash = await hashUsercode(usercode);
-
   const { error } = await supabaseAdmin.from("staff_accounts").insert({
     username,
     display_name: displayName,
     role: input.role,
-    usercode_hash: usercodeHash,
+    usercode_hash: await hashUsercode(usercode),
+    // The code we generate is one-time: they choose their own at first sign-in.
+    must_change_code: true,
     created_by: session.staffId,
   });
   if (error) throw new Error(error.message);
-
   revalidatePath("/admin/staff");
   return { username, usercode };
 }
@@ -48,39 +44,52 @@ async function getTargetRole(id: string): Promise<GHRole> {
   return data.role as GHRole;
 }
 
-export async function setAccountDisabledAction(id: string, disabled: boolean) {
-  const session = await requireRole(GH_ADMIN_ROLES);
-  const targetRole = await getTargetRole(id);
-  if (!canManageAccount(session.role, targetRole)) throw new Error("You aren't permitted to manage that account.");
+async function guard(id: string) {
+  const session = await requireRole(GH_STAFF_VIEW_ROLES);
+  if (!canManageAccount(session.role, await getTargetRole(id))) throw new Error("You aren't permitted to manage that account.");
+  return session;
+}
 
+async function setAccountDisabledAction__run(id: string, disabled: boolean) {
+  const session = await guard(id);
+  if (id === session.staffId) throw new Error("You can’t switch off your own account.");
   const { error } = await supabaseAdmin.from("staff_accounts").update({ disabled, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/staff");
 }
 
-export async function resetUsercodeAction(id: string): Promise<{ usercode: string }> {
-  const session = await requireRole(GH_ADMIN_ROLES);
-  const targetRole = await getTargetRole(id);
-  if (!canManageAccount(session.role, targetRole)) throw new Error("You aren't permitted to manage that account.");
-
+async function resetUsercodeAction__run(id: string): Promise<{ usercode: string }> {
+  const session = await guard(id);
+  if (id === session.staffId) throw new Error("Change your own usercode from My account.");
   const usercode = generateUsercode();
-  const usercodeHash = await hashUsercode(usercode);
   const { error } = await supabaseAdmin
     .from("staff_accounts")
-    .update({ usercode_hash: usercodeHash, failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() })
+    .update({ usercode_hash: await hashUsercode(usercode), must_change_code: true, failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
-
   revalidatePath("/admin/staff");
   return { usercode };
 }
 
-export async function unlockAccountAction(id: string) {
-  const session = await requireRole(GH_ADMIN_ROLES);
-  const targetRole = await getTargetRole(id);
-  if (!canManageAccount(session.role, targetRole)) throw new Error("You aren't permitted to manage that account.");
-
+async function unlockAccountAction__run(id: string) {
+  await guard(id);
   const { error } = await supabaseAdmin.from("staff_accounts").update({ failed_attempts: 0, locked_until: null }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/staff");
+}
+
+export async function createStaffAction(...args: Parameters<typeof createStaffAction__run>) {
+  return guarded(() => createStaffAction__run(...args));
+}
+
+export async function setAccountDisabledAction(...args: Parameters<typeof setAccountDisabledAction__run>) {
+  return guarded(() => setAccountDisabledAction__run(...args));
+}
+
+export async function resetUsercodeAction(...args: Parameters<typeof resetUsercodeAction__run>) {
+  return guarded(() => resetUsercodeAction__run(...args));
+}
+
+export async function unlockAccountAction(...args: Parameters<typeof unlockAccountAction__run>) {
+  return guarded(() => unlockAccountAction__run(...args));
 }

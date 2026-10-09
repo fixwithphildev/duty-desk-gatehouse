@@ -3,9 +3,8 @@ import type { GHRole } from "./types";
 
 export const SESSION_COOKIE = "gh_session";
 
-// Sliding session lengths, per blueprint 4.2: shared devices (the front
-// desk / duty PC) time out quickly; a staff member's own phone can stay
-// signed in much longer.
+// Sliding session lengths, per blueprint 4.2: shared devices (the gate PC)
+// time out quickly; an officer's own phone can stay signed in much longer.
 export const SHARED_DEVICE_TTL_SECONDS = 20 * 60; // 20 minutes
 export const PERSONAL_DEVICE_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 
@@ -15,6 +14,7 @@ export interface SessionPayload {
   displayName: string;
   role: GHRole;
   persistent: boolean;
+  iat?: number; // when the session was signed, in seconds (set by jose)
 }
 
 function getSecret(): Uint8Array {

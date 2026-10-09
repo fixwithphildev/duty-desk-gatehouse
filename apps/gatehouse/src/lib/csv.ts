@@ -1,5 +1,9 @@
 import "server-only";
 
+// Same CSV helpers as Duty Desk's src/lib/csv.ts, plus a UTF-8 byte-order
+// mark: without it Excel on Windows guesses the wrong encoding and mangles
+// non-ASCII text (names, the ₦ sign) in the downloaded report.
+
 function escapeCsvValue(value: unknown): string {
   if (value === null || value === undefined) return "";
   const str = String(value);
@@ -16,7 +20,7 @@ export function toCsv<T extends Record<string, unknown>>(rows: T[], columns: { k
 }
 
 export function csvResponse(csv: string, filename: string): Response {
-  return new Response(csv, {
+  return new Response(`\uFEFF${csv}`, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
