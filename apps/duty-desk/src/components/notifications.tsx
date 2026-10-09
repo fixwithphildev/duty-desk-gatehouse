@@ -68,7 +68,12 @@ export function Notifications() {
   const [toasts, setToasts] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState<string>(new Date(0).toISOString());
+  // Where the next check starts. Set from the server's answer (never this
+  // device's clock, which may be off); each answer starts a minute back, so
+  // nothing saved mid-check slips between two checks.
   const sinceRef = useRef(new Date().toISOString());
+  // Every event already in the list or announced, so the overlap never repeats one.
+  const knownRef = useRef(new Set<string>());
 
   useEffect(() => {
     setSeen(readSeen());
@@ -78,32 +83,33 @@ export function Notifications() {
         const res = await fetch(`/api/notifications?since=${encodeURIComponent(since)}`, { cache: "no-store" });
         if (!res.ok || cancelled) return;
         const data: { items: Item[]; checkedAt: string } = await res.json();
-        if (announce) sinceRef.current = data.checkedAt;
-        if (data.items.length === 0) return;
-        setItems((prev) => {
-          const ids = new Set(prev.map((p) => p.id));
-          return [...data.items.filter((i) => !ids.has(i.id)).reverse(), ...prev].slice(0, 40);
-        });
+        sinceRef.current = data.checkedAt;
+        const fresh = data.items.filter((i) => !knownRef.current.has(i.id));
+        fresh.forEach((i) => knownRef.current.add(i.id));
+        if (fresh.length === 0) return;
+        setItems((prev) => [...fresh.slice().reverse(), ...prev].slice(0, 40));
         if (announce) {
           playChime();
-          setToasts((prev) => [...data.items, ...prev].slice(0, 4));
-          data.items.forEach((item) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== item.id)), AUTO_DISMISS_MS));
+          setToasts((prev) => [...fresh, ...prev].slice(0, 4));
+          fresh.forEach((item) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== item.id)), AUTO_DISMISS_MS));
         }
       } catch {
         // Transient network hiccup — just try again next time.
       }
     };
-    // One check at a time, and none while the tab is hidden: on a slow line,
-    // overlapping checks queue up and hold back the page the user clicked.
+    // One check at a time: on a slow line, overlapping checks queue up and
+    // hold back the page the user clicked. It keeps checking while the tab is
+    // in the background (the browser slows it to about once a minute), so
+    // front desk still hears the chime with another window in front.
     let busy = false;
     const poll = async () => {
-      if (busy || document.visibilityState !== "visible") return;
+      if (busy) return;
       busy = true;
       try { await load(sinceRef.current, true); } finally { busy = false; }
     };
     const onVisible = () => { if (document.visibilityState === "visible") void poll(); };
-    void load(new Date(Date.now() - HISTORY_HOURS * 3600_000).toISOString(), false);
-    const interval = setInterval(() => void poll(), POLL_MS);
+    const first = load(new Date(Date.now() - HISTORY_HOURS * 3600_000).toISOString(), false);
+    const interval = setInterval(() => void first.then(poll), POLL_MS);
     document.addEventListener("visibilitychange", onVisible);
     return () => { cancelled = true; clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
