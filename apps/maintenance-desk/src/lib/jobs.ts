@@ -40,6 +40,8 @@ export interface JobView {
   resolvedAt: string | null;
   resolvedWhen: string | null;
   resolvedToday: boolean;
+  // Finished since the redesign, when the finish time started being recorded (older jobs predate Costs).
+  finishRecorded: boolean;
   fixNote: string | null;
   blocksSale: boolean;
   photoCount: number;
@@ -57,7 +59,8 @@ export const PRI_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
 export const stLabel = (s: string) => (s === "In Progress" ? "In progress" : s);
 
 // Done with nothing recorded on Costs: the unit still has to add what it bought, or mark "nothing bought".
-export const missingCost = (j: JobView) => !j.void && j.status === "Resolved" && j.lines.length === 0 && !j.noPurchase;
+// Jobs finished before the redesign are left out: Costs didn't exist for most of them.
+export const missingCost = (j: JobView) => !j.void && j.status === "Resolved" && j.finishRecorded && j.lines.length === 0 && !j.noPurchase;
 
 // Who asked for a request: "Mrs. Funke Okoye (COO)", or just "Head of Security" when the name is the role.
 export function askedBy(r: JobView["requester"]): string {

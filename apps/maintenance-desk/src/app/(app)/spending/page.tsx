@@ -65,7 +65,7 @@ export default async function SpendingPage() {
       <div className="kpis k4">
         <Kpi icon={Wallet} label={`Spent in ${mo.name}`} value={naira(tot)} ctx={`${monthName(months[10], "long")} ${naira(lastMonth)}`} data={monthTot.slice(-7)} />
         {tot ? <Kpi icon={BarChart3} label={`Top unit · ${lead.u}`} value={naira(lead.v)} ctx={`${pct(lead.v, tot)}% of everything bought in ${mo.name}`} /> : <Kpi icon={BarChart3} label="Top unit" value="—" ctx={`nothing bought yet in ${mo.name}`} />}
-        <Kpi icon={Receipt} label="Jobs with purchases" value={jobsMo} ctx={`${inMonth.length} items bought · avg ${naira(total(inMonth.filter((s) => s.job)) / Math.max(1, jobsMo))} per job`} />
+        <Kpi icon={Receipt} label="Jobs with purchases" value={jobsMo} ctx={`${inMonth.length} item${inMonth.length === 1 ? "" : "s"} bought · avg ${naira(total(inMonth.filter((s) => s.job)) / Math.max(1, jobsMo))} per job`} />
         <Kpi icon={AlertTriangle} label="Resolved, cost not recorded" value={miss} ctx="see Costs" tile={miss ? "bad" : ""} />
       </div>
 

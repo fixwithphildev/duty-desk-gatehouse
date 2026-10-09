@@ -176,7 +176,7 @@ export function CostsClient({
 
       <div className="kpis k4">
         <Kpi icon={Wallet} label="Spent this week" value={naira(sum(wk))} ctx={`${wk.length} item${wk.length === 1 ? "" : "s"} · ${uName}`} />
-        <Kpi icon={Receipt} label={`Spent in ${month.name}`} value={naira(sum(mo))} ctx={`${mo.length} items · ${jobsMo} job${jobsMo === 1 ? "" : "s"}`} />
+        <Kpi icon={Receipt} label={`Spent in ${month.name}`} value={naira(sum(mo))} ctx={`${mo.length} item${mo.length === 1 ? "" : "s"} · ${jobsMo} job${jobsMo === 1 ? "" : "s"}`} />
         <Kpi icon={BarChart3} label="Average per job" value={naira(sum(mo.filter((p) => p.jobId)) / Math.max(1, jobsMo))} ctx={`${month.name}, stock not included`} />
         <Kpi icon={AlertTriangle} label="Resolved, cost not recorded" value={miss.length} ctx={miss.length ? "add what was bought, or mark nothing bought" : "all costs recorded"} tile={miss.length ? "bad" : ""} />
       </div>

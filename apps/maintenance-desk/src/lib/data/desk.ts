@@ -51,6 +51,7 @@ function toJob(t: Ticket, lines: ExpenseLine[], noPurchase: boolean, funding: Jo
     resolvedAt,
     resolvedWhen: resolvedAt ? whenText(resolvedAt) : null,
     resolvedToday: t.status === "Resolved" && !!resolvedAt && lagosDayKey(resolvedAt) === today,
+    finishRecorded: !!t.resolved_at,
     fixNote: t.fix_note,
     blocksSale: t.blocks_sale,
     photoCount: t.photo_count,
