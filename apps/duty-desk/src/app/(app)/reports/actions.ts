@@ -1,12 +1,13 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { requirePageAccess } from "@/lib/auth";
 import { buildReportCsv, REPORT_DATASET_LABELS, type ReportDataset } from "@/lib/reports/exports";
 import { sendCsvEmail } from "@/lib/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function emailReportAction(dataset: ReportDataset, toEmail: string): Promise<void> {
+async function emailReportAction__run(dataset: ReportDataset, toEmail: string): Promise<void> {
   const session = await requirePageAccess("/reports");
   const to = toEmail.trim();
   if (!EMAIL_RE.test(to)) throw new Error("Enter a valid email address.");
@@ -19,4 +20,8 @@ export async function emailReportAction(dataset: ReportDataset, toEmail: string)
     csv,
     filename,
   });
+}
+
+export async function emailReportAction(...args: Parameters<typeof emailReportAction__run>) {
+  return guarded(() => emailReportAction__run(...args));
 }

@@ -5,9 +5,10 @@ import { Ban } from "lucide-react";
 import { Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { voidChecklistAction } from "../actions";
 
-export function VoidChecklistButton({ id, canEdit }: { id: string; canEdit: boolean }) {
+export function VoidChecklistButton({ id, apartment, canEdit }: { id: string; apartment: string; canEdit: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
@@ -20,7 +21,7 @@ export function VoidChecklistButton({ id, canEdit }: { id: string; canEdit: bool
     setError(null);
     startTransition(async () => {
       try {
-        await voidChecklistAction(id, reason);
+        await callAction(voidChecklistAction)(id, reason);
         setOpen(false);
         setReason("");
       } catch (e) {
@@ -35,19 +36,27 @@ export function VoidChecklistButton({ id, canEdit }: { id: string; canEdit: bool
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(true)}>
         <Ban size={13} /> Void this checklist
       </button>
-      <Drawer open={open} onClose={() => setOpen(false)} title="Void this checklist">
-        {error ? <div className="login-error">{error}</div> : null}
-        <p style={{ fontSize: 12.5, opacity: 0.75, marginTop: 0 }}>
-          This keeps the original submission and every item fully visible for the record — it won&apos;t be edited or deleted, just marked
-          voided with your reason attached. If this was the apartment&apos;s current Ready/Not Ready record, the next most recent submitted
-          checklist for it becomes authoritative again.
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        over="Checklists"
+        title="Void this checklist"
+        sub={apartment}
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
+            <button type="button" className="btn btn-danger" disabled={!reason.trim() || pending} onClick={submit}>{pending ? "Voiding…" : "Void checklist"}</button>
+          </>
+        }
+      >
+        {error ? <div className="err-note" role="alert">{error}</div> : null}
+        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+          The original submission and every item stay visible for the record. It’s only marked voided, with your reason. If this was the
+          apartment’s latest check-in prep, the one before it decides whether it can be sold.
         </p>
         <Field label="Reason (required)">
-          <textarea className="textarea" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Submitted against the wrong apartment" />
+          <textarea className="input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Submitted against the wrong apartment" />
         </Field>
-        <button type="button" className="btn btn-primary drawer-submit" disabled={!reason.trim() || pending} onClick={submit}>
-          {pending ? "Voiding…" : "Void checklist"}
-        </button>
       </Drawer>
     </>
   );

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ArrowLeft, Clock, Eye, EyeOff, Home, Lock, ShieldCheck, User } from "lucide-react";
 import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
@@ -12,8 +11,8 @@ const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL;
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className="btn btn-primary drawer-submit" disabled={pending}>
-      {pending ? "Signing in…" : <>Sign in <ArrowRight size={17} /></>}
+    <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={pending}>
+      {pending ? "Signing in…" : "Sign in"}
     </button>
   );
 }
@@ -23,63 +22,62 @@ export function LoginForm() {
   const [showCode, setShowCode] = useState(false);
 
   return (
-    <div className="login-shell">
-      <aside className="login-photo">
+    <div className="signin p-dd">
+      <section className="si-brand">
         {PORTAL_URL ? (
-          <a href={PORTAL_URL} className="login-back">
-            <ArrowLeft size={15} />
-            Back to portal
-          </a>
+          <a href={PORTAL_URL} className="si-back"><ArrowLeft size={14} /> All platforms</a>
         ) : <span />}
+        <div><div className="si-mark"><Home size={26} /></div></div>
         <div>
-          <div className="login-photo-eyebrow">The Destination</div>
-          <div className="login-photo-title">Duty Desk</div>
+          <h2>Duty Desk</h2>
+          <p className="tagl">Resident Officer operations: readiness checklists, complaints, maintenance and the duty log.</p>
         </div>
-      </aside>
-
-      <main className="login-side">
-        <ThemeToggle className="topbar-btn login-theme icon-btn" />
-        <div className="login-card">
-          <div className="eyebrow login-brand">Resident Officers</div>
-          <h1 className="login-title">Welcome back</h1>
-          <p className="login-sub">Sign in with the username and usercode your supervisor gave you.</p>
-
-          {state.error ? <div className="login-error" role="alert">{state.error}</div> : null}
-
-          <form action={formAction}>
-            <div className="field">
-              <label className="field-label" htmlFor="username">Username</label>
-              <input className="input" id="username" name="username" autoComplete="username" required autoFocus />
+        <ul className="bul">
+          <li><ShieldCheck size={18} /><span>Every entry is signed to your login and timestamped. Nobody can log under your name.</span></li>
+          <li><Lock size={18} /><span>Five wrong usercodes lock the account for 15 minutes.</span></li>
+          <li><Clock size={18} /><span>Shared desks sign you out after 20 minutes without use. Personal phones stay signed in.</span></li>
+        </ul>
+      </section>
+      <section className="si-form">
+        <form className="si-card" action={formAction}>
+          <div><div className="over">The Destination</div><h1 style={{ marginTop: 6 }}>Sign in to Duty Desk</h1></div>
+          {state.error ? <div className="err-note" role="alert"><Lock size={16} /><span>{state.error}</span></div> : null}
+          <div className="field">
+            <label htmlFor="username">Username</label>
+            <div className="input-wrap">
+              <User size={16} />
+              <input className="input" id="username" name="username" autoComplete="username" autoCapitalize="off" autoCorrect="off" spellCheck={false} required autoFocus />
             </div>
-            <div className="field">
-              <label className="field-label" htmlFor="usercode">Usercode</label>
-              <div className="input-wrap">
-                <input
-                  className="input mono login-code"
-                  id="usercode"
-                  name="usercode"
-                  type={showCode ? "text" : "password"}
-                  autoComplete="current-password"
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  maxLength={8}
-                  required
-                />
-                <button type="button" className="peek-btn" onClick={() => setShowCode((v) => !v)} aria-label={showCode ? "Hide usercode" : "Show usercode"} aria-pressed={showCode}>
-                  {showCode ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
+            <span className="hint">Given to you when your account was made.</span>
+          </div>
+          <div className="field">
+            <label htmlFor="usercode">Usercode</label>
+            <div className="input-wrap">
+              <Lock size={16} />
+              <input
+                className="input mono si-code"
+                id="usercode"
+                name="usercode"
+                type={showCode ? "text" : "password"}
+                autoComplete="current-password"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                required
+              />
+              <button type="button" className="si-peek" onClick={() => setShowCode((v) => !v)} aria-label={showCode ? "Hide usercode" : "Show usercode"} aria-pressed={showCode}>
+                {showCode ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
             </div>
-            <label className="checkbox-row">
-              <input type="checkbox" name="persistent" />
-              <span>This is my personal device — keep me signed in</span>
-            </label>
-            <SubmitButton />
-          </form>
-          <div className="login-help">Forgot your usercode? Ask your supervisor.</div>
-        </div>
-      </main>
+            <span className="hint">The one-time code you were given, or the usercode you chose.</span>
+          </div>
+          <label className="check">
+            <input type="checkbox" name="persistent" /> Keep me signed in on this device (personal phones only)
+          </label>
+          <SubmitButton />
+          <span className="hint" style={{ textAlign: "center" }}>Forgot your usercode? Ask the Admin to reset it.</span>
+        </form>
+      </section>
     </div>
   );
 }

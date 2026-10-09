@@ -15,6 +15,10 @@ export interface SessionPayload {
   displayName: string;
   role: MDRole;
   persistent: boolean;
+  // When the person actually signed in (ms). Stays the same when the session
+  // is renewed while they're working; older sessions only have iat.
+  signedInAt?: number;
+  iat?: number; // when the token was last signed, in seconds (set by jose)
 }
 
 function getSecret(): Uint8Array {
@@ -27,7 +31,9 @@ function getSecret(): Uint8Array {
 
 export async function signSession(payload: SessionPayload): Promise<string> {
   const ttl = payload.persistent ? PERSONAL_DEVICE_TTL_SECONDS : SHARED_DEVICE_TTL_SECONDS;
-  return new SignJWT({ ...payload })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { iat, exp, ...rest } = payload as SessionPayload & { exp?: number };
+  return new SignJWT({ ...rest, signedInAt: rest.signedInAt ?? Date.now() })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(Math.floor(Date.now() / 1000) + ttl)
@@ -45,4 +51,9 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
 
 export function sessionTtlSeconds(persistent: boolean): number {
   return persistent ? PERSONAL_DEVICE_TTL_SECONDS : SHARED_DEVICE_TTL_SECONDS;
+}
+
+// When the person signed in, in ms (sessions from before renewal only have iat).
+export function sessionSignedInAt(session: SessionPayload): number {
+  return session.signedInAt ?? (session.iat ?? 0) * 1000;
 }

@@ -1,38 +1,48 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Repeat2, Check } from "lucide-react";
-import { acknowledgeHandoverAction } from "./actions";
-
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
+import { acknowledgeHandoverAction } from "../dutylog/actions";
+import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 
 interface Handover {
   id: string;
   officer_name: string;
   notes: string;
-  created_at: string;
+  when: string;
+  mine: boolean;
 }
 
-export function HandoverBanner({ handover }: { handover: Handover | null }) {
+// The last shift's handover note, until someone on the next shift acknowledges it.
+export function HandoverBanner({ handover, canAck }: { handover: Handover | null; canAck: boolean }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   if (!handover) return null;
 
-  const acknowledge = () => startTransition(async () => { await acknowledgeHandoverAction(handover.id); });
+  const acknowledge = () =>
+    startTransition(async () => {
+      try { await callAction(acknowledgeHandoverAction)(handover.id); router.refresh(); } catch (e) { if (isRedirectError(e)) throw e; setError(errorMessage(e)); }
+    });
 
   return (
-    <div className="handover-banner">
-      <div className="handover-icon"><Repeat2 size={18} /></div>
-      <div className="handover-main">
-        <div className="handover-title">Handover from {handover.officer_name}</div>
-        <div className="handover-meta">Last shift · {fmtTime(handover.created_at)}</div>
-        <div className="handover-note">&ldquo;{handover.notes}&rdquo;</div>
+    <section className="handover" aria-label="Shift handover">
+      <div className="ic"><Repeat2 size={18} /></div>
+      <div className="tx">
+        <b>{handover.mine ? "Your handover note" : `Handover from ${handover.officer_name}`} · {handover.when}</b>
+        <p style={{ whiteSpace: "pre-line" }}>{handover.notes}</p>
+        {error ? <p className="err-note" role="alert" style={{ marginTop: 8 }}>{error}</p> : null}
       </div>
-      <button type="button" className="btn handover-ack" disabled={pending} onClick={acknowledge}>
-        <Check size={15} /> {pending ? "Marking…" : "Mark as handled"}
-      </button>
-    </div>
+      <div className="acts">
+        {handover.mine || !canAck ? <span className="hint">Waiting for the next shift to acknowledge</span> : (
+          <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={acknowledge}>
+            <Check size={14} /> {pending ? "Saving…" : "Acknowledge"}
+          </button>
+        )}
+      </div>
+    </section>
   );
 }

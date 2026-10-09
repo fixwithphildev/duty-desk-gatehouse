@@ -1,213 +1,220 @@
 import Link from "next/link";
-import { ClipboardCheck, Download, MessageSquareWarning, Wrench } from "lucide-react";
+import { ArrowRight, Download } from "lucide-react";
 import { requirePageAccess } from "@/lib/auth";
-import { buildAnalytics, parsePeriod, PERIODS, SERIES_KEYS, type Ranked, type SeriesKey } from "@/lib/reports/analytics";
-import { ActivityChart } from "@/components/activity-chart";
+import { buildAnalytics, parsePeriod, PERIODS, type Ranked } from "@/lib/reports/analytics";
+import { getReadiness, countByStatus } from "@/lib/data/readiness";
+import { toBoardApt } from "@/lib/board";
+import { lagosDayKey } from "@/lib/time";
+import { Columns, DonutCard, DotMatrix, PrepBars, RingTile, STATUS_COLOR, StatusLegend, pct } from "@/components/infographic";
 import { EmailReportButton } from "./email-report-button";
 
-const COLORS: Record<SeriesKey, string> = { Complaints: "var(--s1)", Maintenance: "var(--s2)", Checklists: "var(--s3)" };
 const BANDS = ["12a", "4a", "8a", "12p", "4p", "8p"];
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function Sparkline({ values, color }: { values: number[]; color: string }) {
-  const w = 92, h = 36;
-  const max = Math.max(1, ...values);
-  const step = values.length > 1 ? w / (values.length - 1) : 0;
-  const pts = values.map((v, i) => `${(i * step).toFixed(1)},${(h - 3 - (v / max) * (h - 6)).toFixed(1)}`).join(" ");
-  return (
-    <svg className="kpi-spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
-
-// Change vs the previous period. More complaints or maintenance is bad
-// (red); more checklists done is good (teal).
-function Delta({ now, before, goodWhenUp, days }: { now: number; before: number; goodWhenUp: boolean; days: number }) {
-  if (before === 0 && now === 0) return <div className="kpi-note">No activity in either period</div>;
-  if (before === 0) return <div className="kpi-note">New this period · none in the {days} days before</div>;
-  const pct = Math.round(((now - before) / before) * 100);
-  const up = pct > 0;
-  const tone = pct === 0 ? "flat" : up === goodWhenUp ? "good" : "bad";
-  return (
-    <div className="kpi-note">
-      <span className={`kpi-delta ${tone}`}>{pct === 0 ? "—" : up ? "▲" : "▼"} {Math.abs(pct)}%</span>
-      vs previous {days} days
-    </div>
-  );
-}
+const CAT_COLORS = ["var(--cat1)", "var(--cat2)", "var(--cat3)", "var(--cat4)", "var(--cat5)"];
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
 function RankList({ rows, empty }: { rows: Ranked[]; empty: string }) {
-  if (rows.length === 0) return <p className="analytics-empty">{empty}</p>;
+  if (!rows.length) return <p className="muted" style={{ margin: 0 }}>{empty}</p>;
   const max = rows[0].value;
   return (
-    <ol className="rank-list">
+    <ol className="rank">
       {rows.map((r, i) => (
-        <li key={r.name} className="rank-row">
-          <span className="rank-n">{i + 1}</span>
-          <div className="rank-main">
-            <div className="rank-name">{r.name}</div>
-            <div className="rank-detail">{r.detail}</div>
-            <div className="rank-bar"><span style={{ width: `${(r.value / max) * 100}%` }} /></div>
-          </div>
-          <span className="rank-value">{r.value}</span>
+        <li key={r.name}>
+          <span className="n">{i + 1}</span>
+          <div><b>{r.name}</b><small>{r.detail}</small><span className="tr"><span style={{ width: `${(r.value / max) * 100}%` }} /></span></div>
+          <span className="v">{r.value}</span>
         </li>
       ))}
     </ol>
   );
 }
 
-export default async function ReportsPage({ searchParams }: { searchParams: { days?: string } }) {
-  await requirePageAccess("/reports");
-  const days = parsePeriod(searchParams.days);
-  const a = await buildAnalytics(days);
+const StatusBars = ({ rows, total }: { rows: [string, number, string][]; total: number }) => (
+  <div className="card-b">
+    {rows.map(([l, n, tone]) => (
+      <div key={l} className="hbar hb2"><span>{l}</span><span className="tr"><span style={{ width: `${pct(n, total)}%`, background: `var(--${tone})` }} /></span><span className="mono" style={{ textAlign: "right" }}>{n}</span></div>
+    ))}
+  </div>
+);
 
-  const readyPct = a.ready.checked ? Math.round((a.ready.ready / a.ready.checked) * 100) : 0;
-  const statusTotals = a.status.reduce((acc, s) => ({ resolved: acc.resolved + s.resolved, all: acc.all + s.open + s.progress + s.resolved }), { resolved: 0, all: 0 });
+export default async function ReportsPage({ searchParams }: { searchParams: { days?: string } }) {
+  const session = await requirePageAccess("/reports");
+  const days = parsePeriod(searchParams.days);
+  const [a, readiness] = await Promise.all([buildAnalytics(days), getReadiness()]);
+
+  const c = countByStatus(readiness), total = readiness.length, empty = total - c.occupied;
+  const apts = readiness.map((r) => toBoardApt(r, session.staffId));
+  const prepsReady = a.preps.reduce((s, p) => s + p.ready, 0), prepsAll = a.preps.reduce((s, p) => s + p.ready + p.not, 0);
+  const firstTime = pct(prepsReady, prepsAll);
+  const [cmp, tkt] = a.status;
+  const cmpAll = cmp.open + cmp.progress + cmp.resolved, tktAll = tkt.open + tkt.progress + tkt.resolved;
+
+  // Guests due to leave each of the next 7 days (anyone overdue counts as today).
+  const next = Array.from({ length: 7 }, (_, i) => new Date(Date.now() + i * 86400000));
+  const leaving = readiness.map((r) => r.stay?.until).filter(Boolean) as string[];
+  const cols = next.map((d, i) => {
+    const k = lagosDayKey(d.toISOString());
+    const n = leaving.filter((u) => (i === 0 ? u <= k : u === k)).length;
+    const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", timeZone: "Africa/Lagos" });
+    return { label: i === 0 ? "Today" : label, v: n, title: `${i === 0 ? "Today" : label}: ${plural(n, "check-out")}` };
+  });
+  const later = leaving.filter((u) => u > lagosDayKey(next[6].toISOString())).length;
+  const busiest = cols.reduce((x, y) => (y.v > x.v ? y : x), cols[0]);
+  const noDate = readiness.filter((r) => r.stay && !r.stay.until).length;
+
+  const catParts = a.categories.map((k, i) => ({ label: k.name, v: k.value, color: CAT_COLORS[i % CAT_COLORS.length] }));
+  const srcTotal = a.sources.reduce((s, x) => s + x.value, 0);
+  const dmax = Math.max(1, ...a.depts.map((d) => d.total));
+  const omax = Math.max(1, ...a.officers.map((o) => o.value));
   const heatMax = Math.max(0, ...a.heat.flat());
   const heatLevel = (v: number) => (v === 0 || heatMax === 0 ? 0 : Math.min(4, Math.ceil((v / heatMax) * 4)));
-  const catMax = Math.max(1, ...a.categories.map((c) => c.value));
 
   return (
-    <div className="view analytics">
-      <div className="dash-hero">
-        <div>
-          <div className="eyebrow">Reports &amp; Analytics</div>
-          <h1>How the property is running</h1>
-          <p className="dash-hero-sub">Last {days} days compared with the {days} days before.</p>
+    <>
+      <div className="phead">
+        <div className="t"><h1>Reports</h1><p>How the apartments, complaints and repairs are going, at a glance. Tap any square for that apartment, or download a list as a spreadsheet file.</p></div>
+        <div className="acts">
+          <nav className="seg" aria-label="Period">
+            {PERIODS.map((p) => <Link key={p} href={`/reports?days=${p}`} aria-pressed={p === days} aria-current={p === days ? "page" : undefined} scroll={false} className="seg-link">Last {p} days</Link>)}
+          </nav>
         </div>
-        <nav className="period-seg" aria-label="Period">
-          {PERIODS.map((p) => (
-            <Link key={p} href={`/reports?days=${p}`} className={p === days ? "on" : ""} aria-current={p === days ? "page" : undefined} scroll={false}>{p} days</Link>
-          ))}
-        </nav>
       </div>
 
-      <section className="kpi-grid">
-        {SERIES_KEYS.map((k) => (
-          <div key={k} className="kpi-tile">
-            <div className="kpi-top"><span>{k} logged</span><span className="kpi-chip">{days}d</span></div>
-            <div className="kpi-row">
-              <span className="kpi-value">{a.totals[k]}</span>
-              <Sparkline values={a.series[k]} color={COLORS[k]} />
-            </div>
-            <Delta now={a.totals[k]} before={a.previous[k]} goodWhenUp={k === "Checklists"} days={days} />
-          </div>
-        ))}
-        <div className="kpi-tile">
-          <div className="kpi-top"><span>Apartments ready</span><span className="kpi-chip">now</span></div>
-          {a.ready.checked ? (
-            <>
-              <div className="kpi-row"><span className="kpi-value">{readyPct}<small>%</small></span></div>
-              <div className="kpi-meter" role="img" aria-label={`${a.ready.ready} of ${a.ready.checked} apartments ready`}><span style={{ width: `${readyPct}%` }} /></div>
-              <div className="kpi-note">{a.ready.ready} of {a.ready.checked} checked apartments</div>
-            </>
-          ) : (
-            <p className="analytics-empty" style={{ marginTop: 16 }}>No checklists submitted yet.</p>
-          )}
-        </div>
-      </section>
+      <div className="kpis k4 ig-kpis">
+        <RingTile p={pct(c.ready, empty)} color="var(--ok)" big={`${c.ready} of ${empty} ready to sell`} line="Empty apartments front desk can sell now" />
+        <RingTile p={pct(c.occupied, total)} color="var(--cat2)" big={`${c.occupied} of ${total} occupied`} line="Apartments with a guest checked in" />
+        <RingTile p={firstTime} color="var(--acc)" big={prepsAll ? `${firstTime}% ready first time` : "No check-in preps yet"} line={`${plural(prepsAll, "check-in prep")} in the last ${days} days`} />
+        <RingTile p={pct(tkt.resolved, tktAll)} color="var(--warn)" big={`${tkt.resolved} of ${tktAll} repairs done`} line={`${cmp.resolved} of ${cmpAll} complaints resolved · last ${days} days`} />
+      </div>
 
-      <section className="card">
-        <div className="card-head" style={{ marginBottom: 0 }}>
-          <div><span>Activity over time</span><div className="card-sub">Items logged per day</div></div>
-        </div>
-        <ActivityChart dates={a.dates} series={SERIES_KEYS.map((k) => ({ key: k, color: COLORS[k], values: a.series[k] }))} />
-      </section>
-
-      <div className="analytics-grid3">
+      <div className="g g-ig">
         <section className="card">
-          <div className="card-head" style={{ marginBottom: 4 }}><div><span>Complaints by category</span><div className="card-sub">Where guest issues come from</div></div></div>
-          {a.categories.length ? (
-            <div className="hbar-list">
-              {a.categories.map((c) => (
-                <div key={c.name} className="hbar-row" title={`${c.name}: ${c.value}`}>
-                  <span className="hbar-name">{c.name}</span>
-                  <span className="hbar-track"><span className="hbar-fill" style={{ width: `${(c.value / catMax) * 100}%` }} /></span>
-                  <span className="hbar-value">{c.value}</span>
+          <div className="card-h"><h3>Every apartment at a glance</h3><span className="sp" /><span className="sub">{total} apartments · one square each</span></div>
+          <DotMatrix apts={apts} />
+          <div style={{ padding: "0 20px 16px" }}><StatusLegend counts={c} /></div>
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>Apartment status</h3><span className="sp" /><Link href="/board" className="link">Open board <ArrowRight size={13} /></Link></div>
+          <DonutCard
+            parts={([["ready", "Ready to sell"], ["recheck", "Re-check due"], ["notready", "Not ready"], ["inspecting", "Inspecting"], ["unchecked", "Needs checklist"], ["occupied", "Occupied"]] as const).map(([k, l]) => ({ label: l, v: c[k], color: STATUS_COLOR[k], dashed: k === "unchecked" }))}
+            centre={c.ready}
+            sub="ready to sell"
+          />
+          <p className="ig-note">{c.notready + c.unchecked + c.recheck + c.inspecting} empty apartments can’t be sold yet: {c.notready} waiting on repairs, {c.unchecked + c.recheck} waiting for a check-in prep, {c.inspecting} being checked now.</p>
+        </section>
+      </div>
+
+      <div className="g g-ig">
+        <section className="card">
+          <div className="card-h"><h3>Check-in preps submitted</h3><span className="sub">last {days} days</span><span className="sp" /><div className="legend"><span><i style={{ background: "var(--ok)" }} />Ready</span><span><i style={{ background: "var(--bad)" }} />Not ready</span></div></div>
+          <div className="card-b"><PrepBars preps={a.preps} /></div>
+          <p className="ig-note">{prepsAll ? `${firstTime}% of check-in preps found nothing wrong. The rest opened repair tickets before the apartment could be sold.` : "No check-in preps were submitted in this period."}</p>
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>Check-outs coming up</h3><span className="sp" /><span className="sub">next 7 days</span></div>
+          <div className="card-b"><Columns cols={cols} /></div>
+          <p className="ig-note">
+            {leaving.length || noDate ? <>Every check-out means a check-in prep the same day.{busiest.v ? <> Busiest: <b>{busiest.label}</b> with {busiest.v}.</> : null}{later ? ` ${plural(later, "more guest")} leave later.` : ""}{noDate ? ` ${plural(noDate, "guest")} with no check-out date.` : ""}</> : "No guests are checked in yet. Check-outs show here once check-ins are recorded."}
+          </p>
+        </section>
+      </div>
+
+      <div className="g g-2">
+        <section className="card">
+          <div className="card-h"><h3>Complaints by type</h3><span className="sub">last {days} days</span><span className="sp" /><Link href="/complaints" className="link">Open complaints <ArrowRight size={13} /></Link></div>
+          {catParts.length ? (
+            <>
+              <DonutCard parts={catParts} centre={cmpAll} sub="complaints" />
+              <p className="ig-note">{cmp.open + cmp.progress} still open. Most common: <b>{catParts[0].label.toLowerCase()}</b>.</p>
+            </>
+          ) : <p className="ig-note" style={{ paddingTop: 16 }}>No complaints in this period.</p>}
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>Where repairs come from</h3><span className="sub">last {days} days</span><span className="sp" /><Link href="/maintenance" className="link">Open maintenance <ArrowRight size={13} /></Link></div>
+          <div className="card-b vstack" style={{ gap: 14 }}>
+            {srcTotal ? (
+              <>
+                <div className="stack100" role="img" aria-label={a.sources.map((s) => `${s.name} ${s.value}`).join(", ")}>
+                  {a.sources.map((s, i) => <span key={s.name} style={{ flex: s.value, background: CAT_COLORS[i % CAT_COLORS.length] }} title={`${s.name}: ${s.value}`} />)}
                 </div>
-              ))}
-            </div>
-          ) : <p className="analytics-empty">No complaints in this period.</p>}
-        </section>
-
-        <section className="card">
-          <div className="card-head" style={{ marginBottom: 4 }}><div><span>Open vs resolved</span><div className="card-sub">Status of items logged in this period</div></div></div>
-          {statusTotals.all ? (
-            <>
-              <div className="status-headline">
-                <span className="kpi-value">{Math.round((statusTotals.resolved / statusTotals.all) * 100)}<small>%</small></span>
-                <span className="kpi-note" style={{ margin: 0 }}>resolved overall · {statusTotals.resolved} of {statusTotals.all}</span>
-              </div>
-              {a.status.map((s) => {
-                const t = s.open + s.progress + s.resolved;
-                if (!t) return <div key={s.name} className="status-row"><div className="status-label">{s.name}<span>none logged</span></div></div>;
-                return (
-                  <div key={s.name} className="status-row">
-                    <div className="status-label">{s.name}<span>{s.resolved} of {t} resolved · {Math.round((s.resolved / t) * 100)}%</span></div>
-                    <div className="status-stack" role="img" aria-label={`${s.name}: ${s.open} open, ${s.progress} in progress, ${s.resolved} resolved`}>
-                      {s.open ? <span style={{ flexGrow: s.open, background: "var(--st-open)" }} title={`Open: ${s.open}`} /> : null}
-                      {s.progress ? <span style={{ flexGrow: s.progress, background: "var(--st-prog)" }} title={`In progress: ${s.progress}`} /> : null}
-                      {s.resolved ? <span style={{ flexGrow: s.resolved, background: "var(--st-done)" }} title={`Resolved: ${s.resolved}`} /> : null}
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="status-legend"><span><i style={{ background: "var(--st-open)" }} />Open / Reported</span><span><i style={{ background: "var(--st-prog)" }} />In progress</span><span><i style={{ background: "var(--st-done)" }} />Resolved</span></div>
-            </>
-          ) : <p className="analytics-empty">Nothing logged in this period.</p>}
-        </section>
-
-        <section className="card">
-          <div className="card-head" style={{ marginBottom: 4 }}><div><span>When issues come in</span><div className="card-sub">Complaints + maintenance by day and time</div></div></div>
-          {heatMax ? (
-            <>
-              <div className="heat-grid" role="table" aria-label="Items logged by weekday and time of day">
-                <span />
-                {BANDS.map((b) => <span key={b} className="heat-x">{b}</span>)}
-                {WEEKDAYS.map((d, r) => (
-                  <div key={d} style={{ display: "contents" }} role="row">
-                    <span className="heat-y">{d}</span>
-                    {a.heat[r].map((v, c) => (
-                      <span key={c} className={`heat-cell heat-${heatLevel(v)}`} title={`${d} ${BANDS[c]}–${BANDS[(c + 1) % 6]}: ${v} item${v === 1 ? "" : "s"}`} aria-label={`${d} ${BANDS[c]}: ${v}`} role="cell" />
-                    ))}
+                <div className="legend">{a.sources.map((s, i) => <span key={s.name}><i style={{ background: CAT_COLORS[i % CAT_COLORS.length] }} />{s.name} {s.value} · {pct(s.value, srcTotal)}%</span>)}</div>
+                <hr className="sep" />
+                <span className="over">By department · open of total</span>
+                {a.depts.map((d) => (
+                  <div key={d.name} className="hbar">
+                    <span>{d.name}</span>
+                    <span className="tr" style={{ display: "flex" }}><span style={{ width: `${(d.open / dmax) * 100}%`, background: "var(--warn)" }} /><span style={{ width: `${((d.total - d.open) / dmax) * 100}%`, background: "var(--ok)" }} /></span>
+                    <span className="mono" style={{ textAlign: "right" }}>{d.open} open · {d.total}</span>
                   </div>
                 ))}
-              </div>
-              <div className="heat-scale">Fewer <i className="heat-0" /><i className="heat-1" /><i className="heat-2" /><i className="heat-3" /><i className="heat-4" /> More</div>
-            </>
-          ) : <p className="analytics-empty">Nothing logged in this period.</p>}
+              </>
+            ) : <p className="muted" style={{ margin: 0 }}>No repair tickets in this period.</p>}
+          </div>
         </section>
       </div>
 
-      <div className="dash-grid">
+      <div className="g g-3">
         <section className="card">
-          <div className="card-head" style={{ marginBottom: 4 }}><div><span>Rooms &amp; areas with most issues</span><div className="card-sub">Complaints and maintenance combined</div></div></div>
-          <RankList rows={a.rooms} empty="No complaints or maintenance in this period." />
+          <div className="card-h"><h3>Who did the check-in preps</h3><span className="sp" /><span className="sub">last {days} days</span></div>
+          <div className="card-b">
+            {a.officers.length ? a.officers.map((o) => (
+              <div key={o.name} className="hbar hb2"><span>{o.name}</span><span className="tr"><span style={{ width: `${(o.value / omax) * 100}%`, background: "var(--acc)" }} /></span><span className="mono" style={{ textAlign: "right" }}>{o.value}</span></div>
+            )) : <p className="muted" style={{ margin: 0 }}>No check-in preps in this period.</p>}
+          </div>
         </section>
         <section className="card">
-          <div className="card-head" style={{ marginBottom: 4 }}><div><span>Most flagged checklist items</span><div className="card-sub">Marked Damaged or Missing on inspection</div></div></div>
-          <RankList rows={a.flagged} empty="No damaged or missing items on checklists in this period." />
+          <div className="card-h"><h3>Complaints</h3><span className="sp" /><span className="sub">by status</span></div>
+          <StatusBars total={cmpAll} rows={[["Open", cmp.open, "warn"], ["In progress", cmp.progress, "info"], ["Resolved", cmp.resolved, "ok"]]} />
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>Repair tickets</h3><span className="sp" /><span className="sub">by status</span></div>
+          <StatusBars total={tktAll} rows={[["Reported", tkt.open, "warn"], ["In progress", tkt.progress, "info"], ["Resolved", tkt.resolved, "ok"]]} />
+        </section>
+      </div>
+
+      <div className="g g-3">
+        <section className="card">
+          <div className="card-h"><h3>Apartments &amp; areas with most issues</h3></div>
+          <div className="card-b"><RankList rows={a.rooms} empty="No complaints or repairs in this period." /></div>
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>Most flagged checklist items</h3></div>
+          <div className="card-b"><RankList rows={a.flagged} empty="Nothing damaged or missing on checklists in this period." /></div>
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>When issues come in</h3><span className="sp" /><span className="sub">Lagos time</span></div>
+          <div className="card-b">
+            {heatMax ? (
+              <>
+                <div className="heat-grid" role="table" aria-label="Complaints and repair tickets by weekday and time of day">
+                  <span />
+                  {BANDS.map((b) => <span key={b} className="heat-x">{b}</span>)}
+                  {WEEKDAYS.map((d, r) => (
+                    <div key={d} style={{ display: "contents" }} role="row">
+                      <span className="heat-y">{d}</span>
+                      {a.heat[r].map((v, i) => <span key={i} className={`heat-cell h${heatLevel(v)}`} title={`${d} ${BANDS[i]}–${BANDS[(i + 1) % 6]}: ${plural(v, "item")}`} role="cell" aria-label={`${d} ${BANDS[i]}: ${v}`} />)}
+                    </div>
+                  ))}
+                </div>
+                <div className="heat-scale">Fewer {[0, 1, 2, 3, 4].map((l) => <i key={l} className={`heat-cell h${l}`} />)} More</div>
+              </>
+            ) : <p className="muted" style={{ margin: 0 }}>Nothing logged in this period.</p>}
+          </div>
         </section>
       </div>
 
       <section className="card">
-        <div className="card-head" style={{ marginBottom: 4 }}><div><span>Download records</span><div className="card-sub">Full record exports — CSV opens in Excel or Google Sheets; Email sends a copy as an attachment.</div></div></div>
-        <div className="download-list">
-          <div className="download-row">
-            <a className="btn" href="/reports/export/checklists"><Download size={15} /> <ClipboardCheck size={15} /> Checklists</a>
-            <EmailReportButton dataset="checklists" label="Checklists" />
-          </div>
-          <div className="download-row">
-            <a className="btn" href="/reports/export/complaints"><Download size={15} /> <MessageSquareWarning size={15} /> Complaints</a>
-            <EmailReportButton dataset="complaints" label="Complaints" />
-          </div>
-          <div className="download-row">
-            <a className="btn" href="/reports/export/tickets"><Download size={15} /> <Wrench size={15} /> Maintenance Tickets</a>
-            <EmailReportButton dataset="tickets" label="Maintenance Tickets" />
-          </div>
+        <div className="card-h"><h3>Download records</h3><span className="sp" /><span className="sub">CSV files open in Excel or Google Sheets</span></div>
+        <div className="card-b">
+          {([["checklists", "Checklists", "Every submitted checklist, with who did it and the result"], ["complaints", "Complaints", "Every complaint, with its status and team"], ["tickets", "Maintenance tickets", "Every repair ticket, with where it came from"]] as const).map(([k, l, sub]) => (
+            <div key={k} className="dl-row">
+              <div className="t"><b>{l}</b><span>{sub}</span></div>
+              <a className="btn btn-secondary btn-sm" href={`/reports/export/${k}`}><Download size={14} /> Download CSV</a>
+              <EmailReportButton dataset={k} label={l} />
+            </div>
+          ))}
         </div>
       </section>
-    </div>
+    </>
   );
 }

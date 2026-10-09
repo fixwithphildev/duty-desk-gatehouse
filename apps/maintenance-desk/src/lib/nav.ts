@@ -1,26 +1,37 @@
-import type { MDRole } from "./types";
+import { MD_STAFF_VIEW_ROLES, type MDRole } from "./types";
+
+export type NavKey = "dashboard" | "board" | "requests" | "costs" | "funding" | "spending" | "admin" | "account";
 
 export interface NavItem {
   href: string;
   label: string;
-  iconKey: "dashboard" | "tickets" | "spending" | "admin" | "account";
+  iconKey: NavKey;
+  group: "Work" | "Money" | "Admin";
 }
 
+// Same order and groups as the Operations Suite design.
 export const MD_NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", iconKey: "dashboard" },
-  { href: "/tickets", label: "Tickets", iconKey: "tickets" },
-  { href: "/spending", label: "Spending Reports", iconKey: "spending" },
-  { href: "/admin/staff", label: "Staff Accounts", iconKey: "admin" },
-  { href: "/account", label: "My Account", iconKey: "account" },
+  { href: "/dashboard", label: "Dashboard", iconKey: "dashboard", group: "Work" },
+  { href: "/board", label: "Ticket Board", iconKey: "board", group: "Work" },
+  { href: "/requests", label: "Requests", iconKey: "requests", group: "Work" },
+  { href: "/costs", label: "Costs", iconKey: "costs", group: "Money" },
+  { href: "/funding", label: "Funding", iconKey: "funding", group: "Money" },
+  { href: "/spending", label: "Spending", iconKey: "spending", group: "Money" },
+  { href: "/admin/staff", label: "Staff Accounts", iconKey: "admin", group: "Admin" },
+  { href: "/account", label: "My Account", iconKey: "account", group: "Admin" },
 ];
 
-const CORE_PREFIXES = ["/dashboard", "/tickets", "/account"];
+const WORK = ["/dashboard", "/board", "/requests", "/tickets", "/account"];
+const MONEY = ["/costs", "/funding", "/spending"];
 
+// Technicians work the jobs; the money pages are for the Supervisor and Admin,
+// and (to look only) the Manager and Head of Operations.
 export const MD_ROLE_ALLOWED_PREFIXES: Record<MDRole, string[]> = {
-  maintenance_technician: CORE_PREFIXES,
-  maintenance_supervisor: [...CORE_PREFIXES, "/spending", "/admin"],
-  head_of_operations: [...CORE_PREFIXES, "/spending"],
-  super_admin: [...CORE_PREFIXES, "/spending", "/admin"],
+  maintenance_technician: WORK,
+  head_of_operations: [...WORK, ...MONEY, "/admin"],
+  maintenance_supervisor: [...WORK, ...MONEY, "/admin"],
+  maintenance_manager: [...WORK, ...MONEY, "/admin"],
+  super_admin: [...WORK, ...MONEY, "/admin"],
 };
 
 export function isPathAllowed(role: MDRole, pathname: string): boolean {
@@ -28,5 +39,10 @@ export function isPathAllowed(role: MDRole, pathname: string): boolean {
 }
 
 export function navForRole(role: MDRole): NavItem[] {
-  return MD_NAV.filter((item) => isPathAllowed(role, item.href) && (item.iconKey !== "admin" || role === "maintenance_supervisor" || role === "super_admin"));
+  return MD_NAV.filter((item) => isPathAllowed(role, item.href) && (item.iconKey !== "admin" || MD_STAFF_VIEW_ROLES.includes(role)));
+}
+
+export function pageTitle(pathname: string): string {
+  const item = MD_NAV.find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
+  return item?.label ?? "Maintenance Desk";
 }
