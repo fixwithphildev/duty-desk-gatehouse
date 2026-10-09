@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Check, Plus, Repeat2, Undo2 } from "lucide-react";
+import Link from "next/link";
+import { Ban, Check, MapPin, Plus, Repeat2, Undo2 } from "lucide-react";
+import { ApartmentPicker } from "@/components/apartment-picker";
 import { Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -20,7 +22,7 @@ export interface TaskView extends TaskRow {
   doneDay: string | null;
 }
 
-const EMPTY = { description: "", assignedTo: "", dueTime: "" };
+const EMPTY = { description: "", assignedTo: "", dueTime: "", apartment: "" };
 
 // "Someone else" in the Assign to list: type a name instead.
 const OTHER = "__other__";
@@ -84,6 +86,7 @@ export function TasksClient({
         <div className="m">
           <b style={isDone ? { textDecoration: "line-through", color: "var(--text-3)" } : undefined}>{t.description}</b>
           <span>
+            {t.apartment ? <><Link href={`/board?apt=${encodeURIComponent(t.apartment)}`} className="link" style={{ fontSize: 12 }}><MapPin size={12} /> {t.apartment}</Link> · </> : null}
             {t.assigned_to || "Anyone on duty"}{t.assigned_to === me ? " (you)" : ""}
             {isDone ? ` · done${t.done_by_name ? ` by ${t.done_by_name}` : ""}${t.doneTime ? ` at ${t.doneTime}` : ""}${t.state === "earlier" && t.doneDay ? `, ${t.doneDay}` : ""}`
               : `${t.created_by_name ? ` · added by ${t.created_by_name}` : ""}${t.state === "overdue" && !t.due_time ? `, ${t.addedDay}` : ""}`}
@@ -167,7 +170,12 @@ export function TasksClient({
         sub={`Added by ${me}`}
         footer={<><button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button><button type="button" className="btn btn-primary" disabled={pending} onClick={submit}><Plus size={15} /> {pending ? "Adding…" : "Add task"}</button></>}
       >
-        <Field label="What needs doing"><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Deliver extra towels to Lisbon" /></Field>
+        <Field label="What needs doing"><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Check the status of the apartment, deliver extra towels" /></Field>
+        <div className="field">
+          <label htmlFor="tk-apt">Apartment <span className="muted">(optional)</span></label>
+          <ApartmentPicker key={open ? "open" : "closed"} id="tk-apt" value={form.apartment} onChange={(apartment) => setForm((f) => ({ ...f, apartment }))} />
+          <span className="hint">Attach the apartment the task is about. It shows on that apartment on the Readiness Board too.</span>
+        </div>
         <div className="hstack" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="tk-who">Assign to</label>

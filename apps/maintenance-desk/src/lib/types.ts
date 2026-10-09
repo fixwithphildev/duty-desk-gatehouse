@@ -8,17 +8,18 @@ export const MD_ROLE_LABELS: Record<MDRole, string> = {
   super_admin: "Admin (IT)",
 };
 
-// The five maintenance units. Every job, request and purchase belongs to one.
-export const MD_UNITS = ["General Maintenance", "Electrician", "Plumbing & Building", "Painting", "Welding"] as const;
+// The six maintenance units. Every job, request and purchase belongs to one.
+export const MD_UNITS = ["General Maintenance", "Electrician", "Plumbing & Building", "Painting", "Welding", "HVAC"] as const;
 export type MDUnit = (typeof MD_UNITS)[number];
 export const isUnit = (s: string | null | undefined): s is MDUnit => !!s && (MD_UNITS as readonly string[]).includes(s);
-export const UNIT_SHORT: Record<MDUnit, string> = { "General Maintenance": "GEN", Electrician: "ELEC", "Plumbing & Building": "PLMB", Painting: "PAINT", Welding: "WELD" };
+export const UNIT_SHORT: Record<MDUnit, string> = { "General Maintenance": "GEN", Electrician: "ELEC", "Plumbing & Building": "PLMB", Painting: "PAINT", Welding: "WELD", HVAC: "HVAC" };
 export const UNIT_COLOR: Record<string, string> = {
   "General Maintenance": "var(--cat1)",
   Electrician: "var(--cat3)",
   "Plumbing & Building": "var(--cat2)",
   Painting: "var(--cat4)",
   Welding: "var(--cat5)",
+  HVAC: "var(--cat6)",
 };
 // Tickets filed before the units existed say "Engineering": they need a unit.
 export const LEGACY_UNITS = ["Engineering"];

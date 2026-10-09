@@ -30,7 +30,7 @@ const RETRY_MS = 5_000;
 type SaveState = { kind: "saved"; at: string } | { kind: "saving" } | { kind: "offline" } | { kind: "taken"; by: string } | { kind: "gone" };
 
 const CAT_ICON: Record<string, typeof Bath> = { room: BedDouble, kitchen: UtensilsCrossed, bathroom: Bath, electronics: Tv, toiletries: Droplets };
-const DEPT_TAG: Record<string, string> = { "General Maintenance": "GM", Electrician: "ELEC", "Plumbing & Building": "P&B", Painting: "PAINT", Welding: "WELD", Housekeeping: "HK" };
+const DEPT_TAG: Record<string, string> = { "General Maintenance": "GM", Electrician: "ELEC", "Plumbing & Building": "P&B", Painting: "PAINT", Welding: "WELD", HVAC: "HVAC", ICT: "ICT", Housekeeping: "HK" };
 const isFlagged = (v: ItemValue | undefined) => v?.condition === "Damaged" || v?.condition === "Missing" || v?.available === "No";
 // Where a flagged item's ticket usually goes; the officer can choose another.
 const usualDept = (name: string) => ticketDeptFor(name);

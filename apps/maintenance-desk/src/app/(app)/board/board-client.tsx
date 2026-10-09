@@ -93,7 +93,7 @@ export function BoardClient({
       {needUnit.length ? (
         <div className="pill-note t-warn">
           <Wrench size={16} />
-          <span>{needUnit.length} older job{needUnit.length > 1 ? "s were" : " was"} filed under “Engineering” before the five units existed. {canManage ? <>Open {needUnit.length > 1 ? "each one" : "it"} and choose its unit. <button type="button" className="link" onClick={() => setUnit("needs")}>Show {needUnit.length > 1 ? "them" : "it"}</button></> : "The Manager or Supervisor will choose the units."}</span>
+          <span>{needUnit.length} older job{needUnit.length > 1 ? "s were" : " was"} filed under “Engineering” before the units existed. {canManage ? <>Open {needUnit.length > 1 ? "each one" : "it"} and choose its unit. <button type="button" className="link" onClick={() => setUnit("needs")}>Show {needUnit.length > 1 ? "them" : "it"}</button></> : "The Manager or Supervisor will choose the units."}</span>
         </div>
       ) : null}
 

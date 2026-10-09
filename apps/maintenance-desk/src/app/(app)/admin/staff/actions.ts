@@ -84,7 +84,7 @@ async function unlockAccountAction__run(id: string) {
 // Move a technician to another unit.
 async function setUnitAction__run(id: string, unit: string) {
   await guard(id);
-  if (!isUnit(unit)) throw new Error("Choose one of the five units.");
+  if (!isUnit(unit)) throw new Error("Choose one of the units.");
   if ((await getTargetRole(id)) !== "maintenance_technician") throw new Error("Only technicians belong to a unit.");
   const { error } = await supabaseAdmin.from("staff_accounts").update({ unit, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(error.message);

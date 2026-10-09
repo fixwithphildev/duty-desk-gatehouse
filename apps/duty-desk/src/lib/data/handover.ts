@@ -27,6 +27,6 @@ export async function draftHandover(): Promise<string> {
     leaving.length ? `Check-outs still to record today: ${some(leaving)}.` : "",
     `Complaints open: ${oc.length}${oc.length ? ` (${oc.slice(0, 6).map((x) => `${findApartment(x.room)?.name ?? x.room ?? "?"}: ${x.category.toLowerCase()}`).join("; ")}${oc.length > 6 ? `; and ${oc.length - 6} more` : ""})` : ""}.`,
     `Repair tickets open: ${ot.length}${high.length ? `, high priority: ${some(high.map((x) => `${x.issue_type} in ${x.area.replace(/^apartment\s+/i, "")}`), 5)}` : ""}.`,
-    `Tasks not done: ${open.length ? open.slice(0, 8).map((t) => `${t.due_time ? t.due_time + " " : ""}${t.description}${t.state === "overdue" ? " (overdue)" : ""}`).join("; ") + (open.length > 8 ? `; and ${open.length - 8} more` : "") : "none"}.`,
+    `Tasks not done: ${open.length ? open.slice(0, 8).map((t) => `${t.due_time ? t.due_time + " " : ""}${t.description}${t.apartment ? ` (${t.apartment})` : ""}${t.state === "overdue" ? " (overdue)" : ""}`).join("; ") + (open.length > 8 ? `; and ${open.length - 8} more` : "") : "none"}.`,
   ].filter(Boolean).join("\n");
 }

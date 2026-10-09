@@ -147,7 +147,7 @@ export function JobDrawer({
       ) : null}
 
       {job.needsUnit ? (
-        <div className="pill-note t-warn"><Wrench size={16} /><span>This job was filed under “{job.unit}” before the five units existed. {canManage ? "Choose the unit that will do it:" : "The Manager or Supervisor will choose the unit that does it."}</span></div>
+        <div className="pill-note t-warn"><Wrench size={16} /><span>This job was filed under “{job.unit}” before the units existed. {canManage ? "Choose the unit that will do it:" : "The Manager or Supervisor will choose the unit that does it."}</span></div>
       ) : null}
       {canManage && !job.void && job.status !== "Resolved" ? (
         <div className="field">

@@ -62,7 +62,7 @@ async function reopenAction__run(id: string) {
 
 async function assignUnitAction__run(id: string, unit: string) {
   const session = await requireRole(MD_MANAGE_ROLES);
-  if (!isUnit(unit)) throw new Error("Choose one of the five units.");
+  if (!isUnit(unit)) throw new Error("Choose one of the units.");
   await assignUnit(id, unit, session.displayName);
   refresh();
 }

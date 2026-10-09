@@ -18,7 +18,9 @@ const TICKET_TONE: Record<string, string> = { Reported: "t-warn", "In Progress":
 
 type Act = { kind: "in" | "out" | "report"; apt: BoardApt } | null;
 
-export function BoardClient({ apts, canPrep, canStay, canReport, initialApt, readyDays, totalChecks }: { apts: BoardApt[]; canPrep: boolean; canStay: boolean; canReport: boolean; initialApt: string; readyDays: number; totalChecks: number }) {
+export type AptTask = { id: string; description: string; who: string; due: string | null; overdue: boolean };
+
+export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, initialApt, readyDays, totalChecks }: { apts: BoardApt[]; openTasks: Record<string, AptTask[]>; canPrep: boolean; canStay: boolean; canReport: boolean; initialApt: string; readyDays: number; totalChecks: number }) {
   const [act, setAct] = useState<Act>(null);
   const [q, setQ] = useState(initialApt);
   const [focus, setFocus] = useState(false);
@@ -150,7 +152,7 @@ export function BoardClient({ apts, canPrep, canStay, canReport, initialApt, rea
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <LookupResult a={selected} typed={typed} matches={sugg.length} canPrep={canPrep} canStay={canStay} canReport={canReport} onAct={(kind, apt) => setAct({ kind, apt })} readyDays={readyDays} totalChecks={totalChecks} />
+            <LookupResult a={selected} tasks={selected ? openTasks[selected.name] ?? [] : []} typed={typed} matches={sugg.length} canPrep={canPrep} canStay={canStay} canReport={canReport} onAct={(kind, apt) => setAct({ kind, apt })} readyDays={readyDays} totalChecks={totalChecks} />
           </div>
         </section>
       </div>
@@ -217,7 +219,7 @@ export function BoardClient({ apts, canPrep, canStay, canReport, initialApt, rea
   );
 }
 
-function LookupResult({ a, typed, matches, canPrep, canStay, canReport, onAct, readyDays, totalChecks }: { a: BoardApt | undefined; typed: string; matches: number; canPrep: boolean; canStay: boolean; canReport: boolean; onAct: (kind: "in" | "out" | "report", a: BoardApt) => void; readyDays: number; totalChecks: number }) {
+function LookupResult({ a, tasks, typed, matches, canPrep, canStay, canReport, onAct, readyDays, totalChecks }: { a: BoardApt | undefined; tasks: AptTask[]; typed: string; matches: number; canPrep: boolean; canStay: boolean; canReport: boolean; onAct: (kind: "in" | "out" | "report", a: BoardApt) => void; readyDays: number; totalChecks: number }) {
   if (!typed) {
     return (
       <div className="res neu">
@@ -272,6 +274,18 @@ function LookupResult({ a, typed, matches, canPrep, canStay, canReport, onAct, r
                 <b style={{ fontWeight: 500 }}>{f.item}</b>
                 {f.ticketStatus ? <span className={`badge ${TICKET_TONE[f.ticketStatus] ?? "t-neu"}`}>{f.ticketStatus}</span> : null}
               </div>
+            ))}
+          </div>
+        ) : null}
+        {tasks.length ? (
+          <div className="vstack" style={{ gap: 6, marginTop: 8 }}>
+            <span className="over">Open tasks for {a.name}</span>
+            {tasks.map((t) => (
+              <Link key={t.id} href="/tasks" className="hstack" style={{ fontSize: 13, textDecoration: "none", color: "inherit" }}>
+                <span className={`badge ${t.overdue ? "t-bad" : "t-info"}`}><span className="d" />{t.overdue ? "Overdue" : t.due ?? "Task"}</span>
+                <b style={{ fontWeight: 500 }}>{t.description}</b>
+                <span className="muted">{t.who}</span>
+              </Link>
             ))}
           </div>
         ) : null}

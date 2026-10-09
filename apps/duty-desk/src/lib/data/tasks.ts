@@ -5,6 +5,8 @@ export interface TaskRow {
   id: string;
   description: string;
   assigned_to: string | null;
+  // The apartment the task is about, if any.
+  apartment: string | null;
   due_time: string | null;
   status: "Pending" | "Done";
   created_at: string;
@@ -31,6 +33,7 @@ export async function getTasks(): Promise<TaskRow[]> {
   return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
     ...(row as unknown as TaskRow),
     done_at: (row.done_at as string | null) ?? null,
+    apartment: (row.apartment as string | null) ?? null,
     created_by_name: name(row.creator),
     done_by_name: name(row.doer),
     voided_by_name: name(row.staff_accounts),
