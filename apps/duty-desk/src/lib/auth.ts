@@ -1,9 +1,10 @@
 import "server-only";
+import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "./supabase";
 import { verifyUsercode } from "./usercode";
-import { SESSION_COOKIE, signSession, verifySession, sessionTtlSeconds, type SessionPayload } from "./session";
+import { SESSION_COOKIE, signSession, verifySession, sessionSignedInAt, sessionTtlSeconds, type SessionPayload } from "./session";
 import type { DDRole, StaffAccount } from "./types";
 import { isPathAllowed } from "./nav";
 
@@ -126,19 +127,35 @@ export async function getSession(): Promise<SessionPayload | null> {
 // Call at the top of any authenticated Server Component / Server Action.
 // Redirects to /login if there's no valid session, and re-checks the
 // account hasn't been disabled since the token was issued.
-export async function requireSession(): Promise<SessionPayload> {
+// A new account, or one whose usercode was just reset, must choose its own
+// usercode before anything else: every page sends it to /new-code (the only
+// caller that passes allowCodeChange). If the reset happened after this
+// session was signed in, the session is ended instead, so whoever is still
+// signed in on a shared desk can't choose the new code for that person.
+// The menu and the page both check the account; cache() makes that one lookup per request.
+const getAccountState = cache(async (staffId: string) => {
+  const { data } = await supabaseAdmin
+    .from("staff_accounts")
+    .select("disabled, must_change_code, updated_at")
+    .eq("id", staffId)
+    .maybeSingle();
+  return data;
+});
+
+export async function requireSession(opts: { allowCodeChange?: boolean } = {}): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const { data: account } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("disabled")
-    .eq("id", session.staffId)
-    .maybeSingle();
+  const account = await getAccountState(session.staffId);
 
-  if (!account || account.disabled) {
-    cookies().delete(SESSION_COOKIE);
-    redirect("/login");
+  // A page can't clear the sign-in cookie itself (Next.js only allows that in
+  // actions and route handlers), so ended sessions go through /signed-out.
+  if (!account || account.disabled) redirect("/signed-out");
+
+  if (account.must_change_code) {
+    const signedInAt = sessionSignedInAt(session);
+    if (signedInAt < new Date(account.updated_at).getTime() - 1000) redirect("/signed-out");
+    if (!opts.allowCodeChange) redirect("/new-code");
   }
 
   return session;

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getComplaints } from "@/lib/data/complaints";
 import { getMaintenanceTickets } from "@/lib/data/maintenance";
 import { getAllChecklists } from "@/lib/data/checklists";
+import { findApartment } from "@/lib/apartments";
 
 // Everything the Reports & Analytics page shows, computed from live records.
 // Voided records are excluded throughout. Days and hours are the property's
@@ -44,6 +45,13 @@ export interface Analytics {
   heat: number[][]; // [weekday 0-6][band 0-5]; bands of 4 hours from midnight
   rooms: Ranked[];
   flagged: Ranked[];
+  // Check-in preps submitted each day of the period, Ready and Not ready.
+  preps: { date: string; ready: number; not: number }[];
+  // Who submitted the check-in preps in the period.
+  officers: { name: string; value: number }[];
+  // Repair tickets opened in the period: where they came from, and each department's open of total.
+  sources: { name: string; value: number }[];
+  depts: { name: string; open: number; total: number }[];
 }
 
 function lastNDays(n: number, end = new Date()): string[] {
@@ -118,7 +126,8 @@ export async function buildAnalytics(days: Period): Promise<Analytics> {
   // Rooms & areas: complaint rooms and ticket areas, grouped case-insensitively.
   const places = new Map<string, { name: string; complaints: number; tickets: number }>();
   const addPlace = (raw: string | null, kind: "complaints" | "tickets") => {
-    const name = tidy(raw);
+    // "Apartment Lisbon" (a ticket) and "Lisbon" (a complaint) are the same place.
+    const name = findApartment(tidy(raw).replace(/^apartment\s+/i, ""))?.name ?? tidy(raw);
     if (!name) return;
     const key = name.toLowerCase();
     const entry = places.get(key) ?? { name: titleCase(name), complaints: 0, tickets: 0 };
@@ -135,7 +144,24 @@ export async function buildAnalytics(days: Period): Promise<Analytics> {
 
   const flagged = await getFlaggedItems(periodChecklists.map((c) => c.id));
 
-  return { days, dates, series, totals, previous, ready, categories, status, heat, rooms, flagged };
+  const periodPreps = periodChecklists.filter((c) => c.type === "check_in_prep");
+  const preps = dates.map((date) => {
+    const day = periodPreps.filter((c) => dayKey(new Date(c.created_at)) === date);
+    return { date, ready: day.filter((c) => c.overall_ready).length, not: day.filter((c) => !c.overall_ready).length };
+  });
+  const tally = (names: string[]) => {
+    const m = new Map<string, number>();
+    for (const n of names) m.set(n, (m.get(n) ?? 0) + 1);
+    return [...m.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  };
+  const officers = tally(periodPreps.map((c) => c.prepared_by_name || "—"));
+  const SOURCE: Record<string, string> = { checklist: "Check-in prep", complaint: "Complaint", report: "Problem report", manual: "Logged by hand" };
+  const sources = tally(periodTickets.map((t) => SOURCE[t.source] ?? "Maintenance Desk"));
+  const depts = [...new Set(periodTickets.map((t) => t.assigned_to))]
+    .map((name) => ({ name, open: periodTickets.filter((t) => t.assigned_to === name && t.status !== "Resolved").length, total: periodTickets.filter((t) => t.assigned_to === name).length }))
+    .sort((a, b) => b.total - a.total);
+
+  return { days, dates, series, totals, previous, ready, categories, status, heat, rooms, flagged, preps, officers, sources, depts };
 }
 
 // Checklist items marked Damaged or Missing (or a yes/no item marked "No")

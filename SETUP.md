@@ -164,6 +164,8 @@ then open `http://localhost:3000/login` and sign in with the username/usercode y
 
 ## 6. Create your Vercel account and the four hosting projects
 
+> **Server region.** Duty Desk, Gatehouse and Maintenance Desk each have a `vercel.json` that runs them in Vercel's Dublin region (`dub1`), next to the Supabase project in West EU (Ireland). Every page makes several database calls, so a server on the other side of the Atlantic (Vercel's default is Washington DC) makes each page noticeably slower. If the database ever moves, change `regions` in those three files to the Vercel region nearest to it.
+
 1. Go to vercel.com and sign up **using your GitHub account** (this makes connecting the repo a one-click step).
 2. From your Vercel dashboard, click **Add New → Project**, and import the `duty-desk-gatehouse` repository (you may need to click "Configure GitHub App" once to grant Vercel access to it).
 3. Vercel will ask for a **Root Directory** — this is the key setting that makes one repo produce several independent apps. Set it to `apps/duty-desk`. Leave the framework preset on "Next.js" (auto-detected).
@@ -237,6 +239,7 @@ If you'd rather use `operations.yourcompany.com` than a `.vercel.app` address: b
 Log in to Duty Desk as your Super Admin account and go to **Staff Accounts** in the sidebar:
 1. Create an account for your **General Manager** with the role "General Manager". Give them the username/usercode shown.
 2. They can now log in and create the 16 Resident Officer / Front Desk / Housekeeping / Engineering accounts themselves, or you can create them on their behalf.
+3. Create an account for your **Resident Manager** with the role "Resident Manager". They can create Supervisor, Resident Officer, Front Desk, Housekeeping and Engineering accounts, and reset or disable them. **Supervisors** can see the Staff Accounts list but can't change it. (Needs migration `0006`, see "Redeploying after a code change" below.)
 
 Log in to Gatehouse as your Super Admin account and do the same for your **Security Supervisor** (role "Security Supervisor"), who then creates the 5 Security Officer accounts.
 
@@ -272,3 +275,9 @@ git commit -m "describe the change"
 git push
 ```
 Vercel automatically rebuilds and redeploys within a minute or two of the push. No manual redeploy step needed.
+
+### When a change includes a database migration
+
+If a change adds a new file under `apps/<app>/supabase/migrations/`, run that SQL in the app's Supabase project (**SQL Editor → New query → paste → Run**) **before** pushing or merging the code that needs it. The migrations are written to be safe to run on a live database and safe to re-run.
+
+- `apps/duty-desk/supabase/migrations/0006_roles_and_shared_checklists.sql` — adds the Resident Manager and Supervisor roles, and lets checklists be saved as you go (who is inspecting which apartment, one inspection per apartment at a time, take over). Run it in the Duty Desk project. It only adds things; nothing existing is changed or removed, so the current live app keeps working after it's run.

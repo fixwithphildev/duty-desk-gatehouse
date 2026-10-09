@@ -1,9 +1,10 @@
 import "server-only";
+import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "./supabase";
 import { verifyUsercode } from "./usercode";
-import { SESSION_COOKIE, signSession, verifySession, sessionTtlSeconds, type SessionPayload } from "./session";
+import { SESSION_COOKIE, signSession, verifySession, sessionSignedInAt, sessionTtlSeconds, type SessionPayload } from "./session";
 import type { MDRole, StaffAccount } from "./types";
 import { isPathAllowed } from "./nav";
 
@@ -126,19 +127,35 @@ export async function getSession(): Promise<SessionPayload | null> {
 // Call at the top of any authenticated Server Component / Server Action.
 // Redirects to /login if there's no valid session, and re-checks the
 // account hasn't been disabled since the token was issued.
-export async function requireSession(): Promise<SessionPayload> {
+// A new account, or one whose usercode was just reset, must choose its own
+// usercode before anything else: every page sends it to /new-code (the only
+// caller that passes allowCodeChange). If the reset happened after this
+// session was signed in, the session is ended instead, so whoever is still
+// signed in on a shared desk can't choose the new code for that person.
+// The menu and the page both check the account; cache() makes that one lookup per request.
+const getAccountState = cache(async (staffId: string) => {
+  const { data } = await supabaseAdmin
+    .from("staff_accounts")
+    .select("disabled, must_change_code, updated_at")
+    .eq("id", staffId)
+    .maybeSingle();
+  return data;
+});
+
+export async function requireSession(opts: { allowCodeChange?: boolean } = {}): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const { data: account } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("disabled")
-    .eq("id", session.staffId)
-    .maybeSingle();
+  const account = await getAccountState(session.staffId);
 
-  if (!account || account.disabled) {
-    cookies().delete(SESSION_COOKIE);
-    redirect("/login");
+  // A page can't clear the sign-in cookie itself (Next.js only allows that in
+  // actions and route handlers), so ended sessions go through /signed-out.
+  if (!account || account.disabled) redirect("/signed-out");
+
+  if (account.must_change_code) {
+    const signedInAt = sessionSignedInAt(session);
+    if (signedInAt < new Date(account.updated_at).getTime() - 1000) redirect("/signed-out");
+    if (!opts.allowCodeChange) redirect("/new-code");
   }
 
   return session;
@@ -152,9 +169,9 @@ export async function requireRole(allowed: MDRole[]): Promise<SessionPayload> {
   return session;
 }
 
-// Enforces per-role page visibility (e.g. only Maintenance Supervisor/Super
-// Admin can reach /admin, even by typing the URL). Pass the page's own
-// literal route.
+// Enforces per-role page visibility (e.g. Technicians can't reach Costs or
+// Funding, even by typing the address).
+// Pass the page's own literal route, e.g. requirePageAccess("/costs").
 export async function requirePageAccess(pathname: string): Promise<SessionPayload> {
   const session = await requireSession();
   if (!isPathAllowed(session.role, pathname)) {
@@ -170,7 +187,7 @@ export async function signOut(): Promise<void> {
 export async function getStaffDirectory(): Promise<StaffAccount[]> {
   const { data } = await supabaseAdmin
     .from("staff_accounts")
-    .select("id, username, display_name, role, disabled, must_change_code, failed_attempts, locked_until, created_at")
+    .select("id, username, display_name, role, unit, disabled, must_change_code, failed_attempts, locked_until, created_at")
     .order("created_at", { ascending: false });
   return (data as StaffAccount[]) ?? [];
 }

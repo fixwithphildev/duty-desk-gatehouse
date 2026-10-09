@@ -94,26 +94,34 @@ export const DD_CONDITIONS = ["Good", "Damaged", "Missing", "N/A"] as const;
 export const DD_COMPLAINT_CATEGORIES = ["Noise", "Cleanliness", "Service", "Billing", "Other"];
 export const DD_PRIORITIES = ["Low", "Medium", "High"] as const;
 export const DD_COMPLAINT_STATUSES = ["Open", "In Progress", "Resolved"] as const;
-export const DD_TICKET_DEPTS = ["Engineering", "Housekeeping", "General Maintenance"];
+// Where a repair ticket goes: one of Maintenance Desk's six units, or ICT or
+// Housekeeping (both handled inside Duty Desk). Older tickets may say "Engineering".
+export const DD_MAINTENANCE_UNITS = ["General Maintenance", "Electrician", "Plumbing & Building", "Painting", "Welding", "HVAC"];
+export const DD_TICKET_DEPTS = [...DD_MAINTENANCE_UNITS, "ICT", "Housekeeping"];
+// Teams a complaint can be assigned to: the Resident Officers themselves, or a maintenance department.
+export const DD_COMPLAINT_TEAMS = ["Resident Officers", ...DD_TICKET_DEPTS];
 export const DD_TICKET_STATUSES = ["Reported", "In Progress", "Resolved"] as const;
 
-// Best-effort split for tickets auto-created from a flagged checklist item:
-// fixed equipment/electrical/plumbing/HVAC needs a technician (Engineering);
-// everything else — furnishings, linens, tableware, cleanliness — needs
-// housekeeping to clean or restock, so that's the default for any item not
-// listed here. Adjust individual items below if this doesn't match how your
-// teams actually split the work.
-export const DD_ENGINEERING_ITEMS = new Set([
-  "TV Position", "Working Pop Lights", "Washing Machine", "Bedside Drawer Charger", "AC Units Condition",
-  "Floor Skirting", "Hallway Lights", "Surroundings / Garden", "All Doors Condition", "Recess Light",
-  "Extension Boxes",
-  "Refrigerator Condition", "Microwave Condition", "Electric Kettle", "Gas Availability",
-  "Kitchen Heat Extractor", "Blender", "Kitchen Cabinet",
-  "Shower Heads", "Shower Cubicle", "Toilet Seats", "Taps",
-]);
+// Which department a flagged checklist item usually goes to (the officer can
+// choose another on the item). Fixed equipment goes to the maintenance unit
+// that repairs it, air conditioning to HVAC, TV, IPTV and internet to ICT;
+// everything else (furnishings, linens, tableware, cleanliness) goes to
+// Housekeeping to clean or restock. Adjust items here if the split changes.
+export const DD_ITEM_UNIT: Record<string, string> = {
+  "TV Position": "General Maintenance", "Working Pop Lights": "Electrician", "Washing Machine": "Electrician",
+  "Bedside Drawer Charger": "Electrician", "AC Units Condition": "HVAC", "Floor Skirting": "Plumbing & Building",
+  "A/C Remote (Sitting Room)": "HVAC", "A/C Remote (Bedroom)": "HVAC",
+  "MiFi Available": "ICT", "IPTV Available": "ICT", "IPTV Remote": "ICT", "TV Remotes": "ICT",
+  "Hallway Lights": "Electrician", "Surroundings / Garden": "General Maintenance", "All Doors Condition": "General Maintenance",
+  "Recess Light": "Electrician", "Extension Boxes": "Electrician", "Refrigerator Condition": "Electrician",
+  "Microwave Condition": "Electrician", "Electric Kettle": "Electrician", "Gas Availability": "General Maintenance",
+  "Kitchen Heat Extractor": "Electrician", "Blender": "Electrician", "Kitchen Cabinet": "General Maintenance",
+  "Shower Heads": "Plumbing & Building", "Shower Cubicle": "Plumbing & Building", "Toilet Seats": "Plumbing & Building",
+  "Taps": "Plumbing & Building",
+};
 
-export function ticketDeptFor(itemName: string): "Engineering" | "Housekeeping" {
-  return DD_ENGINEERING_ITEMS.has(itemName) ? "Engineering" : "Housekeeping";
+export function ticketDeptFor(itemName: string): string {
+  return DD_ITEM_UNIT[itemName] ?? "Housekeeping";
 }
 
 export function priorityTone(p: string): string {
