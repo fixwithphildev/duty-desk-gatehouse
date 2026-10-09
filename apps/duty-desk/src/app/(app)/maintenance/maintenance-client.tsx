@@ -192,7 +192,7 @@ export function MaintenanceClient({
             ))}
           </div>
           <div className="vstack" style={{ padding: "12px 16px", gap: 10, borderBottom: "1px solid var(--line-soft)" }}>
-            <div className="seg" role="group" aria-label="Department" style={{ flexWrap: "wrap" }}>
+            <div className="seg seg-depts" role="group" aria-label="Department">
               {["all", ...DD_TICKET_DEPTS].map((d) => <button key={d} type="button" aria-pressed={dept === d} onClick={() => setDept(d)}>{d === "all" ? "All" : d}</button>)}
             </div>
             <div className="input-wrap"><Search size={15} /><input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search issue, apartment or notes" style={{ height: 36 }} autoComplete="off" aria-label="Search tickets" /></div>

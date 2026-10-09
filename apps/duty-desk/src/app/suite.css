@@ -954,3 +954,21 @@ a.dot { display: block; flex: none; }
   .icon-btn { width: 40px; height: 40px; }
   .chk input { width: 20px; height: 20px; }
 }
+
+/* ---------- screen-size polish (from the phone/tablet/laptop screenshot review) ---------- */
+/* Reports: when the card can't fit both buildings side by side (laptops), Studio Wings goes under Main Building instead of wrapping each floor's last studio onto its own line. */
+.dots2 { grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr)); }
+/* Laptop-height screens (768 px): a slightly tighter menu, so the account box at the bottom isn't cut off. */
+@media (max-height: 820px) { .nav { height: 32px; } .ngroup { padding-top: 10px; } .brand { padding-bottom: 12px; } }
+/* Maintenance team filter: wraps on wide screens; one row you swipe along on phones. */
+.seg-depts { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .seg-depts { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .seg-depts::-webkit-scrollbar { display: none; }
+  /* Top bar: the page name gets the room ("Dashboard", not "Dashbo…"). */
+  .crumb > span { display: none; }
+  /* Check-in prep: the first line to answer comes up sooner. */
+  .insp-intro, .save-more { display: none; }
+}
+/* Dashboard number cards: the small line under the number wraps on phones instead of being cut off. */
+@media (max-width: 760px) { .kpi .f > span:not(.delta) { white-space: normal; } }

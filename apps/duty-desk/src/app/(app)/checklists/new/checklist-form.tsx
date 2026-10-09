@@ -240,14 +240,14 @@ export function ChecklistForm({
         <div className="t">
           <span className="over">{typeLabel} · started {fmtClock(startedAt)} · {preparedByName}{takenOverFrom ? ` · took over from ${takenOverFrom.name} at ${fmtClock(takenOverFrom.at)}` : ""}</span>
           <h1>Inspecting {apartment}</h1>
-          <p>Answer every line. Damaged, missing or not-available items open a ticket when you submit, sent to the department you choose.</p>
+          <p className="insp-intro">Answer every line. Damaged, missing or not-available items open a ticket when you submit, sent to the department you choose.</p>
           <div className={`save-note save-${save.kind}`} role="status" aria-live="polite" style={{ marginTop: 6 }}>
             {save.kind === "offline" ? (
               <><CloudOff size={14} /> Not saved — no connection. Keep this page open; it will keep trying.</>
             ) : save.kind === "saving" ? (
               <><Clock size={14} /> Saving…</>
             ) : save.kind === "saved" ? (
-              <><CheckCircle2 size={14} /> Saved {fmtClock(save.at)} · the other officers can see you’re inspecting {apartment}. If your phone dies, open it again and carry on.</>
+              <><CheckCircle2 size={14} /> Saved {fmtClock(save.at)}<span className="save-more"> · the other officers can see you’re inspecting {apartment}. If your phone dies, open it again and carry on.</span></>
             ) : null}
           </div>
         </div>
