@@ -964,3 +964,7 @@ a.dot { display: block; flex: none; }
 @media (pointer: coarse) { button.link { min-height: 32px; padding: 4px 2px; } }
 /* Costs: unit names wrap on phones ("Plumbing & Building", not "Plumbing & Buil…"). */
 @media (max-width: 640px) { .u-nm { white-space: normal; } }
+/* Ticket Board, All jobs: each row fills the card (a button otherwise sizes itself to its text, and a long line pushed the page wider on small phones). */
+.job-row { width: 100%; border: 0; background: transparent; text-align: left; font: inherit; color: inherit; }
+.job-row.sel { background: var(--acc-bg); }
+.job-row .m span { display: block; white-space: normal; overflow-wrap: anywhere; }
