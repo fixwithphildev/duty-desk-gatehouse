@@ -14,8 +14,8 @@ export default async function BoardPage({ searchParams }: { searchParams: { apt?
   // Open tasks about each apartment (e.g. "check the status of Lisbon").
   const openTasks: Record<string, { id: string; description: string; who: string; due: string | null; overdue: boolean }[]> = {};
   for (const t of tasks) {
-    if (t.void || t.status !== "Pending" || !t.apartment) continue;
-    (openTasks[t.apartment] ??= []).push({ id: t.id, description: t.description, who: t.assigned_to || "Anyone on duty", due: t.due_time, overdue: taskState(t) === "overdue" });
+    if (t.void || t.status !== "Pending") continue;
+    for (const a of t.apartments) (openTasks[a] ??= []).push({ id: t.id, description: t.description, who: t.assigned_to || "Anyone on duty", due: t.due_time, overdue: taskState(t) === "overdue" });
   }
   return (
     <BoardClient

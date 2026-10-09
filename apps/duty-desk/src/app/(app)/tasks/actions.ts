@@ -16,21 +16,25 @@ const refresh = () => {
   revalidatePath("/board"); // an apartment's open tasks show there
 };
 
-async function createTaskAction__run(input: { description: string; assignedTo: string; dueTime: string; apartment?: string }) {
+async function createTaskAction__run(input: { description: string; assignedTo: string; dueTime: string; apartments?: string[] }) {
   const session = await requireRole(DD_CAN_EDIT_TASKS);
   const description = input.description.trim(), assignedTo = input.assignedTo.trim(), due = input.dueTime.trim();
   if (!description) throw new Error("Say what needs doing.");
   if (!assignedTo) throw new Error("Choose who does it.");
   if (due && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(due)) throw new Error("Give a due time like 15:00.");
-  // Optional: the apartment it's about, picked from the list.
-  const typed = input.apartment?.trim() ?? "";
-  const apt = typed ? findApartment(typed) : undefined;
-  if (typed && !apt) throw new Error("Pick the apartment from the list.");
+  // Optional: the apartments it's about, each picked from the list.
+  const apartments: string[] = [];
+  for (const typed of input.apartments ?? []) {
+    const apt = findApartment(typed);
+    if (!apt) throw new Error(`“${typed}” isn’t an apartment on the list. Pick it from the suggestions.`);
+    if (!apartments.includes(apt.name)) apartments.push(apt.name);
+  }
 
   const { error } = await supabaseAdmin.from("tasks").insert({
     description,
     assigned_to: assignedTo,
-    apartment: apt?.name ?? null,
+    apartments: apartments.length ? apartments : null,
+    apartment: apartments[0] ?? null,
     due_time: due ? due.padStart(5, "0") : null,
     status: "Pending",
     created_by: session.staffId,

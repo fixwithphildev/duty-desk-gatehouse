@@ -184,7 +184,7 @@ export default async function DashboardPage() {
               {liveTasks.slice(0, 6).map((t) => (
                 <li key={t.id} className="row">
                   <span className="mono" style={{ fontSize: 12, width: 44, color: t.state === "overdue" ? "var(--bad-fg)" : "var(--text-3)" }}>{t.due_time || "—"}</span>
-                  <div className="m"><b style={t.status === "Done" ? { textDecoration: "line-through", color: "var(--text-3)" } : undefined}>{t.description}</b><span>{t.apartment ? `${t.apartment} · ` : ""}{t.assigned_to || "Anyone on duty"}</span></div>
+                  <div className="m"><b style={t.status === "Done" ? { textDecoration: "line-through", color: "var(--text-3)" } : undefined}>{t.description}</b><span>{t.apartments.length ? `${t.apartments.join(", ")} · ` : ""}{t.assigned_to || "Anyone on duty"}</span></div>
                   {t.status === "Done" ? <Badge tone="ok" dot={false}>Done</Badge> : t.state === "overdue" ? <Badge tone="bad">Overdue</Badge> : <Badge tone="neu" dot={false}>To do</Badge>}
                 </li>
               ))}

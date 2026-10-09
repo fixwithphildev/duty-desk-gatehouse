@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Ban, Check, MapPin, Plus, Repeat2, Undo2 } from "lucide-react";
-import { ApartmentPicker } from "@/components/apartment-picker";
+import { ApartmentsPicker } from "@/components/apartment-picker";
 import { Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -22,7 +22,7 @@ export interface TaskView extends TaskRow {
   doneDay: string | null;
 }
 
-const EMPTY = { description: "", assignedTo: "", dueTime: "", apartment: "" };
+const EMPTY = { description: "", assignedTo: "", dueTime: "", apartments: [] as string[] };
 
 // "Someone else" in the Assign to list: type a name instead.
 const OTHER = "__other__";
@@ -34,6 +34,8 @@ export function TasksClient({
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [typing, setTyping] = useState(false);
+  // An apartment name typed but not picked from the list yet.
+  const [aptTyping, setAptTyping] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [actError, setActError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export function TasksClient({
   const submit = () => {
     if (!form.description.trim()) return setError("Say what needs doing.");
     if (!form.assignedTo.trim()) return setError("Choose who does it.");
+    if (aptTyping.trim()) return setError(`Pick “${aptTyping.trim()}” from the apartment suggestions, or clear it.`);
     setError(null);
     startTransition(async () => {
       try {
@@ -86,7 +89,7 @@ export function TasksClient({
         <div className="m">
           <b style={isDone ? { textDecoration: "line-through", color: "var(--text-3)" } : undefined}>{t.description}</b>
           <span>
-            {t.apartment ? <><Link href={`/board?apt=${encodeURIComponent(t.apartment)}`} className="link" style={{ fontSize: 12 }}><MapPin size={12} /> {t.apartment}</Link> · </> : null}
+            {t.apartments.map((a) => <span key={a}><Link href={`/board?apt=${encodeURIComponent(a)}`} className="link" style={{ fontSize: 12 }}><MapPin size={12} /> {a}</Link> · </span>)}
             {t.assigned_to || "Anyone on duty"}{t.assigned_to === me ? " (you)" : ""}
             {isDone ? ` · done${t.done_by_name ? ` by ${t.done_by_name}` : ""}${t.doneTime ? ` at ${t.doneTime}` : ""}${t.state === "earlier" && t.doneDay ? `, ${t.doneDay}` : ""}`
               : `${t.created_by_name ? ` · added by ${t.created_by_name}` : ""}${t.state === "overdue" && !t.due_time ? `, ${t.addedDay}` : ""}`}
@@ -121,7 +124,7 @@ export function TasksClient({
         <div className="t"><h1>Tasks</h1><p>Small jobs for this shift. Give each one a person and a time; overdue jobs turn red.</p></div>
         <div className="acts">
           <AutoRefresh />
-          {canEdit ? <button type="button" className="btn btn-primary" onClick={() => { setForm(EMPTY); setTyping(false); setError(null); setOpen(true); }}><Plus size={15} /> New task</button> : null}
+          {canEdit ? <button type="button" className="btn btn-primary" onClick={() => { setForm(EMPTY); setTyping(false); setAptTyping(""); setError(null); setOpen(true); }}><Plus size={15} /> New task</button> : null}
         </div>
       </div>
 
@@ -172,9 +175,9 @@ export function TasksClient({
       >
         <Field label="What needs doing"><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Check the status of the apartment, deliver extra towels" /></Field>
         <div className="field">
-          <label htmlFor="tk-apt">Apartment <span className="muted">(optional)</span></label>
-          <ApartmentPicker key={open ? "open" : "closed"} id="tk-apt" value={form.apartment} onChange={(apartment) => setForm((f) => ({ ...f, apartment }))} />
-          <span className="hint">Attach the apartment the task is about. It shows on that apartment on the Readiness Board too.</span>
+          <label htmlFor="tk-apt">Apartments <span className="muted">(optional)</span></label>
+          <ApartmentsPicker key={open ? "open" : "closed"} id="tk-apt" value={form.apartments} onChange={(apartments) => setForm((f) => ({ ...f, apartments }))} onTyping={setAptTyping} />
+          <span className="hint">Add one or more apartments the task is about. It shows on each of them on the Readiness Board too.</span>
         </div>
         <div className="hstack" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
           <div className="field" style={{ flex: 1 }}>

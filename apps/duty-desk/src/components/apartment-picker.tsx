@@ -1,54 +1,85 @@
 "use client";
 
 import { useState } from "react";
-import { Search, X } from "lucide-react";
+import { MapPin, Search, X } from "lucide-react";
 import { aptWhere, findApartment, suggestApartments } from "@/lib/apartments";
 
-// Type an apartment's name and pick it from the suggestions, so there are no
-// typos. onChange gets the apartment's proper name once one is picked, or
-// what's typed so far (so a form can refuse a name that isn't on the list).
-export function ApartmentPicker({ id, value, onChange, placeholder = "Start typing the name, e.g. Lisbon" }: { id: string; value: string; onChange: (name: string) => void; placeholder?: string }) {
-  const [q, setQ] = useState(value);
+// Pick one or more apartments: type a name, choose it from the suggestions
+// (so there are no typos), and it's added as a tag that can be removed.
+// onTyping reports text that's typed but not picked yet, so a form can say so.
+export function ApartmentsPicker({
+  id,
+  value,
+  onChange,
+  onTyping,
+  placeholder = "Start typing the name, e.g. Lisbon",
+}: {
+  id: string;
+  value: string[];
+  onChange: (names: string[]) => void;
+  onTyping?: (text: string) => void;
+  placeholder?: string;
+}) {
+  const [q, setQ] = useState("");
   const [focus, setFocus] = useState(false);
-  const apt = findApartment(q.trim());
-  const sugg = q.trim() && !apt ? suggestApartments(q, 8) : [];
+  const sugg = q.trim() ? suggestApartments(q, 8).filter((a) => !value.includes(a.name)) : [];
 
-  const set = (text: string) => {
+  const type = (text: string) => {
     setQ(text);
-    const a = findApartment(text.trim());
-    onChange(a ? a.name : text.trim());
+    onTyping?.(text);
+  };
+  const add = (name: string) => {
+    const a = findApartment(name);
+    if (a && !value.includes(a.name)) onChange([...value, a.name]);
+    type("");
   };
 
   return (
-    <div className="gsearch">
-      <div className="input-wrap">
-        <Search size={16} />
-        <input
-          id={id}
-          className="input"
-          value={q}
-          onChange={(e) => set(e.target.value)}
-          onFocus={() => setFocus(true)}
-          onBlur={() => setTimeout(() => setFocus(false), 150)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !apt && sugg[0]) { e.preventDefault(); set(sugg[0].name); } }}
-          placeholder={placeholder}
-          autoComplete="off"
-          role="combobox"
-          aria-expanded={focus && sugg.length > 0}
-          aria-controls={`${id}-sugg`}
-        />
-        {q ? <button type="button" className="icon-btn" style={{ position: "absolute", right: 4, width: 30, height: 30, border: 0 }} onClick={() => set("")} aria-label="Clear the apartment"><X size={14} /></button> : null}
-      </div>
-      {focus && q.trim() && !apt ? (
-        <div className="sugg" id={`${id}-sugg`} role="listbox" aria-label="Matching apartments">
-          {sugg.length ? sugg.map((s) => (
-            <button key={s.name} type="button" role="option" aria-selected={false} onMouseDown={(e) => e.preventDefault()} onClick={() => { set(s.name); setFocus(false); }}>
-              <b>{s.name}</b><span>{aptWhere(s)}</span>
-            </button>
-          )) : <div className="empty" style={{ padding: 12 }}>No apartment matches “{q.trim()}”.</div>}
+    <div className="vstack" style={{ gap: 8 }}>
+      {value.length ? (
+        <div className="hstack" style={{ gap: 6 }}>
+          {value.map((n) => (
+            <span key={n} className="badge t-acc" style={{ height: 28, paddingRight: 4 }}>
+              <MapPin size={12} /> {n}
+              <button type="button" onClick={() => onChange(value.filter((x) => x !== n))} aria-label={`Remove ${n}`} style={{ border: 0, background: "transparent", color: "inherit", display: "grid", placeItems: "center", width: 20, height: 20, borderRadius: 6, cursor: "pointer" }}><X size={12} /></button>
+            </span>
+          ))}
         </div>
       ) : null}
-      {apt ? <span className="hint">{aptWhere(apt)}</span> : null}
+      <div className="gsearch">
+        <div className="input-wrap">
+          <Search size={16} />
+          <input
+            id={id}
+            className="input"
+            value={q}
+            onChange={(e) => type(e.target.value)}
+            onFocus={() => setFocus(true)}
+            onBlur={() => setTimeout(() => setFocus(false), 150)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              const exact = findApartment(q.trim());
+              if (exact) add(exact.name);
+              else if (sugg[0]) add(sugg[0].name);
+            }}
+            placeholder={value.length ? "Add another apartment" : placeholder}
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={focus && sugg.length > 0}
+            aria-controls={`${id}-sugg`}
+          />
+        </div>
+        {focus && q.trim() ? (
+          <div className="sugg" id={`${id}-sugg`} role="listbox" aria-label="Matching apartments">
+            {sugg.length ? sugg.map((s) => (
+              <button key={s.name} type="button" role="option" aria-selected={false} onMouseDown={(e) => e.preventDefault()} onClick={() => add(s.name)}>
+                <b>{s.name}</b><span>{aptWhere(s)}</span>
+              </button>
+            )) : <div className="empty" style={{ padding: 12 }}>No apartment matches “{q.trim()}”.</div>}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
