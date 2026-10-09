@@ -2,19 +2,20 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { requirePageAccess } from "@/lib/auth";
 import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
-import { getAllChecklists, getChecklistsInProgress } from "@/lib/data/checklists";
+import { getAllChecklists, getChecklistIssues, getChecklistsInProgress } from "@/lib/data/checklists";
 import { getReadiness, todoList } from "@/lib/data/readiness";
 import { aptShort, findApartment } from "@/lib/apartments";
 import { DD_ALL_ITEMS } from "@/lib/checklist-data";
-import { whenText, clockTime } from "@/lib/time";
+import { whenText, clockTime, lagosDayKey } from "@/lib/time";
+import { filterFromParams } from "@/lib/checklist-history";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { StartPrepButton } from "@/components/start-prep-button";
 import { PageHead } from "@/components/suite";
 import { HistoryTable, type HistoryRow } from "./history-table";
 
-export default async function ChecklistsPage({ searchParams }: { searchParams: { apt?: string } }) {
+export default async function ChecklistsPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
   const session = await requirePageAccess("/checklists");
-  const [all, inProgress, readiness] = await Promise.all([getAllChecklists(), getChecklistsInProgress(), getReadiness()]);
+  const [all, issues, inProgress, readiness] = await Promise.all([getAllChecklists(), getChecklistIssues(), getChecklistsInProgress(), getReadiness()]);
   const canCreate = DD_CAN_EDIT_CHECKLISTS.includes(session.role);
   const total = DD_ALL_ITEMS.length;
   const mine = inProgress.filter((c) => c.prepared_by === session.staffId);
@@ -24,8 +25,11 @@ export default async function ChecklistsPage({ searchParams }: { searchParams: {
     id: c.id,
     apartment: findApartment(c.apartment)?.name ?? c.apartment,
     type: c.type === "check_in_prep" ? "Check-in prep" : "Check-out inspection",
+    typeKey: c.type === "check_in_prep" ? "in" : "out",
     by: c.prepared_by_name,
     when: whenText(c.created_at),
+    day: lagosDayKey(c.created_at),
+    issues: issues.get(c.id) ?? [],
     ready: c.overall_ready,
     void: c.void,
   }));
@@ -76,7 +80,7 @@ export default async function ChecklistsPage({ searchParams }: { searchParams: {
         </section>
       </div>
 
-      <HistoryTable rows={history} initialQuery={searchParams.apt ?? ""} />
+      <HistoryTable rows={history} initial={filterFromParams(searchParams)} />
     </>
   );
 }

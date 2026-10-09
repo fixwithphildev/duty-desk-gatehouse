@@ -3,6 +3,8 @@ import { unstable_cache } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { ChecklistType, Condition } from "@/lib/types";
 import { bucketByDay, daysAgoIso, type DailyCount } from "@/lib/trend";
+import { problemOf, type Issue } from "@/lib/checklist-history";
+import { allRows } from "./pages";
 
 export interface ChecklistRow {
   id: string;
@@ -46,16 +48,19 @@ export async function getAllChecklists(): Promise<ChecklistRow[]> {
   // Explicit FK names — apartment_checklists has foreign keys into
   // staff_accounts for prepared_by, voided_by and taken_over_from, so a bare
   // "staff_accounts(display_name)" is ambiguous to PostgREST.
-  const { data, error } = await supabaseAdmin
-    .from("apartment_checklists")
-    .select(
-      "id, apartment, type, prepared_by, status, overall_ready, created_at, void, void_reason, voided_at, " +
-        "staff_accounts!apartment_checklists_prepared_by_fkey(display_name), voider:staff_accounts!apartment_checklists_voided_by_fkey(display_name)"
-    )
-    .eq("status", "submitted")
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
+  const rows = await allRows((from, to) =>
+    supabaseAdmin
+      .from("apartment_checklists")
+      .select(
+        "id, apartment, type, prepared_by, status, overall_ready, created_at, void, void_reason, voided_at, " +
+          "staff_accounts!apartment_checklists_prepared_by_fkey(display_name), voider:staff_accounts!apartment_checklists_voided_by_fkey(display_name)"
+      )
+      .eq("status", "submitted")
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to)
+  );
+  return rows.map((row) => ({
     id: row.id as string,
     apartment: row.apartment as string,
     type: row.type as ChecklistType,
@@ -69,6 +74,28 @@ export async function getAllChecklists(): Promise<ChecklistRow[]> {
     prepared_by_name: (row.staff_accounts as { display_name?: string } | null)?.display_name ?? "—",
     voided_by_name: (row.voider as { display_name?: string } | null)?.display_name ?? null,
   }));
+}
+
+// What was wrong on each checklist: every Damaged, Missing or Not available
+// line, with the officer's note and the ticket it opened. Keyed by checklist id.
+export async function getChecklistIssues(): Promise<Map<string, Issue[]>> {
+  const rows = await allRows((from, to) =>
+    supabaseAdmin
+      .from("checklist_items")
+      .select("id, checklist_id, name, condition, available, note, linked_ticket_id")
+      .or("condition.in.(Damaged,Missing),available.eq.No")
+      .order("id")
+      .range(from, to)
+  );
+  const by = new Map<string, Issue[]>();
+  for (const r of rows) {
+    const problem = problemOf({ condition: r.condition as string | null, available: r.available as string | null });
+    if (!problem) continue;
+    const list = by.get(r.checklist_id as string) ?? [];
+    list.push({ name: r.name as string, problem, note: (r.note as string | null)?.trim() || null, ticketId: (r.linked_ticket_id as string | null) ?? null });
+    by.set(r.checklist_id as string, list);
+  }
+  return by;
 }
 
 // The apartment's Ready/Not-Ready status is always derived from its most

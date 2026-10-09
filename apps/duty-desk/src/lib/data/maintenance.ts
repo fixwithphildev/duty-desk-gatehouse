@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { bucketByDay, daysAgoIso, type DailyCount } from "@/lib/trend";
+import { allRows } from "./pages";
 
 export interface MaintenanceTicketRow {
   id: string;
@@ -80,16 +81,23 @@ export async function getMaintenanceTickets(assignedToFilter?: string[]): Promis
   }));
 }
 
-// Where each ticket came from: the complaint that opened it, or the checklist that flagged it.
-export async function getTicketOrigins(): Promise<{ complaint: Map<string, string>; checklist: Map<string, string> }> {
-  const [{ data: cmp }, { data: items }] = await Promise.all([
-    supabaseAdmin.from("complaints").select("id, ticket_id").not("ticket_id", "is", null),
-    supabaseAdmin.from("checklist_items").select("checklist_id, linked_ticket_id").not("linked_ticket_id", "is", null),
+// Where each ticket came from: the complaint that opened it, or the checklist that
+// flagged it. `checkout` holds the tickets that came from a check-out inspection
+// (the rest of the checklist ones came from a check-in prep).
+export async function getTicketOrigins(): Promise<{ complaint: Map<string, string>; checklist: Map<string, string>; checkout: Set<string> }> {
+  const [cmp, items, outs] = await Promise.all([
+    allRows((from, to) => supabaseAdmin.from("complaints").select("id, ticket_id").not("ticket_id", "is", null).order("id").range(from, to)),
+    allRows((from, to) => supabaseAdmin.from("checklist_items").select("id, checklist_id, linked_ticket_id").not("linked_ticket_id", "is", null).order("id").range(from, to)),
+    allRows((from, to) => supabaseAdmin.from("apartment_checklists").select("id").eq("type", "check_out_inspection").order("id").range(from, to)),
   ]);
-  const complaint = new Map<string, string>(), checklist = new Map<string, string>();
-  for (const c of cmp ?? []) complaint.set(c.ticket_id as string, c.id as string);
-  for (const i of items ?? []) checklist.set(i.linked_ticket_id as string, i.checklist_id as string);
-  return { complaint, checklist };
+  const complaint = new Map<string, string>(), checklist = new Map<string, string>(), checkout = new Set<string>();
+  const outIds = new Set(outs.map((c) => c.id as string));
+  for (const c of cmp) complaint.set(c.ticket_id as string, c.id as string);
+  for (const i of items) {
+    checklist.set(i.linked_ticket_id as string, i.checklist_id as string);
+    if (outIds.has(i.checklist_id as string)) checkout.add(i.linked_ticket_id as string);
+  }
+  return { complaint, checklist, checkout };
 }
 
 export async function getOpenTicketsCount(): Promise<number> {

@@ -30,6 +30,8 @@ export interface TicketView extends MaintenanceTicketRow {
   age: string;
   complaintId: string | null;
   checklistId: string | null;
+  // Flagged on a check-out inspection (otherwise a check-in prep).
+  fromCheckout: boolean;
 }
 
 export interface AptState {
@@ -47,9 +49,10 @@ const AREAS = ["Lobby", "Car park", "Generator house", "Pool deck", "Main Buildi
 const PRI_ORDER: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
 const EMPTY = { area: "", issue: "", dept: "General Maintenance", priority: "Medium" as Priority, notes: "", blocksSale: true };
 
+const checklistLabel = (t: TicketView) => (t.fromCheckout ? "Check-out inspection" : "Check-in prep");
 const stLabel = (s: string) => (s === "In Progress" ? "In progress" : s);
 const srcLabel = (t: TicketView) =>
-  t.source === "checklist" ? "Check-in prep" : t.source === "complaint" ? "Complaint" : t.source === "report" ? "Problem report" : t.opened_by_name ? "Logged by hand" : "Maintenance Desk";
+  t.source === "checklist" ? checklistLabel(t) : t.source === "complaint" ? "Complaint" : t.source === "report" ? "Problem report" : t.opened_by_name ? "Logged by hand" : "Maintenance Desk";
 const tm = (when: string) => when.replace(/^Today /, "");
 
 export function MaintenanceClient({
@@ -240,9 +243,9 @@ export function MaintenanceClient({
                 </dd>
                 <dt>Opened by</dt>
                 <dd>
-                  {sel.opened_by_name ?? (sel.source === "checklist" ? "Check-in prep" : "Maintenance Desk")}
+                  {sel.opened_by_name ?? (sel.source === "checklist" ? checklistLabel(sel) : "Maintenance Desk")}
                   {sel.complaintId ? <> · <Link className="link" href={`/complaints?id=${sel.complaintId}`}>from a complaint</Link></> : null}
-                  {sel.checklistId ? <> · <Link className="link" href={`/checklists/${sel.checklistId}`}>from a checklist</Link></> : null}
+                  {sel.checklistId ? <> · <Link className="link" href={`/checklists/${sel.checklistId}`}>from the {checklistLabel(sel).toLowerCase()}</Link></> : null}
                 </dd>
                 {sel.started_by_name ? <><dt>Started</dt><dd>{sel.started_by_name} · {sel.startedWhen}</dd></> : null}
                 {sel.status === "Resolved" && sel.resolved_by_name ? <><dt>Fixed by</dt><dd><b>{sel.resolved_by_name}</b> · {sel.assigned_to} · {sel.resolvedWhen}</dd></> : null}
@@ -292,7 +295,7 @@ export function MaintenanceClient({
               <div className="vstack">
                 <span className="over">Activity</span>
                 <ul className="tl" style={{ padding: 0 }}>
-                  <li><span className="tm">{tm(sel.openedWhen)}</span><span className="dt">{sel.source === "complaint" ? <MessageSquare size={11} /> : <Wrench size={11} />}</span><span className="tx"><b>{sel.opened_by_name ?? (sel.source === "checklist" ? "Check-in prep" : "Maintenance Desk")}</b> opened the ticket for {sel.assigned_to}</span></li>
+                  <li><span className="tm">{tm(sel.openedWhen)}</span><span className="dt">{sel.source === "complaint" ? <MessageSquare size={11} /> : <Wrench size={11} />}</span><span className="tx"><b>{sel.opened_by_name ?? (sel.source === "checklist" ? checklistLabel(sel) : "Maintenance Desk")}</b> opened the ticket for {sel.assigned_to}</span></li>
                   {sel.started_by_name && sel.startedWhen ? <li><span className="tm">{tm(sel.startedWhen)}</span><span className="dt"><UserRound size={11} /></span><span className="tx"><b>{sel.started_by_name}</b> ({sel.assigned_to}) started work</span></li> : null}
                   {sel.status === "Resolved" && sel.resolved_by_name && sel.resolvedWhen ? <li><span className="tm">{tm(sel.resolvedWhen)}</span><span className="dt"><Check size={11} /></span><span className="tx"><b>{sel.resolved_by_name}</b> ({sel.assigned_to}) fixed it{sel.fix_note ? `: ${sel.fix_note}` : ""}</span></li> : null}
                   {!sel.started_by_name && !sel.resolved_by_name && sel.updatedWhen && sel.logged_by_name ? <li><span className="tm">{tm(sel.updatedWhen)}</span><span className="dt">{sel.status === "Resolved" ? <Check size={11} /> : <UserRound size={11} />}</span><span className="tx"><b>{sel.logged_by_name}</b> {sel.status === "Resolved" ? "marked it resolved" : sel.status === "In Progress" ? "started work" : "updated it"}</span></li> : null}

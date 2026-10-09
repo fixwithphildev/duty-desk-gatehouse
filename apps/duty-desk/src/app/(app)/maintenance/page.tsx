@@ -35,6 +35,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
       age: ageText(t.created_at),
       complaintId: origins.complaint.get(t.id) ?? null,
       checklistId: origins.checklist.get(t.id) ?? null,
+      fromCheckout: origins.checkout.has(t.id),
     };
   });
 

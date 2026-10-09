@@ -7,6 +7,7 @@ import { DD_CAN_EDIT_CHECKLISTS, DD_CAN_VOID } from "@/lib/types";
 import { DD_CATEGORIES } from "@/lib/checklist-data";
 import { aptWhere, findApartment } from "@/lib/apartments";
 import { whenText } from "@/lib/time";
+import { problemOf } from "@/lib/checklist-history";
 import { Badge } from "@/components/suite";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { VoidChecklistButton } from "./void-button";
@@ -78,7 +79,7 @@ export default async function ViewChecklistPage({ params }: { params: { id: stri
     );
   }
 
-  const flagged = items.filter((i) => i.condition === "Damaged" || i.condition === "Missing" || i.available === "No");
+  const flagged = items.filter((i) => problemOf(i));
   const canVoid = DD_CAN_VOID.includes(session.role);
   const byCat = DD_CATEGORIES.map((c) => ({ c, list: items.filter((i) => c.items.includes(i.name)) })).filter((x) => x.list.length);
   const other = items.filter((i) => !DD_CATEGORIES.some((c) => c.items.includes(i.name)));
@@ -123,9 +124,9 @@ export default async function ViewChecklistPage({ params }: { params: { id: stri
             {flagged.map((i) => (
               <li key={i.id} className="row">
                 <span className="stripe s-bad" />
-                <div className="m"><b>{i.name}</b><span>{i.category}{i.note ? ` · “${i.note}”` : ""}</span></div>
+                <div className="m"><b>{i.name}</b><span>{i.category}{i.ticket_dept ? ` · sent to ${i.ticket_dept}` : ""}{i.note ? ` · “${i.note}”` : ""}</span></div>
                 {i.linked_ticket_id ? <Link href={`/maintenance?id=${i.linked_ticket_id}`} className="btn btn-ghost btn-sm"><Wrench size={13} /> Ticket</Link> : null}
-                <Badge tone="bad">{i.condition ?? "Missing"}</Badge>
+                <Badge tone="bad">{problemOf(i)}</Badge>
               </li>
             ))}
           </ul>
