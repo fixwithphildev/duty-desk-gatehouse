@@ -12,7 +12,8 @@ interface Item {
   tone?: "alert" | "good";
 }
 
-const POLL_MS = 5_000;
+// New events (an apartment marked Ready, a complaint) show within this long.
+const POLL_MS = 15_000;
 const AUTO_DISMISS_MS = 12_000;
 const HISTORY_HOURS = 24;
 const SEEN_KEY = "dd-notifications-seen";
@@ -58,7 +59,7 @@ function readSeen(): string {
 }
 
 // The bell in the top bar. Polls our own server (never the database
-// directly from the browser) every few seconds for high-stakes events,
+// directly from the browser) every 15 seconds for high-stakes events,
 // pops each new one up with a chime, and keeps the last day's events in the
 // bell's list. Unread = newer than when this device last opened the list.
 export function Notifications() {
@@ -92,9 +93,19 @@ export function Notifications() {
         // Transient network hiccup — just try again next time.
       }
     };
+    // One check at a time, and none while the tab is hidden: on a slow line,
+    // overlapping checks queue up and hold back the page the user clicked.
+    let busy = false;
+    const poll = async () => {
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try { await load(sinceRef.current, true); } finally { busy = false; }
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") void poll(); };
     void load(new Date(Date.now() - HISTORY_HOURS * 3600_000).toISOString(), false);
-    const interval = setInterval(() => void load(sinceRef.current, true), POLL_MS);
-    return () => { cancelled = true; clearInterval(interval); };
+    const interval = setInterval(() => void poll(), POLL_MS);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { cancelled = true; clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
 
   useEffect(() => {

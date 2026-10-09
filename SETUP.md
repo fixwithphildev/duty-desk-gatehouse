@@ -164,6 +164,8 @@ then open `http://localhost:3000/login` and sign in with the username/usercode y
 
 ## 6. Create your Vercel account and the four hosting projects
 
+> **Server region.** Duty Desk, Gatehouse and Maintenance Desk each have a `vercel.json` that runs them in Vercel's Dublin region (`dub1`), next to the Supabase project in West EU (Ireland). Every page makes several database calls, so a server on the other side of the Atlantic (Vercel's default is Washington DC) makes each page noticeably slower. If the database ever moves, change `regions` in those three files to the Vercel region nearest to it.
+
 1. Go to vercel.com and sign up **using your GitHub account** (this makes connecting the repo a one-click step).
 2. From your Vercel dashboard, click **Add New → Project**, and import the `duty-desk-gatehouse` repository (you may need to click "Configure GitHub App" once to grant Vercel access to it).
 3. Vercel will ask for a **Root Directory** — this is the key setting that makes one repo produce several independent apps. Set it to `apps/duty-desk`. Leave the framework preset on "Next.js" (auto-detected).
