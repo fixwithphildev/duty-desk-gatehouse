@@ -18,14 +18,33 @@ const AUTO_DISMISS_MS = 12_000;
 const HISTORY_HOURS = 24;
 const SEEN_KEY = "dd-notifications-seen";
 
-// A short two-note chime, synthesized with the Web Audio API rather than an
-// audio file. Browsers block audio until the page has had some interaction
-// (signing in counts), so the very first alert after a fresh load can be
-// silent; the pop-up still shows either way.
-function playChime() {
+// One sound channel for the whole visit. iPhones and iPads (and other phone
+// browsers) only let a page make sound through a channel a tap has started,
+// so it's started on the first tap or key press and reused for every chime.
+// Until then, and while a phone's silent switch is on, alerts are pop-up only.
+let audio: AudioContext | null = null;
+function audioCtx(): AudioContext | null {
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new AudioCtx();
+    if (!audio) {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      audio = new AudioCtx();
+    }
+    // A phone suspends it when the app goes to the background; the next tap wakes it.
+    if (audio.state !== "running") void audio.resume().catch(() => {});
+    return audio;
+  } catch {
+    return null;
+  }
+}
+
+// A short two-note chime, synthesized with the Web Audio API rather than an
+// audio file, plus a short buzz on phones that can vibrate (Android; iPhones
+// don't let web pages vibrate). The pop-up shows either way.
+function playChime() {
+  try { navigator.vibrate?.([120, 60, 120]); } catch {}
+  try {
+    const ctx = audioCtx();
+    if (!ctx) return;
     const now = ctx.currentTime;
     [880, 1320].forEach((freq, i) => {
       const osc = ctx.createOscillator();
@@ -40,7 +59,6 @@ function playChime() {
       osc.start(start);
       osc.stop(start + 0.32);
     });
-    setTimeout(() => ctx.close(), 500);
   } catch {
     // Web Audio unavailable/blocked — the pop-up still shows.
   }
@@ -107,11 +125,23 @@ export function Notifications() {
       busy = true;
       try { await load(sinceRef.current, true); } finally { busy = false; }
     };
+    // Phones stop a page running while it's in the background or the screen is
+    // locked; coming back catches up straight away with whatever was missed.
     const onVisible = () => { if (document.visibilityState === "visible") void poll(); };
+    // Start (or wake) the sound channel on a tap, so the chime is allowed on phones.
+    const unlock = () => { audioCtx(); };
     const first = load(new Date(Date.now() - HISTORY_HOURS * 3600_000).toISOString(), false);
     const interval = setInterval(() => void first.then(poll), POLL_MS);
     document.addEventListener("visibilitychange", onVisible);
-    return () => { cancelled = true; clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+    // iPhones and iPads count the end of a tap (or a click) as the go-ahead, other browsers the press.
+    const UNLOCK = ["pointerdown", "touchend", "click", "keydown"] as const;
+    UNLOCK.forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      UNLOCK.forEach((e) => window.removeEventListener(e, unlock));
+    };
   }, []);
 
   useEffect(() => {
