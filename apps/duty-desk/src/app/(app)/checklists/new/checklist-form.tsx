@@ -205,8 +205,10 @@ export function ChecklistForm({
     startTransition(async () => {
       try {
         await flush();
-        const result = await callAction(submitChecklistAction)({ id, type, items, overallReady });
-        handleResult(result);
+        // On success the server sends you to the locked checklist, so there's no
+        // result; one only comes back if it was taken over or already submitted.
+        const result: SaveResult | undefined = await callAction(submitChecklistAction)({ id, type, items, overallReady });
+        if (result) handleResult(result);
       } catch (e) {
         if (isRedirectError(e)) throw e;
         setError(errorMessage(e));

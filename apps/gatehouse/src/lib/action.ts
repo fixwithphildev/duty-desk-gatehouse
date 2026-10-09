@@ -18,6 +18,9 @@ export async function guarded<T>(fn: () => Promise<T>): Promise<ActionResult<T>>
 export function callAction<A extends unknown[], T>(fn: (...args: A) => Promise<ActionResult<T>>) {
   return async (...args: A): Promise<T> => {
     const r = await fn(...args);
+    // An action that sends you to another page (redirect) hands back nothing:
+    // Next.js is already going there, so there is nothing to report.
+    if (r == null) return undefined as T;
     if (!r.ok) throw new Error(r.error);
     return r.data;
   };
