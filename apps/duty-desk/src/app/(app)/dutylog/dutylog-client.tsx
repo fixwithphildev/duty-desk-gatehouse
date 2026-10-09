@@ -8,6 +8,7 @@ import { Drawer } from "@/components/drawer";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Badge } from "@/components/suite";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import type { DutyLogRow } from "@/lib/data/dutylog";
 import { acknowledgeHandoverAction, addDutyLogEntryAction, voidDutyLogEntryAction } from "./actions";
 
@@ -52,7 +53,7 @@ export function DutyLogClient({ entries, draft, shiftNow, canEdit, canVoid }: { 
     setError(null);
     startTransition(async () => {
       try {
-        await addDutyLogEntryAction({ notes, handover });
+        await callAction(addDutyLogEntryAction)({ notes, handover });
         setNotes("");
         setHandover(false);
         router.refresh();
@@ -84,7 +85,7 @@ export function DutyLogClient({ entries, draft, shiftNow, canEdit, canVoid }: { 
           : e.handover ? (
             e.acknowledged_at ? <span className="hint"><CheckCheck size={13} style={{ verticalAlign: "-2px" }} /> Acknowledged by {e.acknowledged_by_name ?? "the next shift"} · {e.ackWhen}</span>
               : e.mine ? <span className="hint">Waiting for the next shift to acknowledge</span>
-                : <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 8 }} disabled={pending} onClick={() => run(() => acknowledgeHandoverAction(e.id))}><Check size={14} /> Acknowledge</button>
+                : <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 8 }} disabled={pending} onClick={() => run(() => callAction(acknowledgeHandoverAction)(e.id))}><Check size={14} /> Acknowledge</button>
           ) : null}
       </div>
     </div>
@@ -104,7 +105,7 @@ export function DutyLogClient({ entries, draft, shiftNow, canEdit, canVoid }: { 
             <b>Handover from {waiting[0].officer_name} needs acknowledging</b>
             <p style={{ whiteSpace: "pre-line" }}>{waiting[0].notes}</p>
           </div>
-          <div className="acts"><button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => acknowledgeHandoverAction(waiting[0].id))}><Check size={14} /> Acknowledge</button></div>
+          <div className="acts"><button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => callAction(acknowledgeHandoverAction)(waiting[0].id))}><Check size={14} /> Acknowledge</button></div>
         </section>
       ) : null}
       {actError ? <div className="err-note" role="alert" style={{ marginBottom: 14 }}>{actError}</div> : null}
@@ -151,7 +152,7 @@ export function DutyLogClient({ entries, draft, shiftNow, canEdit, canVoid }: { 
         over="Duty log"
         title="Void this entry"
         sub={voiding ? `${voiding.officer_name} · ${voiding.dayLabel} ${voiding.time}` : undefined}
-        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoiding(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => voiding && run(async () => { await voidDutyLogEntryAction(voiding.id, voidReason); setVoiding(null); })}>{pending ? "Voiding…" : "Void entry"}</button></>}
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoiding(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => voiding && run(async () => { await callAction(voidDutyLogEntryAction)(voiding.id, voidReason); setVoiding(null); })}>{pending ? "Voiding…" : "Void entry"}</button></>}
       >
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>The entry stays in the log for the record. It’s only marked voided, with your reason.</p>
         {voiding ? <p style={{ margin: 0, whiteSpace: "pre-line" }}>{voiding.notes}</p> : null}

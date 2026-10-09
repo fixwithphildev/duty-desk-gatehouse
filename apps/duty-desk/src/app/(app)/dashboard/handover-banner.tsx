@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Repeat2, Check } from "lucide-react";
 import { acknowledgeHandoverAction } from "../dutylog/actions";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 
 interface Handover {
   id: string;
@@ -24,7 +25,7 @@ export function HandoverBanner({ handover }: { handover: Handover | null }) {
 
   const acknowledge = () =>
     startTransition(async () => {
-      try { await acknowledgeHandoverAction(handover.id); router.refresh(); } catch (e) { if (isRedirectError(e)) throw e; setError(errorMessage(e)); }
+      try { await callAction(acknowledgeHandoverAction)(handover.id); router.refresh(); } catch (e) { if (isRedirectError(e)) throw e; setError(errorMessage(e)); }
     });
 
   return (

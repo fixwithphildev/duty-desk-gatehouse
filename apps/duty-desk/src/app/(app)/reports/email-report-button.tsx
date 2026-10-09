@@ -5,6 +5,7 @@ import { Mail, Send } from "lucide-react";
 import { Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { emailReportAction } from "./actions";
 import type { ReportDataset } from "@/lib/reports/exports";
 
@@ -21,7 +22,7 @@ export function EmailReportButton({ dataset, label }: { dataset: ReportDataset; 
     setSuccess(false);
     startTransition(async () => {
       try {
-        await emailReportAction(dataset, email);
+        await callAction(emailReportAction)(dataset, email);
         setSuccess(true);
       } catch (e) {
         if (isRedirectError(e)) throw e;

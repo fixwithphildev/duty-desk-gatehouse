@@ -13,6 +13,7 @@ import { askedBy, missingCost, stLabel, type JobView } from "@/lib/jobs";
 import { COMMON_AREAS, MD_PRIORITIES, MD_UNITS, REQUEST_ROLES, UNIT_COLOR, formatNaira as naira } from "@/lib/types";
 import { APARTMENTS } from "@/lib/apartments";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { createRequestAction } from "../jobs/actions";
 
 type Tab = "open" | "done" | "all";
@@ -92,7 +93,7 @@ export function RequestsClient({
     setError(null);
     startTransition(async () => {
       try {
-        const r = await createRequestAction({ fromMaintenance: form.fromMaintenance, name, role: form.role, staffUnit: punit ?? "", area: form.area, what: form.what, unit: form.unit, priority: form.priority });
+        const r = await callAction(createRequestAction)({ fromMaintenance: form.fromMaintenance, name, role: form.role, staffUnit: punit ?? "", area: form.area, what: form.what, unit: form.unit, priority: form.priority });
         setNewOpen(false);
         setForm(EMPTY);
         setTab("open");

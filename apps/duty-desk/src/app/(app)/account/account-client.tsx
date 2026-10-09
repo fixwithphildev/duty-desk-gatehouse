@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Eye, EyeOff, KeyRound } from "lucide-react";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { changeOwnUsercodeAction } from "./actions";
 import { DD_ROLE_LABELS, type DDRole } from "@/lib/types";
 
@@ -23,7 +24,7 @@ export function AccountClient({ username, displayName, role, recent }: { usernam
     setSuccess(false);
     startTransition(async () => {
       try {
-        await changeOwnUsercodeAction({ currentCode, newCode, confirmCode });
+        await callAction(changeOwnUsercodeAction)({ currentCode, newCode, confirmCode });
         setCurrentCode("");
         setNewCode("");
         setConfirmCode("");

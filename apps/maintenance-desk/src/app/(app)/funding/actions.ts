@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { MD_MANAGE_ROLES } from "@/lib/types";
@@ -14,7 +15,7 @@ const MAX = 500_000_000; // a guard against typing mistakes
 
 // One form records any money from Finance (or returned to Finance) against a job,
 // and the total the job needs.
-export async function recordFundingAction(input: {
+async function recordFundingAction__run(input: {
   jobId: string;
   need: number | null; // total the job needs; null to keep what's there
   direction: "in" | "out";
@@ -44,16 +45,28 @@ export async function recordFundingAction(input: {
   refresh();
 }
 
-export async function requestBalanceAction(jobId: string, amount: number) {
+async function requestBalanceAction__run(jobId: string, amount: number) {
   const session = await requireRole(MD_MANAGE_ROLES);
   if (!(amount > 0)) throw new Error("Nothing is owed on this job.");
   await requestBalance(jobId, amount, session.displayName);
   refresh();
 }
 
-export async function voidFundingAction(id: string, reason: string) {
+async function voidFundingAction__run(id: string, reason: string) {
   const session = await requireRole(MD_MANAGE_ROLES);
   if (!reason.trim()) throw new Error("A reason is required.");
   await voidFundingTx(id, reason.trim(), session.displayName);
   refresh();
+}
+
+export async function recordFundingAction(...args: Parameters<typeof recordFundingAction__run>) {
+  return guarded(() => recordFundingAction__run(...args));
+}
+
+export async function requestBalanceAction(...args: Parameters<typeof requestBalanceAction__run>) {
+  return guarded(() => requestBalanceAction__run(...args));
+}
+
+export async function voidFundingAction(...args: Parameters<typeof voidFundingAction__run>) {
+  return guarded(() => voidFundingAction__run(...args));
 }

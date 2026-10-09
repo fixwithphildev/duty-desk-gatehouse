@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -30,7 +31,7 @@ function validTime(iso: string, label: string): string {
 
 // Records a guest moving in. Only an apartment that's Ready to sell can be checked in; it then
 // shows Occupied until the check-out is recorded.
-export async function checkInAction(input: { apartment: string; guest: string; arrivedAt: string; leaves: string; contact: string; preferences: string }): Promise<{ id: string }> {
+async function checkInAction__run(input: { apartment: string; guest: string; arrivedAt: string; leaves: string; contact: string; preferences: string }): Promise<{ id: string }> {
   const session = await requireRole(DD_CAN_EDIT_RESIDENTS);
   const apt = findApartment(input.apartment);
   if (!apt) throw new Error("Choose the apartment from the list.");
@@ -65,7 +66,7 @@ export async function checkInAction(input: { apartment: string; guest: string; a
 
 // Records a guest leaving: when, whether keys came back, and any damage front desk should charge.
 // The apartment then needs a check-in prep before it can be sold again.
-export async function checkOutAction(input: { id: string; leftAt: string; keys: string; damage: DamageItem[]; notes: string }) {
+async function checkOutAction__run(input: { id: string; leftAt: string; keys: string; damage: DamageItem[]; notes: string }) {
   const session = await requireRole(DD_CAN_EDIT_RESIDENTS);
   if (!KEYS.includes(input.keys)) throw new Error("Say whether the keys came back.");
   const left = validTime(input.leftAt, "left");
@@ -97,7 +98,7 @@ export async function checkOutAction(input: { id: string; leftAt: string; keys: 
   refresh();
 }
 
-export async function updateStayAction(input: { id: string; leaves: string; contact: string; preferences: string; notes: string }) {
+async function updateStayAction__run(input: { id: string; leaves: string; contact: string; preferences: string; notes: string }) {
   await requireRole(DD_CAN_EDIT_RESIDENTS);
   if (input.leaves && !DATE.test(input.leaves)) throw new Error("Give the check-out date.");
   const { error } = await supabaseAdmin
@@ -113,7 +114,7 @@ export async function updateStayAction(input: { id: string; leaves: string; cont
   refresh();
 }
 
-export async function markDamageChargedAction(id: string) {
+async function markDamageChargedAction__run(id: string) {
   const session = await requireRole(DD_CAN_CHARGE_DAMAGE);
   const { error } = await supabaseAdmin
     .from("resident_profiles")
@@ -124,7 +125,7 @@ export async function markDamageChargedAction(id: string) {
   refresh();
 }
 
-export async function voidResidentAction(id: string, reason: string) {
+async function voidResidentAction__run(id: string, reason: string) {
   const session = await requireRole(DD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a resident record.");
   const { error } = await supabaseAdmin
@@ -133,4 +134,24 @@ export async function voidResidentAction(id: string, reason: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   refresh();
+}
+
+export async function checkInAction(...args: Parameters<typeof checkInAction__run>) {
+  return guarded(() => checkInAction__run(...args));
+}
+
+export async function checkOutAction(...args: Parameters<typeof checkOutAction__run>) {
+  return guarded(() => checkOutAction__run(...args));
+}
+
+export async function updateStayAction(...args: Parameters<typeof updateStayAction__run>) {
+  return guarded(() => updateStayAction__run(...args));
+}
+
+export async function markDamageChargedAction(...args: Parameters<typeof markDamageChargedAction__run>) {
+  return guarded(() => markDamageChargedAction__run(...args));
+}
+
+export async function voidResidentAction(...args: Parameters<typeof voidResidentAction__run>) {
+  return guarded(() => voidResidentAction__run(...args));
 }

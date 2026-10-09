@@ -5,6 +5,7 @@ import { Ban } from "lucide-react";
 import { Field } from "@/components/ui";
 import { Drawer } from "@/components/drawer";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { voidChecklistAction } from "../actions";
 
 export function VoidChecklistButton({ id, apartment, canEdit }: { id: string; apartment: string; canEdit: boolean }) {
@@ -20,7 +21,7 @@ export function VoidChecklistButton({ id, apartment, canEdit }: { id: string; ap
     setError(null);
     startTransition(async () => {
       try {
-        await voidChecklistAction(id, reason);
+        await callAction(voidChecklistAction)(id, reason);
         setOpen(false);
         setReason("");
       } catch (e) {

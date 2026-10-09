@@ -13,6 +13,7 @@ import { DD_PRIORITIES, DD_TICKET_DEPTS } from "@/lib/checklist-data";
 import { aptKey, aptWhere, findApartment, suggestApartments } from "@/lib/apartments";
 import { shrinkPhoto } from "@/lib/photo";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import type { MaintenanceTicketRow } from "@/lib/data/maintenance";
 import type { ReadyStatus } from "@/lib/data/readiness";
 import { addTicketPhotoAction, assignTicketAction, createTicketAction, getTicketPhotosAction, updateTicketStatusAction, voidTicketAction } from "./actions";
@@ -104,7 +105,7 @@ export function MaintenanceClient({
   useEffect(() => {
     if (!sel || !photoCount) return setPhotos(null);
     let gone = false;
-    getTicketPhotosAction(sel.id).then((urls) => { if (!gone) setPhotos({ id: sel.id, urls }); }).catch(() => {});
+    callAction(getTicketPhotosAction)(sel.id).then((urls) => { if (!gone) setPhotos({ id: sel.id, urls }); }).catch(() => {});
     return () => { gone = true; };
   }, [sel?.id, photoCount]);
 
@@ -139,7 +140,7 @@ export function MaintenanceClient({
         fd.set("notes", form.notes);
         if (formApt && form.blocksSale) fd.set("blocksSale", "on");
         if (photo) fd.set("photo", await shrinkPhoto(photo));
-        const r = await createTicketAction(fd);
+        const r = await callAction(createTicketAction)(fd);
         setForm(EMPTY);
         setPhoto(null);
         setOpen(false);
@@ -161,7 +162,7 @@ export function MaintenanceClient({
       const fd = new FormData();
       fd.set("id", sel.id);
       fd.set("photo", await shrinkPhoto(file));
-      await addTicketPhotoAction(fd);
+      await callAction(addTicketPhotoAction)(fd);
     });
     if (photoRef.current) photoRef.current.value = "";
   };
@@ -232,7 +233,7 @@ export function MaintenanceClient({
                 <dt>Assigned to</dt>
                 <dd>
                   {canEdit && !sel.void && sel.status !== "Resolved" ? (
-                    <select className="input" style={{ height: 34, maxWidth: 240 }} value={sel.assigned_to} disabled={pending} onChange={(e) => run(() => assignTicketAction(sel.id, e.target.value))} aria-label="Assign department">
+                    <select className="input" style={{ height: 34, maxWidth: 240 }} value={sel.assigned_to} disabled={pending} onChange={(e) => run(() => callAction(assignTicketAction)(sel.id, e.target.value))} aria-label="Assign department">
                       {[...new Set([...DD_TICKET_DEPTS, sel.assigned_to])].map((d) => <option key={d}>{d}</option>)}
                     </select>
                   ) : sel.assigned_to}
@@ -279,9 +280,9 @@ export function MaintenanceClient({
                   {canVoid ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidReason(""); setVoidOpen(true); }}><Ban size={13} /> Void</button> : <span className="hint">Only a manager can void a ticket.</span>}
                   {canEdit ? (
                     <div className="hstack">
-                      {si < 1 ? <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => updateTicketStatusAction(sel.id, "In Progress"))}>Mark in progress</button> : null}
-                      {si < 2 ? <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => updateTicketStatusAction(sel.id, "Resolved"))}><Check size={14} /> Resolve</button>
-                        : <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => updateTicketStatusAction(sel.id, "Reported"))}>Reopen</button>}
+                      {si < 1 ? <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => callAction(updateTicketStatusAction)(sel.id, "In Progress"))}>Mark in progress</button> : null}
+                      {si < 2 ? <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => callAction(updateTicketStatusAction)(sel.id, "Resolved"))}><Check size={14} /> Resolve</button>
+                        : <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(updateTicketStatusAction)(sel.id, "Reported"))}>Reopen</button>}
                     </div>
                   ) : null}
                 </div>
@@ -340,7 +341,7 @@ export function MaintenanceClient({
         over="Maintenance"
         title="Void this ticket"
         sub={sel ? `${sel.issue_type} · ${sel.apartment ?? sel.area}` : undefined}
-        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoidOpen(false)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => sel && run(async () => { await voidTicketAction(sel.id, voidReason); setVoidOpen(false); })}>{pending ? "Voiding…" : "Void ticket"}</button></>}
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoidOpen(false)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => sel && run(async () => { await callAction(voidTicketAction)(sel.id, voidReason); setVoidOpen(false); })}>{pending ? "Voiding…" : "Void ticket"}</button></>}
       >
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>The ticket stays visible for the record, on Maintenance Desk too. It’s only marked voided, with your reason.</p>
         <Field label="Reason (required)"><textarea className="input" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Duplicate of another ticket" /></Field>

@@ -8,6 +8,7 @@ import { Drawer } from "@/components/drawer";
 import { Badge, Kpi } from "@/components/suite";
 import { DD_ROLE_LABELS, canManageAccount, creatableRolesFor, manageableRolesFor, type DDRole, type StaffAccount } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { createStaffAction, setAccountDisabledAction, resetUsercodeAction, unlockAccountAction } from "./actions";
 import type { LoginEventRow } from "@/lib/data/login-events";
 
@@ -63,7 +64,7 @@ export function StaffClient({
     setError(null);
     startTransition(async () => {
       try {
-        const result = await createStaffAction({ username, displayName: form.displayName, role: form.role as DDRole });
+        const result = await callAction(createStaffAction)({ username, displayName: form.displayName, role: form.role as DDRole });
         setOpen(false);
         setCopied(false);
         setReveal({ name: form.displayName.trim(), ...result, reset: false });
@@ -137,11 +138,11 @@ export function StaffClient({
                     <td className="r">
                       {can ? (
                         <div className="hstack" style={{ justifyContent: "flex-end", gap: 4, flexWrap: "nowrap" }}>
-                          <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(async () => { const r = await resetUsercodeAction(a.id); setCopied(false); setReveal({ name: a.display_name, username: a.username, usercode: r.usercode, reset: true }); })}><KeyRound size={13} /> Reset code</button>
-                          {locked ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => unlockAccountAction(a.id))}><Unlock size={13} /> Unlock</button> : null}
+                          <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(async () => { const r = await callAction(resetUsercodeAction)(a.id); setCopied(false); setReveal({ name: a.display_name, username: a.username, usercode: r.usercode, reset: true }); })}><KeyRound size={13} /> Reset code</button>
+                          {locked ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(unlockAccountAction)(a.id))}><Unlock size={13} /> Unlock</button> : null}
                           {a.disabled
-                            ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => setAccountDisabledAction(a.id, false))}><CheckCircle2 size={13} /> Switch on</button>
-                            : <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => setAccountDisabledAction(a.id, true))}><Ban size={13} /> Switch off</button>}
+                            ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(setAccountDisabledAction)(a.id, false))}><CheckCircle2 size={13} /> Switch on</button>
+                            : <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(setAccountDisabledAction)(a.id, true))}><Ban size={13} /> Switch off</button>}
                         </div>
                       ) : <span className="hint">{self ? "Your account" : "—"}</span>}
                     </td>

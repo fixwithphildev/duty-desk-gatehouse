@@ -11,6 +11,7 @@ import type { JobView } from "@/lib/jobs";
 import { shortDate } from "@/lib/periods";
 import { UNIT_COLOR, formatNaira as naira } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { recordFundingAction, requestBalanceAction } from "./actions";
 
 const num = (v: string) => parseFloat(v.replace(/[^0-9.]/g, ""));
@@ -81,7 +82,7 @@ export function FundingClient({ jobs, officers, canManage, today, initialJob }: 
     setError(null);
     startTransition(async () => {
       try {
-        await recordFundingAction({ jobId: job.id, need: need > 0 ? need : null, direction: f.direction, amount: num(f.amount), date: f.date, reference: f.reference, financeOfficer: f.officer, paysBack: f.paysBack });
+        await callAction(recordFundingAction)({ jobId: job.id, need: need > 0 ? need : null, direction: f.direction, amount: num(f.amount), date: f.date, reference: f.reference, financeOfficer: f.officer, paysBack: f.paysBack });
         setSaved(`${job.ref}: ${f.direction === "out" ? "returned to Finance" : isBalance ? "balance paid" : "money from Finance"} ${naira(num(f.amount))}`);
         setFresh(job.id);
         setF(blank());
@@ -120,7 +121,7 @@ export function FundingClient({ jobs, officers, canManage, today, initialJob }: 
       case "waiting": case "part": case "full":
         return <button type="button" className="btn btn-secondary btn-sm" onClick={() => pick(j, "in")}><Banknote size={14} /> Record money from Finance</button>;
       case "balance-due":
-        return <><button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => requestBalanceAction(j.id, d))}><Mail size={14} /> Request balance</button><button type="button" className="btn btn-secondary btn-sm" onClick={() => pick(j, "in")}>Record balance paid</button></>;
+        return <><button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => callAction(requestBalanceAction)(j.id, d))}><Mail size={14} /> Request balance</button><button type="button" className="btn btn-secondary btn-sm" onClick={() => pick(j, "in")}>Record balance paid</button></>;
       case "balance-requested":
         return <><button type="button" className="btn btn-primary btn-sm" onClick={() => pick(j, "in")}><Check size={14} /> Record balance paid</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => slip(j)}><Download size={14} /> Request slip</button></>;
       case "return-due":

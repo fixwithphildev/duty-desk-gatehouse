@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { isUnit, MD_MANAGE_ROLES } from "@/lib/types";
@@ -13,7 +14,7 @@ const refresh = () => {
 const MAX_LINE = 50_000_000; // a guard against typing mistakes, not a policy limit
 
 // One receipt: any number of items, for a job (ticket or request) or the unit's stock.
-export async function addPurchaseAction(input: {
+async function addPurchaseAction__run(input: {
   unit: string;
   jobId: string; // a ticket id, or "STOCK"
   supplier: string;
@@ -44,9 +45,17 @@ export async function addPurchaseAction(input: {
   refresh();
 }
 
-export async function voidExpenseAction(id: string, reason: string) {
+async function voidExpenseAction__run(id: string, reason: string) {
   const session = await requireRole(MD_MANAGE_ROLES);
   if (!reason.trim()) throw new Error("A reason is required to void a purchase line.");
   await voidExpense(id, reason.trim(), session.displayName);
   refresh();
+}
+
+export async function addPurchaseAction(...args: Parameters<typeof addPurchaseAction__run>) {
+  return guarded(() => addPurchaseAction__run(...args));
+}
+
+export async function voidExpenseAction(...args: Parameters<typeof voidExpenseAction__run>) {
+  return guarded(() => voidExpenseAction__run(...args));
 }

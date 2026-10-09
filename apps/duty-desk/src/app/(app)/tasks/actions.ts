@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -13,7 +14,7 @@ const refresh = () => {
   revalidatePath("/dashboard");
 };
 
-export async function createTaskAction(input: { description: string; assignedTo: string; dueTime: string }) {
+async function createTaskAction__run(input: { description: string; assignedTo: string; dueTime: string }) {
   const session = await requireRole(DD_CAN_EDIT_TASKS);
   const description = input.description.trim(), assignedTo = input.assignedTo.trim(), due = input.dueTime.trim();
   if (!description) throw new Error("Say what needs doing.");
@@ -31,21 +32,21 @@ export async function createTaskAction(input: { description: string; assignedTo:
   refresh();
 }
 
-export async function markTaskDoneAction(id: string) {
+async function markTaskDoneAction__run(id: string) {
   const session = await requireRole(CAN_TICK);
   const { error } = await supabaseAdmin.from("tasks").update({ status: "Done", done_at: new Date().toISOString(), done_by: session.staffId }).eq("id", id).eq("void", false);
   if (error) throw new Error(error.message);
   refresh();
 }
 
-export async function markTaskNotDoneAction(id: string) {
+async function markTaskNotDoneAction__run(id: string) {
   await requireRole(CAN_TICK);
   const { error } = await supabaseAdmin.from("tasks").update({ status: "Pending", done_at: null, done_by: null }).eq("id", id).eq("void", false);
   if (error) throw new Error(error.message);
   refresh();
 }
 
-export async function voidTaskAction(id: string, reason: string) {
+async function voidTaskAction__run(id: string, reason: string) {
   const session = await requireRole(DD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a task.");
   const { error } = await supabaseAdmin
@@ -54,4 +55,20 @@ export async function voidTaskAction(id: string, reason: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   refresh();
+}
+
+export async function createTaskAction(...args: Parameters<typeof createTaskAction__run>) {
+  return guarded(() => createTaskAction__run(...args));
+}
+
+export async function markTaskDoneAction(...args: Parameters<typeof markTaskDoneAction__run>) {
+  return guarded(() => markTaskDoneAction__run(...args));
+}
+
+export async function markTaskNotDoneAction(...args: Parameters<typeof markTaskNotDoneAction__run>) {
+  return guarded(() => markTaskNotDoneAction__run(...args));
+}
+
+export async function voidTaskAction(...args: Parameters<typeof voidTaskAction__run>) {
+  return guarded(() => voidTaskAction__run(...args));
 }

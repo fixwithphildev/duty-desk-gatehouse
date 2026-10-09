@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Receipt } from "lucide-react";
 import { naira } from "@/lib/money";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { markDamageChargedAction } from "../residents/actions";
 
 export interface DamageBill {
@@ -29,7 +30,7 @@ export function DamageCard({ bills, canCharge }: { bills: DamageBill[]; canCharg
     setBusy(id);
     setError(null);
     startTransition(async () => {
-      try { await markDamageChargedAction(id); router.refresh(); } catch (e) { if (isRedirectError(e)) throw e; setError(errorMessage(e)); } finally { setBusy(null); }
+      try { await callAction(markDamageChargedAction)(id); router.refresh(); } catch (e) { if (isRedirectError(e)) throw e; setError(errorMessage(e)); } finally { setBusy(null); }
     });
   };
 

@@ -11,6 +11,7 @@ import { Badge } from "@/components/suite";
 import { CheckInDrawer, CheckOutDrawer, type AptOption } from "@/components/stay-drawers";
 import { naira, damageTotal } from "@/lib/money";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import type { ResidentRow } from "@/lib/data/residents";
 import { updateStayAction, voidResidentAction } from "./actions";
 
@@ -170,7 +171,7 @@ export function ResidentsClient({ residents, readyApts, initialId, canEdit, canV
         over="Residents"
         title="Change details"
         sub={sel ? `${sel.name} · ${sel.apartment}` : undefined}
-        footer={<><button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>Cancel</button><button type="button" className="btn btn-primary" disabled={pending} onClick={() => sel && run(async () => { await updateStayAction({ id: sel.id, ...edit }); setEditing(false); })}>{pending ? "Saving…" : "Save"}</button></>}
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>Cancel</button><button type="button" className="btn btn-primary" disabled={pending} onClick={() => sel && run(async () => { await callAction(updateStayAction)({ id: sel.id, ...edit }); setEditing(false); })}>{pending ? "Saving…" : "Save"}</button></>}
       >
         {sel && !sel.checked_out_at ? <div className="field"><label htmlFor="rs-out">Leaves <span className="muted">(date)</span></label><input className="input mono" id="rs-out" type="date" value={edit.leaves} onChange={(e) => setEdit({ ...edit, leaves: e.target.value })} style={{ maxWidth: 200 }} /></div> : null}
         <Field label="Contact"><input className="input" value={edit.contact} onChange={(e) => setEdit({ ...edit, contact: e.target.value })} placeholder="Phone or email" /></Field>
@@ -185,7 +186,7 @@ export function ResidentsClient({ residents, readyApts, initialId, canEdit, canV
         over="Residents"
         title="Void this record"
         sub={sel ? `${sel.name} · ${sel.apartment}` : undefined}
-        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoidOpen(false)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => sel && run(async () => { await voidResidentAction(sel.id, voidReason); setVoidOpen(false); })}>{pending ? "Voiding…" : "Void record"}</button></>}
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoidOpen(false)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => sel && run(async () => { await callAction(voidResidentAction)(sel.id, voidReason); setVoidOpen(false); })}>{pending ? "Voiding…" : "Void record"}</button></>}
       >
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>The record stays visible, marked voided with your reason. If the guest is checked in, the apartment stops showing as Occupied.</p>
         <Field label="Reason (required)"><textarea className="input" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Checked in to the wrong apartment" /></Field>

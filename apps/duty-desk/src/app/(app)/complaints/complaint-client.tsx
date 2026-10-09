@@ -10,6 +10,7 @@ import { Badge, priTone, stTone } from "@/components/suite";
 import { DD_COMPLAINT_CATEGORIES, DD_COMPLAINT_TEAMS, DD_PRIORITIES } from "@/lib/checklist-data";
 import { aptWhere, findApartment, suggestApartments } from "@/lib/apartments";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { assignComplaintAction, createComplaintAction, updateComplaintStatusAction, voidComplaintAction } from "./actions";
 import type { ComplaintRow } from "@/lib/data/complaints";
 
@@ -63,7 +64,7 @@ export function ComplaintsClient({ complaints, initialId, initialApartment, canE
     setError(null);
     startTransition(async () => {
       try {
-        const r = await createComplaintAction({ ...form, room: apt.name });
+        const r = await callAction(createComplaintAction)({ ...form, room: apt.name });
         setForm(EMPTY);
         setOpen(false);
         setTab("open");
@@ -144,7 +145,7 @@ export function ComplaintsClient({ complaints, initialId, initialApartment, canE
                 <dt>Assigned to</dt>
                 <dd>
                   {canEdit && !sel.void && sel.status !== "Resolved" ? (
-                    <select className="input" style={{ height: 34, maxWidth: 260 }} value={sel.assigned_to} disabled={pending} onChange={(e) => run(() => assignComplaintAction(sel.id, e.target.value))} aria-label="Assign to a team">
+                    <select className="input" style={{ height: 34, maxWidth: 260 }} value={sel.assigned_to} disabled={pending} onChange={(e) => run(() => callAction(assignComplaintAction)(sel.id, e.target.value))} aria-label="Assign to a team">
                       {DD_COMPLAINT_TEAMS.map((d) => <option key={d}>{d}</option>)}
                     </select>
                   ) : sel.assigned_to}
@@ -164,9 +165,9 @@ export function ComplaintsClient({ complaints, initialId, initialApartment, canE
                   {canVoid ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setVoidReason(""); setVoidOpen(true); }}><Ban size={13} /> Void</button> : <span className="hint">Only a manager can void a complaint.</span>}
                   {canEdit ? (
                     <div className="hstack">
-                      {si < 1 ? <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => updateComplaintStatusAction(sel.id, "In Progress"))}>Mark in progress</button> : null}
-                      {si < 2 ? <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => updateComplaintStatusAction(sel.id, "Resolved", note))}><Check size={14} /> Resolve</button>
-                        : <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => updateComplaintStatusAction(sel.id, "Open"))}>Reopen</button>}
+                      {si < 1 ? <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => callAction(updateComplaintStatusAction)(sel.id, "In Progress"))}>Mark in progress</button> : null}
+                      {si < 2 ? <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => callAction(updateComplaintStatusAction)(sel.id, "Resolved", note))}><Check size={14} /> Resolve</button>
+                        : <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(updateComplaintStatusAction)(sel.id, "Open"))}>Reopen</button>}
                     </div>
                   ) : null}
                 </div>
@@ -220,7 +221,7 @@ export function ComplaintsClient({ complaints, initialId, initialApartment, canE
         over="Complaints"
         title="Void this complaint"
         sub={sel ? `${sel.category} · ${sel.apartment}` : undefined}
-        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoidOpen(false)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => sel && run(async () => { await voidComplaintAction(sel.id, voidReason); setVoidOpen(false); })}>{pending ? "Voiding…" : "Void complaint"}</button></>}
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoidOpen(false)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => sel && run(async () => { await callAction(voidComplaintAction)(sel.id, voidReason); setVoidOpen(false); })}>{pending ? "Voiding…" : "Void complaint"}</button></>}
       >
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>The original entry stays visible for the record. It’s only marked voided, with your reason.</p>
         {sel ? <p style={{ margin: 0, fontWeight: 600 }}>{sel.description}</p> : null}

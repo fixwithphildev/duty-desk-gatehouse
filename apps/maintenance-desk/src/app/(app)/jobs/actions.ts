@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
 import { isUnit, MD_MANAGE_ROLES, MD_PRIORITIES, MD_WORK_ROLES, REQUEST_ROLES, type TicketPriority } from "@/lib/types";
@@ -32,7 +33,7 @@ async function jobForWork(id: string) {
   return { session, job };
 }
 
-export async function startWorkAction(id: string, who: string, at: string) {
+async function startWorkAction__run(id: string, who: string, at: string) {
   const { session, job } = await jobForWork(id);
   if (!who.trim()) throw new Error("Choose who is doing it.");
   if (job.status !== "Reported") throw new Error("This job has already been started.");
@@ -40,7 +41,7 @@ export async function startWorkAction(id: string, who: string, at: string) {
   refresh();
 }
 
-export async function resolveWorkAction(id: string, who: string, at: string, note: string) {
+async function resolveWorkAction__run(id: string, who: string, at: string, note: string) {
   const { session, job } = await jobForWork(id);
   if (!who.trim()) throw new Error("Choose who fixed it.");
   if (!note.trim()) throw new Error("Say what was done. Duty Desk sees this.");
@@ -53,32 +54,32 @@ export async function resolveWorkAction(id: string, who: string, at: string, not
   refresh();
 }
 
-export async function reopenAction(id: string) {
+async function reopenAction__run(id: string) {
   const session = await requireRole(MD_MANAGE_ROLES);
   await recordWork(id, { status: "Reported", who: "", at: new Date().toISOString(), note: null, loggedBy: session.displayName });
   refresh();
 }
 
-export async function assignUnitAction(id: string, unit: string) {
+async function assignUnitAction__run(id: string, unit: string) {
   const session = await requireRole(MD_MANAGE_ROLES);
   if (!isUnit(unit)) throw new Error("Choose one of the five units.");
   await assignUnit(id, unit, session.displayName);
   refresh();
 }
 
-export async function voidJobAction(id: string, reason: string) {
+async function voidJobAction__run(id: string, reason: string) {
   const session = await requireRole(MD_MANAGE_ROLES);
   if (!reason.trim()) throw new Error("A reason is required to void a job.");
   await voidTicket(id, reason.trim(), session.displayName);
   refresh();
 }
 
-export async function getPhotosAction(id: string): Promise<string[]> {
+async function getPhotosAction__run(id: string): Promise<string[]> {
   await requireSession();
   return getTicketPhotoUrls(id);
 }
 
-export async function addPhotoAction(formData: FormData) {
+async function addPhotoAction__run(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   await jobForWork(id);
   const photo = formData.get("photo") as File | null;
@@ -89,7 +90,7 @@ export async function addPhotoAction(formData: FormData) {
 }
 
 // A purchase or two straight from the job. Several items, a supplier or a date go on the Costs page.
-export async function quickPurchaseAction(id: string, item: string, quantity: number, unitCost: number) {
+async function quickPurchaseAction__run(id: string, item: string, quantity: number, unitCost: number) {
   const session = await requireRole(MD_MANAGE_ROLES);
   const job = await getTicket(id);
   if (!job) throw new Error("That job isn’t there any more.");
@@ -101,14 +102,14 @@ export async function quickPurchaseAction(id: string, item: string, quantity: nu
   refresh();
 }
 
-export async function markNoPurchaseAction(id: string) {
+async function markNoPurchaseAction__run(id: string) {
   const session = await requireRole(MD_MANAGE_ROLES);
   await markNoPurchase(id, session.displayName);
   refresh();
 }
 
 // A request: work asked for outside Duty Desk. No amount on it; what it costs goes on Costs.
-export async function createRequestAction(input: {
+async function createRequestAction__run(input: {
   fromMaintenance: boolean;
   name: string;
   role: string;
@@ -141,4 +142,44 @@ export async function createRequestAction(input: {
   });
   refresh();
   return r;
+}
+
+export async function startWorkAction(...args: Parameters<typeof startWorkAction__run>) {
+  return guarded(() => startWorkAction__run(...args));
+}
+
+export async function resolveWorkAction(...args: Parameters<typeof resolveWorkAction__run>) {
+  return guarded(() => resolveWorkAction__run(...args));
+}
+
+export async function reopenAction(...args: Parameters<typeof reopenAction__run>) {
+  return guarded(() => reopenAction__run(...args));
+}
+
+export async function assignUnitAction(...args: Parameters<typeof assignUnitAction__run>) {
+  return guarded(() => assignUnitAction__run(...args));
+}
+
+export async function voidJobAction(...args: Parameters<typeof voidJobAction__run>) {
+  return guarded(() => voidJobAction__run(...args));
+}
+
+export async function getPhotosAction(...args: Parameters<typeof getPhotosAction__run>) {
+  return guarded(() => getPhotosAction__run(...args));
+}
+
+export async function addPhotoAction(...args: Parameters<typeof addPhotoAction__run>) {
+  return guarded(() => addPhotoAction__run(...args));
+}
+
+export async function quickPurchaseAction(...args: Parameters<typeof quickPurchaseAction__run>) {
+  return guarded(() => quickPurchaseAction__run(...args));
+}
+
+export async function markNoPurchaseAction(...args: Parameters<typeof markNoPurchaseAction__run>) {
+  return guarded(() => markNoPurchaseAction__run(...args));
+}
+
+export async function createRequestAction(...args: Parameters<typeof createRequestAction__run>) {
+  return guarded(() => createRequestAction__run(...args));
 }

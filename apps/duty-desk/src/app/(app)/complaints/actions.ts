@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -12,7 +13,7 @@ const refresh = () => {
   revalidatePath("/dashboard");
 };
 
-export async function createComplaintAction(input: {
+async function createComplaintAction__run(input: {
   guestName: string;
   room: string;
   category: string;
@@ -71,7 +72,7 @@ export async function createComplaintAction(input: {
   return { id: data.id };
 }
 
-export async function updateComplaintStatusAction(id: string, status: "Open" | "In Progress" | "Resolved", note?: string) {
+async function updateComplaintStatusAction__run(id: string, status: "Open" | "In Progress" | "Resolved", note?: string) {
   const session = await requireRole(DD_CAN_EDIT_COMPLAINTS);
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { status, updated_at: now };
@@ -87,7 +88,7 @@ export async function updateComplaintStatusAction(id: string, status: "Open" | "
   refresh();
 }
 
-export async function assignComplaintAction(id: string, assignedTo: string) {
+async function assignComplaintAction__run(id: string, assignedTo: string) {
   await requireRole(DD_CAN_EDIT_COMPLAINTS);
   if (!DD_COMPLAINT_TEAMS.includes(assignedTo)) throw new Error("Choose a team from the list.");
   const { error } = await supabaseAdmin.from("complaints").update({ assigned_to: assignedTo, updated_at: new Date().toISOString() }).eq("id", id);
@@ -95,7 +96,7 @@ export async function assignComplaintAction(id: string, assignedTo: string) {
   refresh();
 }
 
-export async function voidComplaintAction(id: string, reason: string) {
+async function voidComplaintAction__run(id: string, reason: string) {
   const session = await requireRole(DD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a complaint.");
   const { error } = await supabaseAdmin
@@ -104,4 +105,20 @@ export async function voidComplaintAction(id: string, reason: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   refresh();
+}
+
+export async function createComplaintAction(...args: Parameters<typeof createComplaintAction__run>) {
+  return guarded(() => createComplaintAction__run(...args));
+}
+
+export async function updateComplaintStatusAction(...args: Parameters<typeof updateComplaintStatusAction__run>) {
+  return guarded(() => updateComplaintStatusAction__run(...args));
+}
+
+export async function assignComplaintAction(...args: Parameters<typeof assignComplaintAction__run>) {
+  return guarded(() => assignComplaintAction__run(...args));
+}
+
+export async function voidComplaintAction(...args: Parameters<typeof voidComplaintAction__run>) {
+  return guarded(() => voidComplaintAction__run(...args));
 }

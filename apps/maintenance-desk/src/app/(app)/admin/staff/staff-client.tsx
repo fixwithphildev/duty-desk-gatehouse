@@ -8,6 +8,7 @@ import { Drawer } from "@/components/drawer";
 import { Badge, Kpi } from "@/components/suite";
 import { MD_ROLE_LABELS, MD_UNITS, UNIT_COLOR, canManageAccount, creatableRolesFor, manageableRolesFor, type MDRole, type StaffAccount } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { createStaffAction, resetUsercodeAction, setAccountDisabledAction, setUnitAction, unlockAccountAction } from "./actions";
 import type { LoginEventRow } from "@/lib/data/login-events";
 
@@ -49,7 +50,7 @@ export function StaffClient({ accounts, loginEvents, lastSeen, actorRole, me }: 
     setError(null);
     startTransition(async () => {
       try {
-        const r = await createStaffAction({ username, displayName: form.displayName, role: form.role as MDRole, unit: form.unit });
+        const r = await callAction(createStaffAction)({ username, displayName: form.displayName, role: form.role as MDRole, unit: form.unit });
         setOpen(false);
         setCopied(false);
         setReveal({ name: form.displayName.trim(), ...r, reset: false, unit: form.role === "maintenance_technician" ? form.unit : null });
@@ -118,7 +119,7 @@ export function StaffClient({ accounts, loginEvents, lastSeen, actorRole, me }: 
                     <td>
                       {a.role !== "maintenance_technician" ? <span className="muted">All units</span>
                         : can && !a.disabled ? (
-                          <select className="input" style={{ height: 32, width: 190 }} value={a.unit ?? ""} disabled={pending} onChange={(e) => run(() => setUnitAction(a.id, e.target.value))} aria-label={`Unit for ${a.display_name}`}>
+                          <select className="input" style={{ height: 32, width: 190 }} value={a.unit ?? ""} disabled={pending} onChange={(e) => run(() => callAction(setUnitAction)(a.id, e.target.value))} aria-label={`Unit for ${a.display_name}`}>
                             {!a.unit ? <option value="">Choose a unit…</option> : null}
                             {MD_UNITS.map((u) => <option key={u}>{u}</option>)}
                           </select>
@@ -130,11 +131,11 @@ export function StaffClient({ accounts, loginEvents, lastSeen, actorRole, me }: 
                     <td className="r">
                       {can ? (
                         <div className="hstack" style={{ justifyContent: "flex-end", gap: 4, flexWrap: "nowrap" }}>
-                          <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(async () => { const r = await resetUsercodeAction(a.id); setCopied(false); setReveal({ name: a.display_name, username: a.username, usercode: r.usercode, reset: true, unit: a.unit }); })}><KeyRound size={13} /> Reset code</button>
-                          {locked ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => unlockAccountAction(a.id))}><Unlock size={13} /> Unlock</button> : null}
+                          <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(async () => { const r = await callAction(resetUsercodeAction)(a.id); setCopied(false); setReveal({ name: a.display_name, username: a.username, usercode: r.usercode, reset: true, unit: a.unit }); })}><KeyRound size={13} /> Reset code</button>
+                          {locked ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(unlockAccountAction)(a.id))}><Unlock size={13} /> Unlock</button> : null}
                           {a.disabled
-                            ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => setAccountDisabledAction(a.id, false))}><CheckCircle2 size={13} /> Switch on</button>
-                            : <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => setAccountDisabledAction(a.id, true))}><Ban size={13} /> Switch off</button>}
+                            ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(setAccountDisabledAction)(a.id, false))}><CheckCircle2 size={13} /> Switch on</button>
+                            : <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(setAccountDisabledAction)(a.id, true))}><Ban size={13} /> Switch off</button>}
                         </div>
                       ) : <span className="hint">{self ? "Your account" : "—"}</span>}
                     </td>

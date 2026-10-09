@@ -1,12 +1,13 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateUsercode, hashUsercode } from "@/lib/usercode";
 import { DD_ADMIN_ROLES, canManageAccount, creatableRolesFor, type DDRole } from "@/lib/types";
 
-export async function createStaffAction(input: {
+async function createStaffAction__run(input: {
   username: string;
   displayName: string;
   role: DDRole;
@@ -51,7 +52,7 @@ async function getTargetRole(id: string): Promise<DDRole> {
   return data.role as DDRole;
 }
 
-export async function setAccountDisabledAction(id: string, disabled: boolean) {
+async function setAccountDisabledAction__run(id: string, disabled: boolean) {
   const session = await requireRole(DD_ADMIN_ROLES);
   if (id === session.staffId) throw new Error("You can’t switch off your own account.");
   const targetRole = await getTargetRole(id);
@@ -62,7 +63,7 @@ export async function setAccountDisabledAction(id: string, disabled: boolean) {
   revalidatePath("/admin/staff");
 }
 
-export async function resetUsercodeAction(id: string): Promise<{ usercode: string }> {
+async function resetUsercodeAction__run(id: string): Promise<{ usercode: string }> {
   const session = await requireRole(DD_ADMIN_ROLES);
   if (id === session.staffId) throw new Error("Change your own usercode from My account.");
   const targetRole = await getTargetRole(id);
@@ -80,7 +81,7 @@ export async function resetUsercodeAction(id: string): Promise<{ usercode: strin
   return { usercode };
 }
 
-export async function unlockAccountAction(id: string) {
+async function unlockAccountAction__run(id: string) {
   const session = await requireRole(DD_ADMIN_ROLES);
   const targetRole = await getTargetRole(id);
   if (!canManageAccount(session.role, targetRole)) throw new Error("You aren't permitted to manage that account.");
@@ -88,4 +89,20 @@ export async function unlockAccountAction(id: string) {
   const { error } = await supabaseAdmin.from("staff_accounts").update({ failed_attempts: 0, locked_until: null }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/staff");
+}
+
+export async function createStaffAction(...args: Parameters<typeof createStaffAction__run>) {
+  return guarded(() => createStaffAction__run(...args));
+}
+
+export async function setAccountDisabledAction(...args: Parameters<typeof setAccountDisabledAction__run>) {
+  return guarded(() => setAccountDisabledAction__run(...args));
+}
+
+export async function resetUsercodeAction(...args: Parameters<typeof resetUsercodeAction__run>) {
+  return guarded(() => resetUsercodeAction__run(...args));
+}
+
+export async function unlockAccountAction(...args: Parameters<typeof unlockAccountAction__run>) {
+  return guarded(() => unlockAccountAction__run(...args));
 }

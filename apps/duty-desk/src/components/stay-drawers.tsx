@@ -9,6 +9,7 @@ import { DD_PRIORITIES, DD_TICKET_DEPTS } from "@/lib/checklist-data";
 import { naira, damageTotal } from "@/lib/money";
 import { shrinkPhoto } from "@/lib/photo";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { checkInAction, checkOutAction } from "@/app/(app)/residents/actions";
 import { createTicketAction } from "@/app/(app)/maintenance/actions";
 
@@ -54,7 +55,7 @@ export function CheckInDrawer({ open, onClose, apartment, readyApts, onDone }: {
     setError(null);
     startTransition(async () => {
       try {
-        const r = await checkInAction({ apartment: picked.name, guest, arrivedAt: new Date(arrived).toISOString(), leaves, contact, preferences: prefs });
+        const r = await callAction(checkInAction)({ apartment: picked.name, guest, arrivedAt: new Date(arrived).toISOString(), leaves, contact, preferences: prefs });
         onClose();
         onDone?.(r.id);
         router.refresh();
@@ -134,7 +135,7 @@ export function CheckOutDrawer({ open, onClose, stay, onDone }: { open: boolean;
     setError(null);
     startTransition(async () => {
       try {
-        await checkOutAction({ id: stay.id, leftAt: new Date(left).toISOString(), keys, damage, notes });
+        await callAction(checkOutAction)({ id: stay.id, leftAt: new Date(left).toISOString(), keys, damage, notes });
         onClose();
         onDone?.();
         router.refresh();
@@ -209,7 +210,7 @@ export function ReportProblemDrawer({ open, onClose, apartment, occupied, onDone
         fd.set("notes", notes);
         fd.set("blocksSale", "on");
         if (photo) fd.set("photo", await shrinkPhoto(photo));
-        const r = await createTicketAction(fd);
+        const r = await callAction(createTicketAction)(fd);
         onClose();
         onDone?.(r.id);
         router.refresh();

@@ -8,6 +8,7 @@ import { aptWhere, findApartment, suggestApartments } from "@/lib/apartments";
 import type { ChecklistType } from "@/lib/types";
 import type { InProgressChecklist } from "@/lib/data/checklists";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { startChecklistAction } from "./actions";
 import { InspectionLock } from "../inspection-lock";
 
@@ -32,7 +33,7 @@ export function StartChecklist({ preparedByName, initialApartment }: { preparedB
     setTaken(null);
     startTransition(async () => {
       try {
-        const result = await startChecklistAction({ apartment: apt.name, type });
+        const result = await callAction(startChecklistAction)({ apartment: apt.name, type });
         if (result.ok) router.push(`/checklists/${result.id}`);
         else setTaken(result.taken);
       } catch (e) {

@@ -9,6 +9,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { Badge } from "@/components/suite";
 import { byDue, type TaskState } from "@/lib/tasks";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import type { TaskRow } from "@/lib/data/tasks";
 import { createTaskAction, markTaskDoneAction, markTaskNotDoneAction, voidTaskAction } from "./actions";
 
@@ -58,7 +59,7 @@ export function TasksClient({ tasks, assignees, canEdit, canTick, canVoid, me }:
     setError(null);
     startTransition(async () => {
       try {
-        await createTaskAction(form);
+        await callAction(createTaskAction)(form);
         setForm(EMPTY);
         setOpen(false);
         router.refresh();
@@ -85,12 +86,12 @@ export function TasksClient({ tasks, assignees, canEdit, canTick, canVoid, me }:
         {isDone ? (
           <>
             {t.state === "done" ? <Badge tone="ok" dot={false}>Done</Badge> : null}
-            {canTick && t.state === "done" ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(t.id, () => markTaskNotDoneAction(t.id))}><Undo2 size={13} /> Undo</button> : null}
+            {canTick && t.state === "done" ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(t.id, () => callAction(markTaskNotDoneAction)(t.id))}><Undo2 size={13} /> Undo</button> : null}
           </>
         ) : (
           <>
             {t.state === "overdue" ? <Badge tone="bad">Overdue</Badge> : null}
-            {canTick ? <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(t.id, () => markTaskDoneAction(t.id))}><Check size={13} /> {busy === t.id ? "Saving…" : "Done"}</button> : null}
+            {canTick ? <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(t.id, () => callAction(markTaskDoneAction)(t.id))}><Check size={13} /> {busy === t.id ? "Saving…" : "Done"}</button> : null}
           </>
         )}
         {canVoid ? <button type="button" className="btn btn-ghost btn-sm btn-icon" aria-label={`Void task: ${t.description}`} title="Void" onClick={() => { setVoidReason(""); setVoiding(t); }}><Ban size={13} /></button> : null}
@@ -181,7 +182,7 @@ export function TasksClient({ tasks, assignees, canEdit, canTick, canVoid, me }:
         over="Tasks"
         title="Void this task"
         sub={voiding?.description}
-        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoiding(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => voiding && run(voiding.id, async () => { await voidTaskAction(voiding.id, voidReason); setVoiding(null); })}>{pending ? "Voiding…" : "Void task"}</button></>}
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoiding(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!voidReason.trim() || pending} onClick={() => voiding && run(voiding.id, async () => { await callAction(voidTaskAction)(voiding.id, voidReason); setVoiding(null); })}>{pending ? "Voiding…" : "Void task"}</button></>}
       >
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>The task is kept for the record, marked voided with your reason, and drops off the list.</p>
         <Field label="Reason (required)"><textarea className="input" rows={3} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Added twice" /></Field>

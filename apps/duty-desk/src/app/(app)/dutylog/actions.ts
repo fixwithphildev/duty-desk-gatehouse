@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -10,7 +11,7 @@ const refresh = () => {
   revalidatePath("/dashboard");
 };
 
-export async function addDutyLogEntryAction(input: { notes: string; handover: boolean }) {
+async function addDutyLogEntryAction__run(input: { notes: string; handover: boolean }) {
   const session = await requireRole(DD_CAN_EDIT_DUTY_LOG);
   if (!input.notes.trim()) throw new Error("Write what happened first.");
 
@@ -26,7 +27,7 @@ export async function addDutyLogEntryAction(input: { notes: string; handover: bo
 // Any signed-in officer on the next shift can acknowledge a handover note. It's about
 // confirming they've read it, not an editing permission. The writer can't acknowledge
 // their own note.
-export async function acknowledgeHandoverAction(id: string) {
+async function acknowledgeHandoverAction__run(id: string) {
   const session = await requireSession();
   const { data: entry } = await supabaseAdmin.from("duty_log_entries").select("officer_id").eq("id", id).maybeSingle();
   if (entry?.officer_id === session.staffId) throw new Error("The next shift acknowledges your handover note, not you.");
@@ -41,7 +42,7 @@ export async function acknowledgeHandoverAction(id: string) {
   refresh();
 }
 
-export async function voidDutyLogEntryAction(id: string, reason: string) {
+async function voidDutyLogEntryAction__run(id: string, reason: string) {
   const session = await requireRole(DD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a log entry.");
   const { error } = await supabaseAdmin
@@ -50,4 +51,16 @@ export async function voidDutyLogEntryAction(id: string, reason: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   refresh();
+}
+
+export async function addDutyLogEntryAction(...args: Parameters<typeof addDutyLogEntryAction__run>) {
+  return guarded(() => addDutyLogEntryAction__run(...args));
+}
+
+export async function acknowledgeHandoverAction(...args: Parameters<typeof acknowledgeHandoverAction__run>) {
+  return guarded(() => acknowledgeHandoverAction__run(...args));
+}
+
+export async function voidDutyLogEntryAction(...args: Parameters<typeof voidDutyLogEntryAction__run>) {
+  return guarded(() => voidDutyLogEntryAction__run(...args));
 }

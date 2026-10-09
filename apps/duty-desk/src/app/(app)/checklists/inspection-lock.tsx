@@ -6,6 +6,7 @@ import { History, Lock } from "lucide-react";
 import { DD_ALL_ITEMS } from "@/lib/checklist-data";
 import type { InProgressChecklist } from "@/lib/data/checklists";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { takeOverChecklistAction } from "./new/actions";
 
 function fmtTime(iso: string): string {
@@ -28,7 +29,7 @@ export function InspectionLock({ draft, canTakeOver }: { draft: InProgressCheckl
     setError(null);
     startTransition(async () => {
       try {
-        const result = await takeOverChecklistAction(draft.id);
+        const result = await callAction(takeOverChecklistAction)(draft.id);
         if (!result.ok) {
           setError("This inspection has just been submitted or stopped.");
           router.refresh();

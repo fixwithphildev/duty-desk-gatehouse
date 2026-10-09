@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ClipboardCheck, Lock } from "lucide-react";
 import { startChecklistAction } from "@/app/(app)/checklists/new/actions";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { shortName } from "@/lib/time";
 
 export interface DraftInfo {
@@ -47,7 +48,7 @@ export function StartPrepButton({
     setError(null);
     startTransition(async () => {
       try {
-        const r = await startChecklistAction({ apartment, type: "check_in_prep" });
+        const r = await callAction(startChecklistAction)({ apartment, type: "check_in_prep" });
         router.push(`/checklists/${r.ok ? r.id : r.taken.id}`);
       } catch (e) {
         if (isRedirectError(e)) throw e;

@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
@@ -31,7 +32,7 @@ const revalidateChecklists = (id?: string) => {
   revalidatePath("/dashboard");
 };
 
-export async function startChecklistAction(input: { apartment: string; type: ChecklistType }): Promise<StartResult> {
+async function startChecklistAction__run(input: { apartment: string; type: ChecklistType }): Promise<StartResult> {
   const session = await requireRole(DD_CAN_EDIT_CHECKLISTS);
   const apartment = input.apartment.trim();
   if (!apartment) throw new Error("Apartment number is required.");
@@ -98,7 +99,7 @@ const itemRow = (checklistId: string, item: ChecklistItemInput, linkedTicketId: 
 
 // Saves the answers changed since the last save (the form batches them),
 // plus the type and the officer's Ready / Not Ready choice so far.
-export async function saveChecklistDraftAction(input: {
+async function saveChecklistDraftAction__run(input: {
   id: string;
   items: ChecklistItemInput[];
   type?: ChecklistType;
@@ -123,7 +124,7 @@ export async function saveChecklistDraftAction(input: {
   return { ok: true, savedAt };
 }
 
-export async function takeOverChecklistAction(id: string): Promise<{ ok: true } | { ok: false; reason: "gone" }> {
+async function takeOverChecklistAction__run(id: string): Promise<{ ok: true } | { ok: false; reason: "gone" }> {
   const session = await requireRole(DD_CAN_EDIT_CHECKLISTS);
   const { data } = await supabaseAdmin.from("apartment_checklists").select("prepared_by, status, void").eq("id", id).maybeSingle();
   if (!data || data.void || data.status !== "in_progress") return { ok: false, reason: "gone" };
@@ -142,7 +143,7 @@ export async function takeOverChecklistAction(id: string): Promise<{ ok: true } 
 
 // Stops an inspection without submitting it. It's voided rather than deleted,
 // so there's still a record of who started it and who stopped it.
-export async function discardChecklistAction(id: string): Promise<never> {
+async function discardChecklistAction__run(id: string): Promise<never> {
   const session = await requireRole(DD_CAN_EDIT_CHECKLISTS);
   const now = new Date().toISOString();
   const { error } = await supabaseAdmin
@@ -156,7 +157,7 @@ export async function discardChecklistAction(id: string): Promise<never> {
   redirect("/checklists");
 }
 
-export async function submitChecklistAction(input: {
+async function submitChecklistAction__run(input: {
   id: string;
   type: ChecklistType;
   items: ChecklistItemInput[];
@@ -218,4 +219,24 @@ export async function submitChecklistAction(input: {
   revalidatePath("/maintenance");
   revalidateTag("checklists");
   redirect(`/checklists/${input.id}`);
+}
+
+export async function startChecklistAction(...args: Parameters<typeof startChecklistAction__run>) {
+  return guarded(() => startChecklistAction__run(...args));
+}
+
+export async function saveChecklistDraftAction(...args: Parameters<typeof saveChecklistDraftAction__run>) {
+  return guarded(() => saveChecklistDraftAction__run(...args));
+}
+
+export async function takeOverChecklistAction(...args: Parameters<typeof takeOverChecklistAction__run>) {
+  return guarded(() => takeOverChecklistAction__run(...args));
+}
+
+export async function discardChecklistAction(...args: Parameters<typeof discardChecklistAction__run>) {
+  return guarded(() => discardChecklistAction__run(...args));
+}
+
+export async function submitChecklistAction(...args: Parameters<typeof submitChecklistAction__run>) {
+  return guarded(() => submitChecklistAction__run(...args));
 }

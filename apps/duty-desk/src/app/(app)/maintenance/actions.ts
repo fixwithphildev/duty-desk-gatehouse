@@ -1,5 +1,6 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -18,7 +19,7 @@ const refresh = () => {
 // A new repair ticket. When the area is an apartment and "stop selling it"
 // is ticked (a problem reported on the Readiness Board), the apartment shows
 // Not ready until it's fixed and a new check-in prep is submitted Ready.
-export async function createTicketAction(formData: FormData): Promise<{ id: string }> {
+async function createTicketAction__run(formData: FormData): Promise<{ id: string }> {
   const session = await requireRole(DD_CAN_EDIT_TICKETS);
   const rawArea = String(formData.get("area") ?? "").trim();
   const issueType = String(formData.get("issueType") ?? "").trim();
@@ -60,7 +61,7 @@ export async function createTicketAction(formData: FormData): Promise<{ id: stri
   return { id: ticket.id };
 }
 
-export async function updateTicketStatusAction(id: string, status: "Reported" | "In Progress" | "Resolved") {
+async function updateTicketStatusAction__run(id: string, status: "Reported" | "In Progress" | "Resolved") {
   const session = await requireRole(DD_CAN_EDIT_TICKETS);
   if (!["Reported", "In Progress", "Resolved"].includes(status)) throw new Error("Unknown status.");
   const now = new Date().toISOString();
@@ -74,7 +75,7 @@ export async function updateTicketStatusAction(id: string, status: "Reported" | 
   refresh();
 }
 
-export async function assignTicketAction(id: string, assignedTo: string) {
+async function assignTicketAction__run(id: string, assignedTo: string) {
   const session = await requireRole(DD_CAN_EDIT_TICKETS);
   if (!DD_TICKET_DEPTS.includes(assignedTo)) throw new Error("Choose who it goes to.");
   const { error } = await supabaseAdmin.from("maintenance_tickets").update({ assigned_to: assignedTo, logged_by_name: session.displayName, updated_at: new Date().toISOString() }).eq("id", id);
@@ -82,12 +83,12 @@ export async function assignTicketAction(id: string, assignedTo: string) {
   refresh();
 }
 
-export async function getTicketPhotosAction(id: string): Promise<string[]> {
+async function getTicketPhotosAction__run(id: string): Promise<string[]> {
   await requireSession();
   return getTicketPhotoUrls(id);
 }
 
-export async function addTicketPhotoAction(formData: FormData) {
+async function addTicketPhotoAction__run(formData: FormData) {
   const session = await requireRole(DD_CAN_EDIT_TICKETS);
   const id = String(formData.get("id") ?? "");
   const photo = formData.get("photo") as File | null;
@@ -97,7 +98,7 @@ export async function addTicketPhotoAction(formData: FormData) {
   refresh();
 }
 
-export async function voidTicketAction(id: string, reason: string) {
+async function voidTicketAction__run(id: string, reason: string) {
   const session = await requireRole(DD_CAN_VOID);
   if (!reason.trim()) throw new Error("A reason is required to void a ticket.");
   const { error } = await supabaseAdmin
@@ -106,4 +107,28 @@ export async function voidTicketAction(id: string, reason: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   refresh();
+}
+
+export async function createTicketAction(...args: Parameters<typeof createTicketAction__run>) {
+  return guarded(() => createTicketAction__run(...args));
+}
+
+export async function updateTicketStatusAction(...args: Parameters<typeof updateTicketStatusAction__run>) {
+  return guarded(() => updateTicketStatusAction__run(...args));
+}
+
+export async function assignTicketAction(...args: Parameters<typeof assignTicketAction__run>) {
+  return guarded(() => assignTicketAction__run(...args));
+}
+
+export async function getTicketPhotosAction(...args: Parameters<typeof getTicketPhotosAction__run>) {
+  return guarded(() => getTicketPhotosAction__run(...args));
+}
+
+export async function addTicketPhotoAction(...args: Parameters<typeof addTicketPhotoAction__run>) {
+  return guarded(() => addTicketPhotoAction__run(...args));
+}
+
+export async function voidTicketAction(...args: Parameters<typeof voidTicketAction__run>) {
+  return guarded(() => voidTicketAction__run(...args));
 }

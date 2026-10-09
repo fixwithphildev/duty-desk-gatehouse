@@ -10,6 +10,7 @@ import { Badge, Kpi, stTone } from "@/components/suite";
 import { stLabel } from "@/lib/jobs";
 import { MD_UNITS, UNIT_COLOR, formatNaira as naira } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { addPurchaseAction, voidExpenseAction } from "./actions";
 import { markNoPurchaseAction } from "../jobs/actions";
 
@@ -124,7 +125,7 @@ export function CostsClient({
     setError(null);
     startTransition(async () => {
       try {
-        await addPurchaseAction({ unit: form.unit, jobId: form.job, supplier: form.supplier, date: form.date, lines: rows.map((r) => ({ item: r.item, quantity: num(r.q), unitCost: num(r.u) })) });
+        await callAction(addPurchaseAction)({ unit: form.unit, jobId: form.job, supplier: form.supplier, date: form.date, lines: rows.map((r) => ({ item: r.item, quantity: num(r.q), unitCost: num(r.u) })) });
         const what = form.job === "STOCK" ? `${form.unit} stock` : chosen?.ref ?? "the job";
         setSaved(`${rows.length} item${rows.length > 1 ? "s" : ""} saved for ${what} · ${naira(total)}`);
         setForm({ unit: form.unit, job: "", supplier: "", date: today, rows: [blankRow()] });
@@ -249,7 +250,7 @@ export function CostsClient({
                 <li key={m.id} className="row">
                   <span className="stripe s-bad" />
                   <div className="m"><b>{m.title}</b><span>{dot(m.unit)}<span className="mono">{m.ref}</span> · {m.area} · {m.unit}</span></div>
-                  {canManage ? <><button type="button" className="btn btn-secondary btn-sm" onClick={() => addCostFor(m.id, m.unit)}>Add cost</button><button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => markNoPurchaseAction(m.id))}>Nothing bought</button></> : null}
+                  {canManage ? <><button type="button" className="btn btn-secondary btn-sm" onClick={() => addCostFor(m.id, m.unit)}>Add cost</button><button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(markNoPurchaseAction)(m.id))}>Nothing bought</button></> : null}
                 </li>
               ))}
               {miss.length === 0 ? <li className="empty">Every finished job has its cost recorded.</li> : null}
@@ -306,7 +307,7 @@ export function CostsClient({
         over="Costs"
         title="Void this purchase line"
         sub={voiding ? `${voiding.item} · ${naira(voiding.total)} · ${voiding.dateText}` : undefined}
-        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoiding(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!reason.trim() || pending} onClick={() => voiding && run(() => voidExpenseAction(voiding.id, reason), () => setVoiding(null))}>{pending ? "Voiding…" : "Void line"}</button></>}
+        footer={<><button type="button" className="btn btn-ghost" onClick={() => setVoiding(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!reason.trim() || pending} onClick={() => voiding && run(() => callAction(voidExpenseAction)(voiding.id, reason), () => setVoiding(null))}>{pending ? "Voiding…" : "Void line"}</button></>}
       >
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>The line stays on record, marked voided with your reason, and stops counting in the totals.</p>
         <Field label="Reason (required)"><textarea className="input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Entered twice" /></Field>

@@ -13,6 +13,7 @@ import { shortDate } from "@/lib/periods";
 import { MD_UNITS, formatNaira as naira } from "@/lib/types";
 import { shrinkPhoto } from "@/lib/photo";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { addPhotoAction, assignUnitAction, getPhotosAction, markNoPurchaseAction, quickPurchaseAction, reopenAction, resolveWorkAction, startWorkAction, voidJobAction } from "@/app/(app)/jobs/actions";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -66,7 +67,7 @@ export function JobDrawer({
   useEffect(() => {
     if (!id || !photoCount) return setPhotos(null);
     let gone = false;
-    getPhotosAction(id).then((urls) => { if (!gone) setPhotos({ id, urls }); }).catch(() => {});
+    callAction(getPhotosAction)(id).then((urls) => { if (!gone) setPhotos({ id, urls }); }).catch(() => {});
     return () => { gone = true; };
   }, [id, photoCount]);
 
@@ -94,12 +95,12 @@ export function JobDrawer({
     if (!who.trim()) return setError(step === "resolve" ? "Choose who fixed it." : "Choose who is doing it.");
     if (!/^\d{2}:\d{2}$/.test(at)) return setError("Give the time, like 14:30.");
     if (step === "resolve" && !note.trim()) return setError("Say what was done. Duty Desk sees this.");
-    run(() => (step === "start" ? startWorkAction(job.id, who, todayAt(at)) : resolveWorkAction(job.id, who, todayAt(at), note)), () => setStep(null));
+    run(() => (step === "start" ? callAction(startWorkAction)(job.id, who, todayAt(at)) : callAction(resolveWorkAction)(job.id, who, todayAt(at), note)), () => setStep(null));
   };
 
   const addPhoto = (file: File | undefined) => {
     if (!file) return;
-    run(async () => { const fd = new FormData(); fd.set("id", job.id); fd.set("photo", await shrinkPhoto(file)); await addPhotoAction(fd); });
+    run(async () => { const fd = new FormData(); fd.set("id", job.id); fd.set("photo", await shrinkPhoto(file)); await callAction(addPhotoAction)(fd); });
     if (photoRef.current) photoRef.current.value = "";
   };
 
@@ -109,7 +110,7 @@ export function JobDrawer({
     : job.source === "checklist" ? <span className="src dd"><ClipboardCheck size={12} /> From check-in prep</span> : <span className="src dd">{job.fromLabel}</span>;
 
   const footer = step === "void" ? (
-    <><button type="button" className="btn btn-ghost" onClick={() => setStep(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!reason.trim() || pending} onClick={() => run(() => voidJobAction(job.id, reason), () => { setStep(null); onClose(); })}>{pending ? "Voiding…" : "Void job"}</button></>
+    <><button type="button" className="btn btn-ghost" onClick={() => setStep(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={!reason.trim() || pending} onClick={() => run(() => callAction(voidJobAction)(job.id, reason), () => { setStep(null); onClose(); })}>{pending ? "Voiding…" : "Void job"}</button></>
   ) : (
     <>
       {canManage && !job.void ? <button type="button" className="btn btn-ghost" onClick={() => { setReason(""); setStep("void"); }}><Ban size={15} /> Void</button> : null}
@@ -121,7 +122,7 @@ export function JobDrawer({
           <>
             {si === 0 ? <button type="button" className="btn btn-secondary" disabled={pending || job.needsUnit} onClick={() => openStep("start")}>Start work</button> : null}
             {si < 2 ? <button type="button" className="btn btn-primary" disabled={pending || job.needsUnit} onClick={() => openStep("resolve")}><Check size={15} /> Resolve</button> : null}
-            {si === 2 && canManage ? <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => run(() => reopenAction(job.id))}><RotateCcw size={14} /> Reopen</button> : null}
+            {si === 2 && canManage ? <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => run(() => callAction(reopenAction)(job.id))}><RotateCcw size={14} /> Reopen</button> : null}
           </>
         )}
     </>
@@ -151,7 +152,7 @@ export function JobDrawer({
       {canManage && !job.void && job.status !== "Resolved" ? (
         <div className="field">
           <label htmlFor="jd-unit">Unit</label>
-          <select className="input" id="jd-unit" value={job.needsUnit ? "" : job.unit} disabled={pending} onChange={(e) => e.target.value && run(() => assignUnitAction(job.id, e.target.value))} style={{ maxWidth: 260 }}>
+          <select className="input" id="jd-unit" value={job.needsUnit ? "" : job.unit} disabled={pending} onChange={(e) => e.target.value && run(() => callAction(assignUnitAction)(job.id, e.target.value))} style={{ maxWidth: 260 }}>
             {job.needsUnit ? <option value="">Choose a unit…</option> : null}
             {MD_UNITS.map((u) => <option key={u}>{u}</option>)}
           </select>
@@ -253,8 +254,8 @@ export function JobDrawer({
                 <div className="field" style={{ flex: 1 }}><label htmlFor="jd-u">Unit cost (₦)</label><input className="input mono" id="jd-u" inputMode="decimal" value={buy.u} onChange={(e) => setBuy({ ...buy, u: e.target.value })} placeholder="0" /></div>
               </div>
               <div className="hstack" style={{ justifyContent: "space-between" }}>
-                {!job.lines.length && !job.noPurchase ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => markNoPurchaseAction(job.id))}>Nothing needed buying</button> : <span />}
-                <button type="button" className="btn btn-secondary btn-sm" disabled={pending || !buy.item.trim()} onClick={() => run(() => quickPurchaseAction(job.id, buy.item, num(buy.q), num(buy.u)), () => setBuy({ item: "", q: "1", u: "" }))}><Plus size={14} /> Add purchase</button>
+                {!job.lines.length && !job.noPurchase ? <button type="button" className="btn btn-ghost btn-sm" disabled={pending} onClick={() => run(() => callAction(markNoPurchaseAction)(job.id))}>Nothing needed buying</button> : <span />}
+                <button type="button" className="btn btn-secondary btn-sm" disabled={pending || !buy.item.trim()} onClick={() => run(() => callAction(quickPurchaseAction)(job.id, buy.item, num(buy.q), num(buy.u)), () => setBuy({ item: "", q: "1", u: "" }))}><Plus size={14} /> Add purchase</button>
               </div>
             </div>
           ) : null}

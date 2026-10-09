@@ -9,6 +9,7 @@ import {
 import { DD_ALL_ITEMS, DD_CATEGORIES, DD_CHECKLIST_TYPES, ticketDeptFor } from "@/lib/checklist-data";
 import type { ChecklistItemInput, ChecklistType, Condition } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
+import { callAction } from "@/lib/action";
 import { discardChecklistAction, saveChecklistDraftAction, submitChecklistAction, type SaveResult } from "./actions";
 
 export interface ItemValue {
@@ -113,7 +114,7 @@ export function ChecklistForm({
     saving.current = true;
     setSave({ kind: "saving" });
     try {
-      const result = await saveChecklistDraftAction({ id, items: names.map((n) => toInput(n, valuesRef.current[n] || {})), ...meta });
+      const result = await callAction(saveChecklistDraftAction)({ id, items: names.map((n) => toInput(n, valuesRef.current[n] || {})), ...meta });
       handleResult(result);
       return result.ok;
     } catch {
@@ -188,7 +189,7 @@ export function ChecklistForm({
     startTransition(async () => {
       try {
         await flush();
-        const result = await submitChecklistAction({ id, type, items, overallReady });
+        const result = await callAction(submitChecklistAction)({ id, type, items, overallReady });
         handleResult(result);
       } catch (e) {
         if (isRedirectError(e)) throw e;
@@ -200,7 +201,7 @@ export function ChecklistForm({
   const stop = () => {
     startTransition(async () => {
       try {
-        await discardChecklistAction(id);
+        await callAction(discardChecklistAction)(id);
       } catch (e) {
         if (isRedirectError(e)) throw e;
         setError(errorMessage(e));

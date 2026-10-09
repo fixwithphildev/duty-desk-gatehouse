@@ -141,17 +141,13 @@ export async function requireSession(opts: { allowCodeChange?: boolean } = {}): 
     .eq("id", session.staffId)
     .maybeSingle();
 
-  if (!account || account.disabled) {
-    cookies().delete(SESSION_COOKIE);
-    redirect("/login");
-  }
+  // A page can't clear the sign-in cookie itself (Next.js only allows that in
+  // actions and route handlers), so ended sessions go through /signed-out.
+  if (!account || account.disabled) redirect("/signed-out");
 
   if (account.must_change_code) {
     const signedInAt = (session.iat ?? 0) * 1000;
-    if (signedInAt < new Date(account.updated_at).getTime() - 1000) {
-      cookies().delete(SESSION_COOKIE);
-      redirect("/login");
-    }
+    if (signedInAt < new Date(account.updated_at).getTime() - 1000) redirect("/signed-out");
     if (!opts.allowCodeChange) redirect("/new-code");
   }
 

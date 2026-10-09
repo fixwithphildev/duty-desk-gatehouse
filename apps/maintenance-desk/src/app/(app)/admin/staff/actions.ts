@@ -1,12 +1,13 @@
 "use server";
 
+import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateUsercode, hashUsercode } from "@/lib/usercode";
 import { MD_STAFF_VIEW_ROLES, canManageAccount, creatableRolesFor, isUnit, type MDRole } from "@/lib/types";
 
-export async function createStaffAction(input: {
+async function createStaffAction__run(input: {
   username: string;
   displayName: string;
   role: MDRole;
@@ -52,7 +53,7 @@ async function guard(id: string) {
   return session;
 }
 
-export async function setAccountDisabledAction(id: string, disabled: boolean) {
+async function setAccountDisabledAction__run(id: string, disabled: boolean) {
   const session = await guard(id);
   if (id === session.staffId) throw new Error("You can’t switch off your own account.");
   const { error } = await supabaseAdmin.from("staff_accounts").update({ disabled, updated_at: new Date().toISOString() }).eq("id", id);
@@ -60,7 +61,7 @@ export async function setAccountDisabledAction(id: string, disabled: boolean) {
   revalidatePath("/admin/staff");
 }
 
-export async function resetUsercodeAction(id: string): Promise<{ usercode: string }> {
+async function resetUsercodeAction__run(id: string): Promise<{ usercode: string }> {
   const session = await guard(id);
   if (id === session.staffId) throw new Error("Change your own usercode from My account.");
   const usercode = generateUsercode();
@@ -73,7 +74,7 @@ export async function resetUsercodeAction(id: string): Promise<{ usercode: strin
   return { usercode };
 }
 
-export async function unlockAccountAction(id: string) {
+async function unlockAccountAction__run(id: string) {
   await guard(id);
   const { error } = await supabaseAdmin.from("staff_accounts").update({ failed_attempts: 0, locked_until: null }).eq("id", id);
   if (error) throw new Error(error.message);
@@ -81,11 +82,31 @@ export async function unlockAccountAction(id: string) {
 }
 
 // Move a technician to another unit.
-export async function setUnitAction(id: string, unit: string) {
+async function setUnitAction__run(id: string, unit: string) {
   await guard(id);
   if (!isUnit(unit)) throw new Error("Choose one of the five units.");
   if ((await getTargetRole(id)) !== "maintenance_technician") throw new Error("Only technicians belong to a unit.");
   const { error } = await supabaseAdmin.from("staff_accounts").update({ unit, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/staff");
+}
+
+export async function createStaffAction(...args: Parameters<typeof createStaffAction__run>) {
+  return guarded(() => createStaffAction__run(...args));
+}
+
+export async function setAccountDisabledAction(...args: Parameters<typeof setAccountDisabledAction__run>) {
+  return guarded(() => setAccountDisabledAction__run(...args));
+}
+
+export async function resetUsercodeAction(...args: Parameters<typeof resetUsercodeAction__run>) {
+  return guarded(() => resetUsercodeAction__run(...args));
+}
+
+export async function unlockAccountAction(...args: Parameters<typeof unlockAccountAction__run>) {
+  return guarded(() => unlockAccountAction__run(...args));
+}
+
+export async function setUnitAction(...args: Parameters<typeof setUnitAction__run>) {
+  return guarded(() => setUnitAction__run(...args));
 }
