@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Bell, CheckCircle2, X } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, Volume2, X } from "lucide-react";
+import { allowSound, playChime } from "./alert-sound";
 
 interface Item {
   id: string;
@@ -12,38 +13,11 @@ interface Item {
   tone?: "alert" | "good";
 }
 
-const POLL_MS = 5_000;
+// New jobs and requests show within this long.
+const POLL_MS = 15_000;
 const AUTO_DISMISS_MS = 12_000;
 const HISTORY_HOURS = 24;
 const SEEN_KEY = "md-notifications-seen";
-
-// A short two-note chime, synthesized with the Web Audio API rather than an
-// audio file. Browsers block audio until the page has had some interaction
-// (signing in counts), so the very first alert after a fresh load can be
-// silent; the pop-up still shows either way.
-function playChime() {
-  try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new AudioCtx();
-    const now = ctx.currentTime;
-    [880, 1320].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      const start = now + i * 0.12;
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.32);
-    });
-    setTimeout(() => ctx.close(), 500);
-  } catch {
-    // Web Audio unavailable/blocked — the pop-up still shows.
-  }
-}
 
 function ago(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -58,7 +32,7 @@ function readSeen(): string {
 }
 
 // The bell in the top bar. Polls our own server (never the database
-// directly from the browser) every few seconds for high-stakes events,
+// directly from the browser) every 15 seconds for high-stakes events,
 // pops each new one up with a chime, and keeps the last day's events in the
 // bell's list. Unread = newer than when this device last opened the list.
 export function Notifications() {
@@ -66,8 +40,15 @@ export function Notifications() {
   const [items, setItems] = useState<Item[]>([]);
   const [toasts, setToasts] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
+  // Result of the last Test sound tap, so someone can check their phone before an alert comes.
+  const [soundTest, setSoundTest] = useState<"ok" | "blocked" | null>(null);
   const [seen, setSeen] = useState<string>(new Date(0).toISOString());
+  // Where the next check starts. Set from the server's answer (never this
+  // device's clock, which may be off); each answer starts a minute back, so
+  // nothing saved mid-check slips between two checks.
   const sinceRef = useRef(new Date().toISOString());
+  // Every event already in the list or announced, so the overlap never repeats one.
+  const knownRef = useRef(new Set<string>());
 
   useEffect(() => {
     setSeen(readSeen());
@@ -77,24 +58,47 @@ export function Notifications() {
         const res = await fetch(`/api/notifications?since=${encodeURIComponent(since)}`, { cache: "no-store" });
         if (!res.ok || cancelled) return;
         const data: { items: Item[]; checkedAt: string } = await res.json();
-        if (announce) sinceRef.current = data.checkedAt;
-        if (data.items.length === 0) return;
-        setItems((prev) => {
-          const ids = new Set(prev.map((p) => p.id));
-          return [...data.items.filter((i) => !ids.has(i.id)).reverse(), ...prev].slice(0, 40);
-        });
+        sinceRef.current = data.checkedAt;
+        const fresh = data.items.filter((i) => !knownRef.current.has(i.id));
+        fresh.forEach((i) => knownRef.current.add(i.id));
+        if (fresh.length === 0) return;
+        setItems((prev) => [...fresh.slice().reverse(), ...prev].slice(0, 40));
         if (announce) {
-          playChime();
-          setToasts((prev) => [...data.items, ...prev].slice(0, 4));
-          data.items.forEach((item) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== item.id)), AUTO_DISMISS_MS));
+          void playChime();
+          setToasts((prev) => [...fresh, ...prev].slice(0, 4));
+          fresh.forEach((item) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== item.id)), AUTO_DISMISS_MS));
         }
       } catch {
         // Transient network hiccup — just try again next time.
       }
     };
-    void load(new Date(Date.now() - HISTORY_HOURS * 3600_000).toISOString(), false);
-    const interval = setInterval(() => void load(sinceRef.current, true), POLL_MS);
-    return () => { cancelled = true; clearInterval(interval); };
+    // One check at a time: on a slow line, overlapping checks queue up and
+    // hold back the page the user clicked. It keeps checking while the tab is
+    // in the background (the browser slows it to about once a minute), so
+    // front desk still hears the chime with another window in front.
+    let busy = false;
+    const poll = async () => {
+      if (busy) return;
+      busy = true;
+      try { await load(sinceRef.current, true); } finally { busy = false; }
+    };
+    // Phones stop a page running while it's in the background or the screen is
+    // locked; coming back catches up straight away with whatever was missed.
+    const onVisible = () => { if (document.visibilityState === "visible") void poll(); };
+    // Phones only let a page make sound after a tap: the first one allows the chime.
+    const unlock = () => allowSound();
+    const first = load(new Date(Date.now() - HISTORY_HOURS * 3600_000).toISOString(), false);
+    const interval = setInterval(() => void first.then(poll), POLL_MS);
+    document.addEventListener("visibilitychange", onVisible);
+    // iPhones and iPads count the end of a tap (or a click) as the go-ahead, other browsers the press.
+    const UNLOCK = ["pointerdown", "touchend", "click", "keydown"] as const;
+    UNLOCK.forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      UNLOCK.forEach((e) => window.removeEventListener(e, unlock));
+    };
   }, []);
 
   useEffect(() => {
@@ -113,6 +117,9 @@ export function Notifications() {
     setSeen(now);
     try { localStorage.setItem(SEEN_KEY, now); } catch {}
   };
+
+  // A tap is what phones need to allow sound, so the test both checks and allows it.
+  const testSound = async () => setSoundTest((await playChime()) ? "ok" : "blocked");
 
   const go = (i: Item) => { setOpen(false); setToasts((prev) => prev.filter((t) => t.id !== i.id)); router.push(i.href); };
   const Icon = ({ i }: { i: Item }) => (i.tone === "good" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />);
@@ -142,6 +149,12 @@ export function Notifications() {
                 </li>
               ))}
             </ul>
+            <div className="nf-f">
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => void testSound()}><Volume2 size={14} /> Test sound</button>
+              <span className="hint" role="status">
+                {soundTest === "ok" ? "Did you hear it? If not, turn up the media volume." : soundTest === "blocked" ? "This browser blocked the sound. Alerts still pop up." : "New alerts chime and pop up."}
+              </span>
+            </div>
           </div>
         </div>
       ) : null}

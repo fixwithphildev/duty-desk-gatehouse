@@ -98,7 +98,7 @@ export function BoardClient({
       ) : null}
 
       <div className="hstack" style={{ justifyContent: "space-between" }}>
-        <div className="seg" role="group" aria-label="Unit" style={{ flexWrap: "wrap" }}>
+        <div className="seg seg-units" role="group" aria-label="Unit">
           {["all", ...MD_UNITS].map((u) => (
             <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)}>{u === "all" ? "All units" : u}{me.unit === u ? " (yours)" : ""} <span className="ct">{count(u)}</span></button>
           ))}

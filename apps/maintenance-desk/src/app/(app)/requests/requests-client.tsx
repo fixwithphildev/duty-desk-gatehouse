@@ -133,7 +133,7 @@ export function RequestsClient({
             ))}
           </div>
           <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-            <div className="seg" role="group" aria-label="Unit" style={{ flexWrap: "wrap" }}>
+            <div className="seg seg-units" role="group" aria-label="Unit">
               {["all", ...MD_UNITS].map((u) => <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)}>{u === "all" ? "All units" : u}</button>)}
             </div>
           </div>

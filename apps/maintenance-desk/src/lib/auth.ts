@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "./supabase";
@@ -131,15 +132,21 @@ export async function getSession(): Promise<SessionPayload | null> {
 // caller that passes allowCodeChange). If the reset happened after this
 // session was signed in, the session is ended instead, so whoever is still
 // signed in on a shared desk can't choose the new code for that person.
+// The menu and the page both check the account; cache() makes that one lookup per request.
+const getAccountState = cache(async (staffId: string) => {
+  const { data } = await supabaseAdmin
+    .from("staff_accounts")
+    .select("disabled, must_change_code, updated_at")
+    .eq("id", staffId)
+    .maybeSingle();
+  return data;
+});
+
 export async function requireSession(opts: { allowCodeChange?: boolean } = {}): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const { data: account } = await supabaseAdmin
-    .from("staff_accounts")
-    .select("disabled, must_change_code, updated_at")
-    .eq("id", session.staffId)
-    .maybeSingle();
+  const account = await getAccountState(session.staffId);
 
   // A page can't clear the sign-in cookie itself (Next.js only allows that in
   // actions and route handlers), so ended sessions go through /signed-out.

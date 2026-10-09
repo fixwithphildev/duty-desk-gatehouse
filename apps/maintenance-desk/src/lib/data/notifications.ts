@@ -3,6 +3,7 @@ import { ticketsDb } from "@/lib/supabase";
 import { LEGACY_UNITS, MD_UNITS, ticketRef } from "@/lib/types";
 
 export interface NotificationItem {
+  // Stable for the same event, so the bell never shows or chimes for it twice.
   id: string;
   message: string;
   href: string;
@@ -12,12 +13,13 @@ export interface NotificationItem {
 
 // What Maintenance hears about: every new job Duty Desk sends (a flagged
 // check-in prep item, a reported problem, a complaint or a ticket an officer
-// logs) and every new request. A technician only hears about their own unit.
-export async function getNotificationsSince(sinceIso: string, unit: string | null): Promise<NotificationItem[]> {
+// logs) and every new request. A technician only hears about their own unit,
+// and nobody hears about a request they logged themselves.
+export async function getNotificationsSince(sinceIso: string, unit: string | null, myName?: string): Promise<NotificationItem[]> {
   const units = unit ? [unit] : [...MD_UNITS, ...LEGACY_UNITS];
   const { data: created } = await ticketsDb
     .from("maintenance_tickets")
-    .select("id, ref_no, area, issue_type, priority, assigned_to, source, requested_by_name, created_at")
+    .select("id, ref_no, area, issue_type, priority, assigned_to, source, requested_by_name, logged_by_name, created_at")
     .in("assigned_to", units)
     .eq("void", false)
     .gt("created_at", sinceIso);
@@ -25,6 +27,7 @@ export async function getNotificationsSince(sinceIso: string, unit: string | nul
   const items: NotificationItem[] = [];
   for (const row of created ?? []) {
     const request = row.source === "request";
+    if (request && myName && row.logged_by_name === myName) continue;
     items.push({
       id: `new-${row.id}`,
       message: request
