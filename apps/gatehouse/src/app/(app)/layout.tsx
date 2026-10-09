@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth";
+import { sessionSignedInAt } from "@/lib/session";
 import { navForRole, type NavKey } from "@/lib/nav";
 import { GH_CAN_EDIT, GH_ROLE_LABELS } from "@/lib/types";
 import { bannerAlert, getDesk } from "@/lib/data/desk";
@@ -55,7 +56,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     />
   ) : null;
 
-  const since = session.iat ? `signed in ${clockTime(new Date(session.iat * 1000).toISOString())}` : "signed in";
+  const at = sessionSignedInAt(session);
+  const since = at ? `signed in ${clockTime(new Date(at).toISOString())}` : "signed in";
   return (
     <AppShell items={items} counts={counts} displayName={session.displayName} roleLabel={GH_ROLE_LABELS[session.role]} dutyLine={`${session.displayName} · ${since}`} search={search} banner={banner}>
       {children}

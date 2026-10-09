@@ -10,6 +10,7 @@ import { pageTitle, type NavItem, type NavKey } from "@/lib/nav";
 import { signOutAction } from "@/app/(app)/sign-out-action";
 import { CommandPalette, type PaletteItem } from "@/components/command-palette";
 import { Notifications } from "@/components/notifications";
+import { KeepAlive } from "@/components/keep-alive";
 
 const ICONS: Record<NavKey, typeof Shield> = {
   dashboard: LayoutDashboard,
@@ -153,6 +154,7 @@ export function AppShell({
           {children}
         </main>
       </div>
+      <KeepAlive />
       {paletteOpen ? <CommandPalette items={search} onClose={() => setPaletteOpen(false)} /> : null}
     </div>
   );

@@ -11,6 +11,7 @@ import { signOutAction } from "@/app/(app)/sign-out-action";
 import { toggleTheme } from "@/components/theme-toggle";
 import { CommandPalette, type PaletteItem } from "@/components/command-palette";
 import { Notifications } from "@/components/notifications";
+import { KeepAlive } from "@/components/keep-alive";
 
 const ICONS: Record<NavKey, typeof Wrench> = {
   dashboard: LayoutDashboard,
@@ -150,6 +151,7 @@ export function AppShell({
         </div>
         <main className="content" id="main">{children}</main>
       </div>
+      <KeepAlive />
       {paletteOpen ? <CommandPalette items={search} onClose={() => setPaletteOpen(false)} /> : null}
     </div>
   );

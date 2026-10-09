@@ -35,7 +35,7 @@ export function LoginForm() {
         <ul className="bul">
           <li><ShieldCheck size={18} /><span>Every entry is signed to your login and timestamped. Nobody can log under your name.</span></li>
           <li><Lock size={18} /><span>Five wrong usercodes lock the account for 15 minutes.</span></li>
-          <li><Clock size={18} /><span>Shared desks sign you out after 20 minutes. Personal phones stay signed in.</span></li>
+          <li><Clock size={18} /><span>Shared desks sign you out after 20 minutes without use. Personal phones stay signed in.</span></li>
         </ul>
       </section>
       <section className="si-form">

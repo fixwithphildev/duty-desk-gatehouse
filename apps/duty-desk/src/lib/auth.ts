@@ -3,7 +3,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "./supabase";
 import { verifyUsercode } from "./usercode";
-import { SESSION_COOKIE, signSession, verifySession, sessionTtlSeconds, type SessionPayload } from "./session";
+import { SESSION_COOKIE, signSession, verifySession, sessionSignedInAt, sessionTtlSeconds, type SessionPayload } from "./session";
 import type { DDRole, StaffAccount } from "./types";
 import { isPathAllowed } from "./nav";
 
@@ -146,7 +146,7 @@ export async function requireSession(opts: { allowCodeChange?: boolean } = {}): 
   if (!account || account.disabled) redirect("/signed-out");
 
   if (account.must_change_code) {
-    const signedInAt = (session.iat ?? 0) * 1000;
+    const signedInAt = sessionSignedInAt(session);
     if (signedInAt < new Date(account.updated_at).getTime() - 1000) redirect("/signed-out");
     if (!opts.allowCodeChange) redirect("/new-code");
   }
