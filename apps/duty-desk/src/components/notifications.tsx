@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Bell, CheckCircle2, X } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, Volume2, X } from "lucide-react";
+import { allowSound, playChime } from "./alert-sound";
 
 interface Item {
   id: string;
@@ -17,52 +18,6 @@ const POLL_MS = 15_000;
 const AUTO_DISMISS_MS = 12_000;
 const HISTORY_HOURS = 24;
 const SEEN_KEY = "dd-notifications-seen";
-
-// One sound channel for the whole visit. iPhones and iPads (and other phone
-// browsers) only let a page make sound through a channel a tap has started,
-// so it's started on the first tap or key press and reused for every chime.
-// Until then, and while a phone's silent switch is on, alerts are pop-up only.
-let audio: AudioContext | null = null;
-function audioCtx(): AudioContext | null {
-  try {
-    if (!audio) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audio = new AudioCtx();
-    }
-    // A phone suspends it when the app goes to the background; the next tap wakes it.
-    if (audio.state !== "running") void audio.resume().catch(() => {});
-    return audio;
-  } catch {
-    return null;
-  }
-}
-
-// A short two-note chime, synthesized with the Web Audio API rather than an
-// audio file, plus a short buzz on phones that can vibrate (Android; iPhones
-// don't let web pages vibrate). The pop-up shows either way.
-function playChime() {
-  try { navigator.vibrate?.([120, 60, 120]); } catch {}
-  try {
-    const ctx = audioCtx();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    [880, 1320].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      const start = now + i * 0.12;
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.32);
-    });
-  } catch {
-    // Web Audio unavailable/blocked — the pop-up still shows.
-  }
-}
 
 function ago(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -85,6 +40,8 @@ export function Notifications() {
   const [items, setItems] = useState<Item[]>([]);
   const [toasts, setToasts] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
+  // Result of the last Test sound tap, so someone can check their phone before an alert comes.
+  const [soundTest, setSoundTest] = useState<"ok" | "blocked" | null>(null);
   const [seen, setSeen] = useState<string>(new Date(0).toISOString());
   // Where the next check starts. Set from the server's answer (never this
   // device's clock, which may be off); each answer starts a minute back, so
@@ -107,7 +64,7 @@ export function Notifications() {
         if (fresh.length === 0) return;
         setItems((prev) => [...fresh.slice().reverse(), ...prev].slice(0, 40));
         if (announce) {
-          playChime();
+          void playChime();
           setToasts((prev) => [...fresh, ...prev].slice(0, 4));
           fresh.forEach((item) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== item.id)), AUTO_DISMISS_MS));
         }
@@ -128,8 +85,8 @@ export function Notifications() {
     // Phones stop a page running while it's in the background or the screen is
     // locked; coming back catches up straight away with whatever was missed.
     const onVisible = () => { if (document.visibilityState === "visible") void poll(); };
-    // Start (or wake) the sound channel on a tap, so the chime is allowed on phones.
-    const unlock = () => { audioCtx(); };
+    // Phones only let a page make sound after a tap: the first one allows the chime.
+    const unlock = () => allowSound();
     const first = load(new Date(Date.now() - HISTORY_HOURS * 3600_000).toISOString(), false);
     const interval = setInterval(() => void first.then(poll), POLL_MS);
     document.addEventListener("visibilitychange", onVisible);
@@ -161,6 +118,9 @@ export function Notifications() {
     try { localStorage.setItem(SEEN_KEY, now); } catch {}
   };
 
+  // A tap is what phones need to allow sound, so the test both checks and allows it.
+  const testSound = async () => setSoundTest((await playChime()) ? "ok" : "blocked");
+
   const go = (i: Item) => { setOpen(false); setToasts((prev) => prev.filter((t) => t.id !== i.id)); router.push(i.href); };
   const Icon = ({ i }: { i: Item }) => (i.tone === "good" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />);
 
@@ -189,6 +149,12 @@ export function Notifications() {
                 </li>
               ))}
             </ul>
+            <div className="nf-f">
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => void testSound()}><Volume2 size={14} /> Test sound</button>
+              <span className="hint" role="status">
+                {soundTest === "ok" ? "Did you hear it? If not, turn up the media volume." : soundTest === "blocked" ? "This browser blocked the sound. Alerts still pop up." : "New alerts chime and pop up."}
+              </span>
+            </div>
           </div>
         </div>
       ) : null}
