@@ -1,15 +1,15 @@
 import { requirePageAccess } from "@/lib/auth";
 import { DD_CAN_EDIT_TASKS, DD_CAN_VOID } from "@/lib/types";
 import { getTasks } from "@/lib/data/tasks";
-import { getActiveStaffNames } from "@/lib/data/staff";
-import { DD_COMPLAINT_TEAMS } from "@/lib/checklist-data";
+import { getTaskPeople } from "@/lib/data/staff";
+import { DD_TICKET_DEPTS } from "@/lib/checklist-data";
 import { taskState } from "@/lib/tasks";
 import { clockTime, dayText } from "@/lib/time";
 import { TasksClient, type TaskView } from "./tasks-client";
 
 export default async function TasksPage() {
   const session = await requirePageAccess("/tasks");
-  const [all, staff] = await Promise.all([getTasks(), getActiveStaffNames()]);
+  const [all, people] = await Promise.all([getTasks(), getTaskPeople()]);
 
   // Housekeeping only sees tasks given to Housekeeping or to them by name.
   const mine = (t: { assigned_to: string | null }) => {
@@ -31,7 +31,9 @@ export default async function TasksPage() {
   return (
     <TasksClient
       tasks={views}
-      assignees={[...DD_COMPLAINT_TEAMS, ...staff]}
+      officers={people.officers}
+      teams={["Resident Officers", ...DD_TICKET_DEPTS]}
+      others={people.others}
       canEdit={DD_CAN_EDIT_TASKS.includes(session.role)}
       canTick={DD_CAN_EDIT_TASKS.includes(session.role) || session.role === "housekeeping"}
       canVoid={DD_CAN_VOID.includes(session.role)}

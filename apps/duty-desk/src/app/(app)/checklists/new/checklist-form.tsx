@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, Bath, BedDouble, Check, CheckCircle2, Clock, CloudOff, DoorClosed, DoorOpen, Droplets,
+  AlertTriangle, Bath, BedDouble, Check, CheckCheck, CheckCircle2, Clock, CloudOff, DoorClosed, DoorOpen, Droplets,
   Lock, LogOut, Minus, Plus, Trash2, Tv, UtensilsCrossed, Wrench,
 } from "lucide-react";
-import { DD_ALL_ITEMS, DD_CATEGORIES, DD_CHECKLIST_TYPES, ticketDeptFor } from "@/lib/checklist-data";
+import { DD_ALL_ITEMS, DD_CATEGORIES, DD_CHECKLIST_TYPES, DD_TICKET_DEPTS, ticketDeptFor } from "@/lib/checklist-data";
 import type { ChecklistItemInput, ChecklistType, Condition } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { callAction } from "@/lib/action";
@@ -17,6 +17,8 @@ export interface ItemValue {
   condition?: Condition;
   available?: "Yes" | "No";
   note?: string;
+  // Department for a flagged item's ticket, when the officer changes it.
+  dept?: string;
 }
 
 // Answers are batched and saved shortly after each tap, so a whole checklist
@@ -28,8 +30,11 @@ const RETRY_MS = 5_000;
 type SaveState = { kind: "saved"; at: string } | { kind: "saving" } | { kind: "offline" } | { kind: "taken"; by: string } | { kind: "gone" };
 
 const CAT_ICON: Record<string, typeof Bath> = { room: BedDouble, kitchen: UtensilsCrossed, bathroom: Bath, electronics: Tv, toiletries: Droplets };
-const DEPT_TAG: Record<string, string> = { Engineering: "ENG", Housekeeping: "HK" };
+const DEPT_TAG: Record<string, string> = { "General Maintenance": "GM", Electrician: "ELEC", "Plumbing & Building": "P&B", Painting: "PAINT", Welding: "WELD", Housekeeping: "HK" };
 const isFlagged = (v: ItemValue | undefined) => v?.condition === "Damaged" || v?.condition === "Missing" || v?.available === "No";
+// Where a flagged item's ticket usually goes; the officer can choose another.
+const usualDept = (name: string) => ticketDeptFor(name);
+const deptOf = (name: string, v: ItemValue | undefined) => (v?.dept && DD_TICKET_DEPTS.includes(v.dept) ? v.dept : usualDept(name));
 const isAnswered = (v: ItemValue | undefined) => !!(v?.condition || v?.available);
 
 function fmtClock(iso: string): string {
@@ -90,6 +95,7 @@ export function ChecklistForm({
       condition: it.kind === "condition" ? v.condition ?? null : null,
       available: it.kind === "yesno" ? v.available ?? null : null,
       note: isFlagged(v) ? v.note ?? null : null,
+      dept: isFlagged(v) ? deptOf(name, v) : null,
     };
   };
 
@@ -164,6 +170,16 @@ export function ChecklistForm({
     dirtyMeta.current.ready = r;
     scheduleSave();
   };
+  // Answers only the lines in this section that haven't been answered yet.
+  const markRest = (items: string[], kind: "condition" | "yesno") => {
+    if (locked) return;
+    const todo = items.filter((n) => !isAnswered(valuesRef.current[n]));
+    if (!todo.length) return;
+    const patch: Partial<ItemValue> = kind === "yesno" ? { available: "Yes" } : { condition: "Good" };
+    setValues((v) => ({ ...v, ...Object.fromEntries(todo.map((n) => [n, { ...v[n], ...patch }])) }));
+    todo.forEach((n) => dirtyItems.current.add(n));
+    scheduleSave();
+  };
   const bumpQty = (name: string, d: number) => {
     const cur = Number(values[name]?.qty || 0);
     setVal(name, { qty: String(Math.max(0, cur + d)) });
@@ -222,7 +238,7 @@ export function ChecklistForm({
         <div className="t">
           <span className="over">{typeLabel} · started {fmtClock(startedAt)} · {preparedByName}{takenOverFrom ? ` · took over from ${takenOverFrom.name} at ${fmtClock(takenOverFrom.at)}` : ""}</span>
           <h1>Inspecting {apartment}</h1>
-          <p>Answer every line. Damaged or missing items open a maintenance ticket when you submit.</p>
+          <p>Answer every line. Damaged, missing or not-available items open a ticket when you submit, sent to the department you choose.</p>
           <div className={`save-note save-${save.kind}`} role="status" aria-live="polite" style={{ marginTop: 6 }}>
             {save.kind === "offline" ? (
               <><CloudOff size={14} /> Not saved — no connection. Keep this page open; it will keep trying.</>
@@ -284,6 +300,11 @@ export function ChecklistForm({
               <span className="sub">{catDone(category.key)} of {category.items.length} answered{category.kind === "yesno" ? " · available?" : ""}</span>
             </div>
             <span className="sp" />
+            {catDone(category.key) < category.items.length && !locked ? (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => markRest(category.items, category.kind)} title="Answers only the lines you haven't answered yet">
+                <CheckCheck size={14} /> Mark the rest {category.kind === "yesno" ? "Yes" : "Good"}
+              </button>
+            ) : null}
             {nextCat ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCat(nextCat.key); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Next: {nextCat.label}</button> : null}
           </div>
           <div>
@@ -293,7 +314,7 @@ export function ChecklistForm({
               const fl = isFlagged(v), done = isAnswered(v) && !fl;
               const opts = category.kind === "yesno" ? (["Yes", "No"] as const) : (["Good", "Damaged", "Missing", "N/A"] as const);
               const cur = category.kind === "yesno" ? v.available : v.condition;
-              const dept = category.kind === "condition" ? ticketDeptFor(name) : "Housekeeping";
+              const dept = deptOf(name, v);
               return (
                 <div key={name} className={`irow ${fl ? "flag" : ""} ${done ? "done" : ""}`}>
                   <div className="nm">
@@ -324,8 +345,14 @@ export function ChecklistForm({
                     ))}
                   </div>
                   {fl ? (
-                    <div className="note">
-                      <input className="input" value={v.note ?? ""} disabled={locked} onChange={(e) => setVal(name, { note: e.target.value }, 1200)} placeholder="What’s wrong? This goes on the ticket" aria-label={`What's wrong with ${name}`} />
+                    <div className="note" style={{ flexWrap: "wrap" }}>
+                      <input className="input" style={{ flex: "1 1 200px" }} value={v.note ?? ""} disabled={locked} onChange={(e) => setVal(name, { note: e.target.value }, 1200)} placeholder="What’s wrong? This goes on the ticket" aria-label={`What's wrong with ${name}`} />
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: "none" }}>
+                        <label className="hint" htmlFor={`dept-${name}`} style={{ whiteSpace: "nowrap" }}>Send to</label>
+                        <select className="input" id={`dept-${name}`} value={dept} disabled={locked} onChange={(e) => setVal(name, { dept: e.target.value })} style={{ height: 34, width: 200, fontSize: 12.5 }}>
+                          {DD_TICKET_DEPTS.map((d) => <option key={d} value={d}>{d}{d === usualDept(name) ? " (usual)" : ""}</option>)}
+                        </select>
+                      </span>
                     </div>
                   ) : null}
                 </div>
@@ -357,16 +384,16 @@ export function ChecklistForm({
                 {flagged.length ? (
                   <div className="flagged">
                     {flagged.map((i) => {
-                      const v = values[i.name]!, d = i.kind === "yesno" ? "Housekeeping" : ticketDeptFor(i.name);
+                      const v = values[i.name]!, d = deptOf(i.name, v);
                       return (
                         <div key={i.name}>
                           <span style={{ color: "var(--bad)", marginTop: 1 }}><Wrench size={15} /></span>
-                          <div><b>{i.name}</b><span className="muted">{v.condition ?? "Missing"} → {d}{v.note ? ` · ${v.note}` : ""}</span></div>
+                          <div><b>{i.name}</b><span className="muted">{v.condition ?? "Not available"} → {d}{v.note ? ` · ${v.note}` : ""}</span></div>
                         </div>
                       );
                     })}
                   </div>
-                ) : <span className="hint">None yet. Mark an item Damaged or Missing to queue one.</span>}
+                ) : <span className="hint">None yet. An item marked Damaged, Missing or No (not available) queues one, sent to the department you choose on its line.</span>}
               </div>
               <div className="vstack">
                 <span className="over">Readiness decision</span>

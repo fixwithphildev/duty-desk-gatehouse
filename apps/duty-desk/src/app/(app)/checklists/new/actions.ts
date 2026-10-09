@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
-import { ticketDeptFor } from "@/lib/checklist-data";
+import { DD_TICKET_DEPTS, ticketDeptFor } from "@/lib/checklist-data";
 import { getChecklistInProgressForApartment, type InProgressChecklist } from "@/lib/data/checklists";
 import type { ChecklistItemInput, ChecklistType } from "@/lib/types";
 
@@ -85,6 +85,12 @@ async function ownDraft(id: string, staffId: string): Promise<{ ok: true; apartm
   return { ok: true, apartment: data.apartment as string };
 }
 
+// Damaged, Missing or not available ("No") opens a ticket on submit.
+const isFlaggedItem = (item: ChecklistItemInput) => item.condition === "Damaged" || item.condition === "Missing" || item.available === "No";
+// The department the officer chose for a flagged item, else the usual one.
+const deptFor = (item: ChecklistItemInput) =>
+  item.dept && DD_TICKET_DEPTS.includes(item.dept) ? item.dept : ticketDeptFor(item.name);
+
 const itemRow = (checklistId: string, item: ChecklistItemInput, linkedTicketId: string | null = null) => ({
   checklist_id: checklistId,
   name: item.name,
@@ -94,6 +100,7 @@ const itemRow = (checklistId: string, item: ChecklistItemInput, linkedTicketId: 
   condition: item.condition,
   available: item.available,
   note: item.note?.trim() || null,
+  ticket_dept: isFlaggedItem(item) ? deptFor(item) : null,
   linked_ticket_id: linkedTicketId,
 });
 
@@ -175,20 +182,21 @@ async function submitChecklistAction__run(input: {
 
   // Flagged items are typically a handful at most, so create their tickets
   // in parallel rather than one-by-one.
-  const flaggedItems = input.items.filter((i) => i.condition === "Damaged" || i.condition === "Missing");
+  const flaggedItems = input.items.filter(isFlaggedItem);
   const ticketIdByItemName = new Map<string, string>();
   await Promise.all(
     flaggedItems.map(async (item) => {
+      const flaggedAs = item.condition ?? "Not available";
       const { data: ticket } = await supabaseAdmin
         .from("maintenance_tickets")
         .insert({
           area: `Apartment ${apartment}`,
           issue_type: item.name,
-          assigned_to: ticketDeptFor(item.name),
+          assigned_to: deptFor(item),
           priority: item.condition === "Missing" ? "High" : "Medium",
           status: "Reported",
           source: "checklist",
-          notes: `${item.note?.trim() ? item.note.trim() + " — " : ""}Flagged as ${item.condition} during ${typeLabel} checklist`,
+          notes: `${item.note?.trim() ? item.note.trim() + " — " : ""}Flagged as ${flaggedAs} during ${typeLabel} checklist`,
           created_by: session.staffId,
           logged_by_name: session.displayName,
         })

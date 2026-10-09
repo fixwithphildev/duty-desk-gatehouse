@@ -98,4 +98,6 @@ export interface ChecklistItemInput {
   available: "Yes" | "No" | null;
   // What's wrong, for a flagged item. Goes on the maintenance ticket.
   note?: string | null;
+  // Which department the flagged item's ticket goes to (the officer's choice).
+  dept?: string | null;
 }

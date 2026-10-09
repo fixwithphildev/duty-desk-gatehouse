@@ -27,7 +27,7 @@ export const STATUS_LABEL: Record<ReadyStatus, string> = {
 
 export interface Flag {
   item: string;
-  problem: string; // "Damaged", "Missing"
+  problem: string; // "Damaged", "Missing", "Not available"
   ticketId: string | null;
   ticketStatus: string | null;
 }
@@ -125,7 +125,7 @@ export const getReadiness = cache(async function getReadiness(): Promise<Readine
     }
     for (const i of items ?? []) {
       const list = flagsBy.get(i.checklist_id) ?? [];
-      list.push({ item: i.name, problem: i.condition ?? "Missing", ticketId: i.linked_ticket_id, ticketStatus: i.linked_ticket_id ? status.get(i.linked_ticket_id) ?? null : null });
+      list.push({ item: i.name, problem: i.condition ?? "Not available", ticketId: i.linked_ticket_id, ticketStatus: i.linked_ticket_id ? status.get(i.linked_ticket_id) ?? null : null });
       flagsBy.set(i.checklist_id, list);
     }
   }

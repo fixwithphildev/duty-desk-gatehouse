@@ -22,10 +22,16 @@ export interface TaskView extends TaskRow {
 
 const EMPTY = { description: "", assignedTo: "", dueTime: "" };
 
-export function TasksClient({ tasks, assignees, canEdit, canTick, canVoid, me }: { tasks: TaskView[]; assignees: string[]; canEdit: boolean; canTick: boolean; canVoid: boolean; me: string }) {
+// "Someone else" in the Assign to list: type a name instead.
+const OTHER = "__other__";
+
+export function TasksClient({
+  tasks, officers, teams, others, canEdit, canTick, canVoid, me,
+}: { tasks: TaskView[]; officers: string[]; teams: string[]; others: string[]; canEdit: boolean; canTick: boolean; canVoid: boolean; me: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
+  const [typing, setTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actError, setActError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -78,7 +84,7 @@ export function TasksClient({ tasks, assignees, canEdit, canTick, canVoid, me }:
         <div className="m">
           <b style={isDone ? { textDecoration: "line-through", color: "var(--text-3)" } : undefined}>{t.description}</b>
           <span>
-            {t.assigned_to || "Anyone on duty"}
+            {t.assigned_to || "Anyone on duty"}{t.assigned_to === me ? " (you)" : ""}
             {isDone ? ` · done${t.done_by_name ? ` by ${t.done_by_name}` : ""}${t.doneTime ? ` at ${t.doneTime}` : ""}${t.state === "earlier" && t.doneDay ? `, ${t.doneDay}` : ""}`
               : `${t.created_by_name ? ` · added by ${t.created_by_name}` : ""}${t.state === "overdue" && !t.due_time ? `, ${t.addedDay}` : ""}`}
           </span>
@@ -112,7 +118,7 @@ export function TasksClient({ tasks, assignees, canEdit, canTick, canVoid, me }:
         <div className="t"><h1>Tasks</h1><p>Small jobs for this shift. Give each one a person and a time; overdue jobs turn red.</p></div>
         <div className="acts">
           <AutoRefresh />
-          {canEdit ? <button type="button" className="btn btn-primary" onClick={() => { setForm(EMPTY); setError(null); setOpen(true); }}><Plus size={15} /> New task</button> : null}
+          {canEdit ? <button type="button" className="btn btn-primary" onClick={() => { setForm(EMPTY); setTyping(false); setError(null); setOpen(true); }}><Plus size={15} /> New task</button> : null}
         </div>
       </div>
 
@@ -165,8 +171,22 @@ export function TasksClient({ tasks, assignees, canEdit, canTick, canVoid, me }:
         <div className="hstack" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="tk-who">Assign to</label>
-            <input className="input" id="tk-who" list="tk-staff" value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} placeholder="e.g. Housekeeping" autoComplete="off" />
-            <datalist id="tk-staff">{assignees.map((a) => <option key={a} value={a} />)}</datalist>
+            <select
+              className="input"
+              id="tk-who"
+              value={typing ? OTHER : form.assignedTo}
+              onChange={(e) => {
+                if (e.target.value === OTHER) { setTyping(true); setForm({ ...form, assignedTo: "" }); }
+                else { setTyping(false); setForm({ ...form, assignedTo: e.target.value }); }
+              }}
+            >
+              <option value="" disabled>Choose who does it</option>
+              {officers.length ? <optgroup label="Resident Officers">{officers.map((n) => <option key={n} value={n}>{n}{n === me ? " (you)" : ""}</option>)}</optgroup> : null}
+              <optgroup label="Teams">{teams.map((t) => <option key={t} value={t}>{t === "Resident Officers" ? "Any Resident Officer on duty" : t}</option>)}</optgroup>
+              {others.length ? <optgroup label="Other staff">{others.map((n) => <option key={n} value={n}>{n}{n === me ? " (you)" : ""}</option>)}</optgroup> : null}
+              <option value={OTHER}>Someone else (type a name)</option>
+            </select>
+            {typing ? <input className="input" style={{ marginTop: 6 }} value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} placeholder="Their name" aria-label="Name of the person" autoFocus /> : null}
           </div>
           <div className="field" style={{ width: 130 }}>
             <label htmlFor="tk-due">Due <span className="muted">(optional)</span></label>

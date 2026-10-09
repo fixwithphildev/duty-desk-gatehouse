@@ -49,6 +49,7 @@ export default async function ViewChecklistPage({ params }: { params: { id: stri
           condition: i.condition ?? undefined,
           available: i.available === "Yes" || i.available === "No" ? i.available : undefined,
           note: i.note ?? undefined,
+          dept: i.ticket_dept ?? undefined,
         };
       }
       return (
