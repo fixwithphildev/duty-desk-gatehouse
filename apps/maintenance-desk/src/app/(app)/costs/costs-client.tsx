@@ -7,6 +7,7 @@ import { AlertTriangle, BarChart3, Ban, Check, Layers, Plus, Receipt, Search, Wa
 import { Drawer } from "@/components/drawer";
 import { Field } from "@/components/ui";
 import { Badge, Kpi, stTone } from "@/components/suite";
+import { Columns, DonutCard } from "@/components/infographic";
 import { stLabel } from "@/lib/jobs";
 import { MD_UNITS, UNIT_COLOR, formatNaira as naira } from "@/lib/types";
 import { isRedirectError, errorMessage } from "@/lib/utils";
@@ -51,6 +52,19 @@ const num = (v: string) => parseFloat(v.replace(/[^0-9.]/g, ""));
 const lineTotal = (r: { q: string; u: string }) => { const q = num(r.q), u = num(r.u); return q > 0 && u >= 0 ? q * u : 0; };
 const blankRow = () => ({ item: "", q: "1", u: "" });
 const sum = (list: Purchase[]) => list.reduce((a, p) => a + p.total, 0);
+// "₦14.5k" for the small labels on top of the columns.
+const short = (v: number) => (v >= 1_000_000 ? `₦${(v / 1_000_000).toFixed(1).replace(/\.0$/, "")}m` : v >= 1000 ? `₦${(v / 1000).toFixed(1).replace(/\.0$/, "")}k` : `₦${Math.round(v)}`);
+
+// The last 8 weeks (Monday to Sunday), oldest first, ending with this week.
+function lastWeeks(today: string, n = 8) {
+  const DAY = 86_400_000, iso = (d: Date) => d.toISOString().slice(0, 10);
+  const t = new Date(`${today}T12:00:00Z`);
+  const monday = new Date(t.getTime() - ((t.getUTCDay() + 6) % 7) * DAY);
+  return Array.from({ length: n }, (_, i) => {
+    const from = new Date(monday.getTime() - (n - 1 - i) * 7 * DAY);
+    return { from: iso(from), to: iso(new Date(from.getTime() + 6 * DAY)), label: from.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) };
+  });
+}
 const dot = (u: string) => <i className="dot-u" style={{ background: UNIT_COLOR[u] ?? "var(--neu)" }} />;
 
 export function CostsClient({
@@ -99,6 +113,14 @@ export function CostsClient({
   const sup = new Map<string, number>();
   for (const p of mo) { const k = p.supplier || "Supplier not given"; sup.set(k, (sup.get(k) ?? 0) + p.total); }
   const smax = Math.max(1, ...sup.values());
+  // The charts: spending per week for the unit being viewed, and what this month's went on.
+  const weeks = lastWeeks(today).map((w) => ({ ...w, v: sum(all.filter((p) => p.date >= w.from && p.date <= w.to)) }));
+  const weekBest = weeks.reduce((a, w) => (w.v > a.v ? w : a), weeks[0]);
+  const split = [
+    { label: "Ticket Board jobs", v: sum(mo.filter((p) => p.jobId && !p.isRequest)), color: "var(--cat2)" },
+    { label: "Requests", v: sum(mo.filter((p) => p.jobId && p.isRequest)), color: "var(--cat3)" },
+    { label: "Unit stock", v: sum(mo.filter((p) => !p.jobId)), color: "var(--cat1)" },
+  ];
 
   const unitJobs = options.filter((o) => (!form.unit || o.unit === form.unit) && (!o.old || o.id === form.job)).sort((a, b) => ["In Progress", "Reported", "Resolved"].indexOf(a.status) - ["In Progress", "Reported", "Resolved"].indexOf(b.status));
   const chosen = options.find((o) => o.id === form.job);
@@ -182,6 +204,21 @@ export function CostsClient({
         <Kpi icon={AlertTriangle} label="Resolved, cost not recorded" value={miss.length} ctx={miss.length ? "add what was bought, or mark nothing bought" : "all costs recorded"} tile={miss.length ? "bad" : ""} />
       </div>
 
+      <div className="g g-ig">
+        <section className="card">
+          <div className="card-h"><h3>Spent each week</h3><span className="sp" /><span className="sub">last 8 weeks · {uName}</span></div>
+          <div className="card-b">
+            <Columns cols={weeks.map((w) => ({ label: w.label, v: w.v, title: `Week of ${w.label}: ${naira(w.v)}` }))} hi={weeks.length - 1} fmt={short} />
+          </div>
+          <p className="ig-note">{weekBest.v ? <>The most was spent in the week of <b>{weekBest.label}</b>: {naira(weekBest.v)}. This week so far: {naira(weeks[weeks.length - 1].v)}.</> : `Nothing bought in the last 8 weeks for ${uName}.`}</p>
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>What it went on · {month.name}</h3><span className="sp" /><span className="sub">{uName}</span></div>
+          <DonutCard parts={split} centre={sum(mo) >= 1000 ? `${Math.round(sum(mo) / 1000)}k` : Math.round(sum(mo))} sub="naira spent" fmt={naira} />
+          <p className="ig-note">{sum(mo) ? <>Jobs from Duty Desk, requests from management and stock kept by the unit. {miss.length ? <><b>{miss.length}</b> resolved job{miss.length === 1 ? " still has" : "s still have"} no cost recorded.</> : null}</> : `Nothing bought yet in ${month.name} for ${uName}.`}</p>
+        </section>
+      </div>
+
       <div className="g g-main g-split-c">
         {canManage ? (
           <section className="card" id="cf-card">
@@ -239,7 +276,7 @@ export function CostsClient({
             </div>
           </section>
         ) : (
-          <div className="pill-note t-info"><Receipt size={16} /><span>View only. The Manager, Supervisor or Admin records purchases.</span></div>
+          <div className="pill-note t-info"><Receipt size={16} /><span>View only. The Supervisor or Admin records purchases.</span></div>
         )}
 
         <div className="vstack" style={{ gap: 18 }}>

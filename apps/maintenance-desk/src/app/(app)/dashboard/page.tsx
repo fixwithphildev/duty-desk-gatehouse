@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Bell, CheckCircle2, Columns3, Inbox, Plus, Receipt, UserRound, Users, Wrench } from "lucide-react";
 import { requireSession } from "@/lib/auth";
-import { MD_MANAGE_ROLES, MD_MONEY_ROLES, MD_UNITS, UNIT_COLOR, formatNaira as naira } from "@/lib/types";
+import { MD_MANAGE_ROLES, MD_MONEY_ROLES, MD_REQUEST_ROLES, MD_UNITS, UNIT_COLOR, formatNaira as naira } from "@/lib/types";
 import { getDesk, getMyUnit } from "@/lib/data/desk";
 import { missingCost, PRI_RANK, type JobView } from "@/lib/jobs";
 import { fundDiff } from "@/lib/funding";
@@ -79,7 +79,7 @@ export default async function DashboardPage() {
         <div className="acts">
           <AutoRefresh />
           <Link href="/board" className="btn btn-secondary"><Columns3 size={15} /> Ticket Board</Link>
-          {MD_MANAGE_ROLES.includes(session.role) ? <><Link href="/costs" className="btn btn-secondary"><Receipt size={15} /> Record a purchase</Link><Link href="/requests" className="btn btn-primary"><Plus size={15} /> New request</Link></> : null}
+          {MD_MANAGE_ROLES.includes(session.role) ? <Link href="/costs" className="btn btn-secondary"><Receipt size={15} /> Record a purchase</Link> : null}{MD_REQUEST_ROLES.includes(session.role) ? <Link href="/requests" className="btn btn-primary"><Plus size={15} /> New request</Link> : null}
         </div>
       </div>
 

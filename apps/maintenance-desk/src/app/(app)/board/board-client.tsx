@@ -3,13 +3,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ClipboardCheck, Filter, Inbox, MapPin, Paperclip, Search, UserRound, Wrench } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Filter, Inbox, LayoutGrid, List, MapPin, Paperclip, Search, UserRound, Wrench } from "lucide-react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Badge, priTone } from "@/components/suite";
 import { JobDrawer, type Me } from "@/components/job-drawer";
 import { PRI_RANK, type JobView } from "@/lib/jobs";
 import { MD_UNITS, formatNaira as naira } from "@/lib/types";
 import { shortName } from "@/lib/time";
+
+// Board: the open jobs as columns (plus today's finished ones). All jobs: every job
+// ever, by status, in the order chosen.
+type View = "board" | "list";
+type StatusFilter = "all" | JobView["status"];
+type Sort = "new" | "old" | "priority" | "finished";
+const STATUS_FILTERS: [StatusFilter, string][] = [["all", "All"], ["Reported", "Reported"], ["In Progress", "In progress"], ["Resolved", "Resolved"]];
+const SORTS: [Sort, string][] = [["new", "Newest first"], ["old", "Oldest first"], ["priority", "High priority first"], ["finished", "Recently finished"]];
+const LIST_PAGE = 60;
+const STATUS_TONE: Record<JobView["status"], "warn" | "info" | "ok"> = { Reported: "warn", "In Progress": "info", Resolved: "ok" };
 
 const COLS: { status: JobView["status"]; label: string; tone: string }[] = [
   { status: "Reported", label: "Reported", tone: "warn" },
@@ -26,6 +36,7 @@ export function BoardClient({
   canWorkAny,
   initialId,
   initialUnit,
+  initialView = "board",
 }: {
   jobs: JobView[];
   team: Record<string, string[]>;
@@ -35,12 +46,18 @@ export function BoardClient({
   canWorkAny: boolean;
   initialId: string | null;
   initialUnit: string;
+  // /board?view=list opens straight on All jobs.
+  initialView?: View;
 }) {
   const router = useRouter();
   const [unit, setUnit] = useState(initialUnit);
   const [q, setQ] = useState("");
   const [highOnly, setHighOnly] = useState(false);
   const [openId, setOpenId] = useState<string | null>(initialId);
+  const [view, setView] = useState<View>(initialView);
+  const [statusF, setStatusF] = useState<StatusFilter>("all");
+  const [sort, setSort] = useState<Sort>("new");
+  const [shownN, setShownN] = useState(LIST_PAGE);
 
   // Keep the open job in the address, so a link or a refresh lands on it.
   useEffect(() => {
@@ -52,12 +69,21 @@ export function BoardClient({
   const live = jobs.filter((j) => j.status !== "Resolved" || j.resolvedToday);
   const needUnit = jobs.filter((j) => j.needsUnit && j.status !== "Resolved");
   const s = q.trim().toLowerCase();
-  const shown = live.filter(
-    (j) =>
-      (unit === "all" || (unit === "needs" ? j.needsUnit : j.unit === unit)) &&
-      (!highOnly || j.priority === "High") &&
-      (!s || `${j.ref} ${j.title} ${j.area} ${j.unit} ${j.startedBy ?? ""} ${j.resolvedBy ?? ""}`.toLowerCase().includes(s))
-  );
+  const matches = (j: JobView) =>
+    (unit === "all" || (unit === "needs" ? j.needsUnit : j.unit === unit)) &&
+    (!highOnly || j.priority === "High") &&
+    (!s || `${j.ref} ${j.title} ${j.area} ${j.unit} ${j.startedBy ?? ""} ${j.resolvedBy ?? ""}`.toLowerCase().includes(s));
+  const shown = live.filter(matches);
+  const everyMatch = jobs.filter(matches);
+  const statusCount = (k: StatusFilter) => everyMatch.filter((j) => k === "all" || j.status === k).length;
+  const listed = everyMatch
+    .filter((j) => statusF === "all" || j.status === statusF)
+    .sort((a, b) =>
+      sort === "old" ? a.createdAt.localeCompare(b.createdAt)
+        : sort === "priority" ? PRI_RANK[a.priority] - PRI_RANK[b.priority] || b.createdAt.localeCompare(a.createdAt)
+        : sort === "finished" ? (b.resolvedAt ?? "").localeCompare(a.resolvedAt ?? "") || b.createdAt.localeCompare(a.createdAt)
+        : b.createdAt.localeCompare(a.createdAt)
+    );
   const count = (u: string) => live.filter((j) => j.status !== "Resolved" && (u === "all" || j.unit === u)).length;
   const open = jobs.find((j) => j.id === openId) ?? null;
 
@@ -93,9 +119,14 @@ export function BoardClient({
       {needUnit.length ? (
         <div className="pill-note t-warn">
           <Wrench size={16} />
-          <span>{needUnit.length} older job{needUnit.length > 1 ? "s were" : " was"} filed under “Engineering” before the units existed. {canManage ? <>Open {needUnit.length > 1 ? "each one" : "it"} and choose its unit. <button type="button" className="link" onClick={() => setUnit("needs")}>Show {needUnit.length > 1 ? "them" : "it"}</button></> : "The Manager or Supervisor will choose the units."}</span>
+          <span>{needUnit.length} older job{needUnit.length > 1 ? "s were" : " was"} filed under “Engineering” before the units existed. {canManage ? <>Open {needUnit.length > 1 ? "each one" : "it"} and choose its unit. <button type="button" className="link" onClick={() => setUnit("needs")}>Show {needUnit.length > 1 ? "them" : "it"}</button></> : "The Supervisor will choose the units."}</span>
         </div>
       ) : null}
+
+      <div className="seg" role="group" aria-label="View" style={{ alignSelf: "flex-start" }}>
+        <button type="button" aria-pressed={view === "board"} onClick={() => setView("board")}><LayoutGrid size={14} /> Board</button>
+        <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")}><List size={14} /> All jobs <span className="ct">{jobs.length}</span></button>
+      </div>
 
       <div className="hstack" style={{ justifyContent: "space-between" }}>
         <div className="seg seg-units" role="group" aria-label="Unit">
@@ -110,6 +141,37 @@ export function BoardClient({
         </div>
       </div>
 
+      {view === "list" ? (
+        <section className="card">
+          <div className="st-tools">
+            <div className="seg" role="group" aria-label="Status">
+              {STATUS_FILTERS.map(([k, l]) => <button key={k} type="button" aria-pressed={statusF === k} onClick={() => { setStatusF(k); setShownN(LIST_PAGE); }}>{l} <span className="ct">{statusCount(k)}</span></button>)}
+            </div>
+            <label className="hstack" style={{ gap: 8, fontSize: 13, color: "var(--text-3)" }}>Sort
+              <select className="input" style={{ height: 36, width: "auto" }} value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort jobs">
+                {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </label>
+          </div>
+          <ul className="list">
+            {listed.slice(0, shownN).map((j) => (
+              <li key={j.id}>
+                <button type="button" className={`row click job-row ${openId === j.id ? "sel" : ""}`} onClick={() => setOpenId(j.id)}>
+                  <span className={`stripe s-${priTone(j.priority)}`} />
+                  <span className="m">
+                    <b>{j.title}</b>
+                    <span>{j.ref} · {j.area} · {j.needsUnit ? "needs a unit" : j.unit} · {j.status === "Resolved" && j.resolvedBy ? `fixed by ${j.resolvedBy}${j.resolvedWhen ? ` · ${j.resolvedWhen}` : ""}` : j.status === "In Progress" && j.startedBy ? `${j.startedBy} since ${j.startedWhen ?? ""}` : `reported ${j.age} ago`}</span>
+                  </span>
+                  {canMoney && j.cost ? <span className="mono muted" style={{ fontSize: 12 }}>{naira(j.cost)}</span> : null}
+                  <Badge tone={STATUS_TONE[j.status]}>{j.status === "In Progress" ? "In progress" : j.status}</Badge>
+                </button>
+              </li>
+            ))}
+            {listed.length === 0 ? <li className="empty" style={{ padding: "24px 20px" }}>No jobs match.</li> : null}
+          </ul>
+          {listed.length > shownN ? <div style={{ padding: "12px 20px" }}><button type="button" className="btn btn-secondary btn-sm" onClick={() => setShownN((n) => n + LIST_PAGE)}>Show more ({listed.length - shownN} left)</button></div> : null}
+        </section>
+      ) : (
       <div className="kanban-wrap">
         <div className="kanban">
           {COLS.map((c) => {
@@ -125,6 +187,7 @@ export function BoardClient({
           })}
         </div>
       </div>
+      )}
 
       <JobDrawer job={open} onClose={() => { setOpenId(null); router.refresh(); }} team={team} me={me} canManage={canManage} canMoney={canMoney} canWorkAny={canWorkAny} />
     </>

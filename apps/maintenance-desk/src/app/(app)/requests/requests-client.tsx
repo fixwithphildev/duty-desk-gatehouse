@@ -9,14 +9,16 @@ import { Drawer } from "@/components/drawer";
 import { Field } from "@/components/ui";
 import { Badge, Kpi, priTone, stTone } from "@/components/suite";
 import { JobDrawer, type Me } from "@/components/job-drawer";
-import { askedBy, missingCost, stLabel, type JobView } from "@/lib/jobs";
+import { askedBy, missingCost, stLabel, type JobView, PRI_RANK } from "@/lib/jobs";
 import { COMMON_AREAS, MD_PRIORITIES, MD_UNITS, REQUEST_ROLES, UNIT_COLOR, formatNaira as naira } from "@/lib/types";
 import { APARTMENTS } from "@/lib/apartments";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { callAction } from "@/lib/action";
 import { createRequestAction } from "../jobs/actions";
 
-type Tab = "open" | "done" | "all";
+type Tab = "open" | "progress" | "done" | "all";
+type Sort = "new" | "old" | "priority" | "finished";
+const SORTS: [Sort, string][] = [["new", "Newest first"], ["old", "Oldest first"], ["priority", "High priority first"], ["finished", "Recently finished"]];
 const STEPS: [string, string][] = [
   ["Take the order", "New request: who is asking, where, what needs doing, which unit and how urgent. No amount."],
   ["Do the work", "A technician from that unit starts the job, then records who finished it and when."],
@@ -29,9 +31,10 @@ export function RequestsClient({
   team,
   me,
   canManage,
+  canRequest,
   canMoney,
   canWorkAny,
-  isHoO,
+  viewOnly,
   initialId,
   initialUnit,
 }: {
@@ -39,14 +42,18 @@ export function RequestsClient({
   team: { byUnit: Record<string, string[]>; office: { name: string; role: string }[] };
   me: Me;
   canManage: boolean;
+  // Supervisor, Admin and technicians log new requests.
+  canRequest: boolean;
   canMoney: boolean;
   canWorkAny: boolean;
-  isHoO: boolean;
+  // The Manager and Head of Operations look but change nothing.
+  viewOnly: boolean;
   initialId: string | null;
   initialUnit: string;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("open");
+  const [sort, setSort] = useState<Sort>("new");
   const [unit, setUnit] = useState(initialUnit);
   const [openId, setOpenId] = useState<string | null>(initialId);
   const [newOpen, setNewOpen] = useState(false);
@@ -62,8 +69,15 @@ export function RequestsClient({
   }, [openId]);
   useEffect(() => { if (initialId) { const j = jobs.find((x) => x.id === initialId); if (j?.status === "Resolved") setTab("all"); } }, [initialId]);
 
-  const inTab = (j: JobView, t: Tab) => t === "all" || (t === "open" ? j.status !== "Resolved" : j.status === "Resolved");
-  const list = jobs.filter((j) => inTab(j, tab) && (unit === "all" || j.unit === unit)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const inTab = (j: JobView, t: Tab) => t === "all" || (t === "open" ? j.status !== "Resolved" : t === "progress" ? j.status === "In Progress" : j.status === "Resolved");
+  const list = jobs
+    .filter((j) => inTab(j, tab) && (unit === "all" || j.unit === unit))
+    .sort((a, b) =>
+      sort === "old" ? a.createdAt.localeCompare(b.createdAt)
+        : sort === "priority" ? PRI_RANK[a.priority] - PRI_RANK[b.priority] || b.createdAt.localeCompare(a.createdAt)
+        : sort === "finished" ? (b.resolvedAt ?? "").localeCompare(a.resolvedAt ?? "") || b.createdAt.localeCompare(a.createdAt)
+        : b.createdAt.localeCompare(a.createdAt)
+    );
   const n = (t: Tab) => jobs.filter((j) => inTab(j, t)).length;
   const noCost = jobs.filter(missingCost).length;
   const byWho = new Map<string, number>();
@@ -114,7 +128,7 @@ export function RequestsClient({
         <div className="acts">
           <AutoRefresh />
           <Link href="/board" className="btn btn-secondary"><Columns3 size={15} /> Ticket Board</Link>
-          {canManage ? <button type="button" className="btn btn-primary" onClick={() => { setForm({ ...EMPTY, person: people[0]?.value ?? "" }); setError(null); setNewOpen(true); }}><Plus size={15} /> New request</button> : null}
+          {canRequest ? <button type="button" className="btn btn-primary" onClick={() => { setForm({ ...EMPTY, person: people[0]?.value ?? "" }); setError(null); setNewOpen(true); }}><Plus size={15} /> New request</button> : null}
         </div>
       </div>
 
@@ -128,14 +142,19 @@ export function RequestsClient({
       <div className="g g-main g-split-c">
         <section className="card">
           <div className="tabs" role="tablist" style={{ paddingTop: 4 }}>
-            {([["open", "Open"], ["done", "Done"], ["all", "All"]] as [Tab, string][]).map(([k, l]) => (
+            {([["open", "Open"], ["progress", "In progress"], ["done", "Done"], ["all", "All"]] as [Tab, string][]).map(([k, l]) => (
               <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l} <span className="ct">{n(k)}</span></button>
             ))}
           </div>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+          <div className="st-tools">
             <div className="seg seg-units" role="group" aria-label="Unit">
               {["all", ...MD_UNITS].map((u) => <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)}>{u === "all" ? "All units" : u}</button>)}
             </div>
+            <label className="hstack" style={{ gap: 8, fontSize: 13, color: "var(--text-3)" }}>Sort
+              <select className="input" style={{ height: 36, width: "auto" }} value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort requests">
+                {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </label>
           </div>
           <ul className="list">
             {list.map((j) => (
@@ -154,7 +173,7 @@ export function RequestsClient({
                 </div>
               </li>
             ))}
-            {list.length === 0 ? <li className="empty" style={{ padding: "24px 20px" }}>{jobs.length ? "No requests here." : canManage ? "No requests yet. Use New request when the maintenance team, management, Security or another department asks for work." : "No requests yet."}</li> : null}
+            {list.length === 0 ? <li className="empty" style={{ padding: "24px 20px" }}>{jobs.length ? "No requests here." : canRequest ? "No requests yet. Use New request when the maintenance team, management, Security or another department asks for work." : "No requests yet."}</li> : null}
           </ul>
         </section>
 
@@ -173,7 +192,7 @@ export function RequestsClient({
               </div>
             </section>
           ) : null}
-          <div className="pill-note t-info"><Inbox size={16} /><span>{canManage ? <>Anything a Resident Officer reports goes straight to the <b>Ticket Board</b>. Use <b>New request</b> for everything else.</> : isHoO ? "As Head of Operations you see every request and what was spent on it. Only the Manager, Supervisor or Admin can create requests or record costs." : "You can see every request and work on those for your unit. Only the Manager, Supervisor or Admin can create requests or record costs."}</span></div>
+          <div className="pill-note t-info"><Inbox size={16} /><span>{viewOnly ? "You can see every request and what was spent on it. The Supervisor, the Admin and technicians log requests; the Supervisor or Admin records costs." : canManage ? <>Anything a Resident Officer reports goes straight to the <b>Ticket Board</b>. Use <b>New request</b> for everything else.</> : <>Anything a Resident Officer reports goes straight to the <b>Ticket Board</b>. Use <b>New request</b> for work someone asks you for. The Supervisor assigns units and records costs.</>}</span></div>
         </div>
       </div>
 

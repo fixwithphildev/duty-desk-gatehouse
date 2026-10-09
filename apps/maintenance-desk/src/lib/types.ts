@@ -24,15 +24,25 @@ export const UNIT_COLOR: Record<string, string> = {
 // Tickets filed before the units existed say "Engineering": they need a unit.
 export const LEGACY_UNITS = ["Engineering"];
 
-// Manager, Supervisor and Admin run the desk: requests, costs, funding,
-// assigning units and voiding mistakes.
-export const MD_MANAGE_ROLES: MDRole[] = ["maintenance_manager", "maintenance_supervisor", "super_admin"];
-// Head of Operations also sees the money (Costs, Funding, Spending) but changes nothing.
-export const MD_MONEY_ROLES: MDRole[] = [...MD_MANAGE_ROLES, "head_of_operations"];
-// Who starts and finishes jobs (recording who did it and when).
+// Who can do what (the user's decision, 9 Oct 2026):
+//  - Admin: everything, including staff accounts.
+//  - Supervisor: everything except staff accounts.
+//  - Maintenance Manager and Head of Operations: see every page, money
+//    included, and change nothing.
+//  - Technician: every unit's jobs and requests (start, finish, photos, log a
+//    request), but no voiding, assigning units, money pages or staff accounts.
+
+// Supervisor and Admin run the desk: assigning units, voiding mistakes,
+// reopening a job, and recording costs and money from Finance.
+export const MD_MANAGE_ROLES: MDRole[] = ["maintenance_supervisor", "super_admin"];
+// The money pages (Costs, Funding, Spending). The Manager and Head of Operations only look.
+export const MD_MONEY_ROLES: MDRole[] = [...MD_MANAGE_ROLES, "maintenance_manager", "head_of_operations"];
+// Who starts and finishes jobs (recording who did it and when), on any unit.
 export const MD_WORK_ROLES: MDRole[] = [...MD_MANAGE_ROLES, "maintenance_technician"];
-// Who can open Staff Accounts.
-export const MD_STAFF_VIEW_ROLES: MDRole[] = MD_MANAGE_ROLES;
+// Who logs a new request.
+export const MD_REQUEST_ROLES: MDRole[] = [...MD_MANAGE_ROLES, "maintenance_technician"];
+// Who can open Staff Accounts (to look; only the Admin changes anything there).
+export const MD_STAFF_VIEW_ROLES: MDRole[] = ["super_admin", "maintenance_supervisor", "maintenance_manager", "head_of_operations"];
 
 const ALL_ROLES: MDRole[] = ["maintenance_technician", "maintenance_supervisor", "maintenance_manager", "head_of_operations", "super_admin"];
 
@@ -41,13 +51,9 @@ export function creatableRolesFor(actorRole: MDRole): MDRole[] {
   return actorRole === "super_admin" ? ALL_ROLES : [];
 }
 
-// Accounts this role can reset, unlock and switch off, so a forgotten code
-// doesn't have to wait for the Admin.
+// Accounts this role can reset, unlock and switch off: the Admin only, as in Duty Desk.
 export function manageableRolesFor(actorRole: MDRole): MDRole[] {
-  if (actorRole === "super_admin") return ALL_ROLES;
-  if (actorRole === "maintenance_manager") return ["maintenance_supervisor", "maintenance_technician"];
-  if (actorRole === "maintenance_supervisor") return ["maintenance_technician"];
-  return [];
+  return actorRole === "super_admin" ? ALL_ROLES : [];
 }
 
 export function canManageAccount(actorRole: MDRole, targetRole: MDRole): boolean {

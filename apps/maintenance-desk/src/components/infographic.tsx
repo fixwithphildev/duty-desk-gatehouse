@@ -75,8 +75,9 @@ export function DonutCard({ parts, centre, sub, fmt = (v: number) => String(v) }
   );
 }
 
-// Simple labelled columns (check-outs per day).
-export function Columns({ cols }: { cols: { label: string; v: number; title: string }[] }) {
+// Simple labelled columns (check-outs per day, spending per week). `hi` is the
+// column drawn in the accent colour (today, this week); `fmt` writes each value.
+export function Columns({ cols, hi = 0, fmt = (v: number) => String(v) }: { cols: { label: string; v: number; title: string }[]; hi?: number; fmt?: (v: number) => string }) {
   const CW = 420, CH = 170, mx = Math.max(1, ...cols.map((c) => c.v)), cbw = CW / Math.max(1, cols.length);
   return (
     <svg viewBox={`0 0 ${CW} ${CH}`} width="100%" role="img" aria-label={cols.map((c) => c.title).join(", ")}>
@@ -85,8 +86,8 @@ export function Columns({ cols }: { cols: { label: string; v: number; title: str
         return (
           <g key={c.label}>
             <title>{c.title}</title>
-            <rect x={x} y={CH - 26 - h} width={w} height={Math.max(h, 2)} rx="4" fill={i === 0 ? "var(--acc)" : "var(--cat2)"} />
-            <text x={x + w / 2} y={CH - 32 - h} textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--text)">{c.v}</text>
+            <rect x={x} y={CH - 26 - h} width={w} height={Math.max(h, 2)} rx="4" fill={i === hi ? "var(--acc)" : "var(--cat2)"} />
+            <text x={x + w / 2} y={CH - 32 - h} textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--text)">{fmt(c.v)}</text>
             <text className="chart-axis" x={x + w / 2} y={CH - 8} textAnchor="middle">{c.label}</text>
           </g>
         );

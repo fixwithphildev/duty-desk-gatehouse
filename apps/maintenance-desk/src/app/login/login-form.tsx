@@ -75,7 +75,7 @@ export function LoginForm() {
             <input type="checkbox" name="persistent" /> Keep me signed in on this device (personal phones only)
           </label>
           <SubmitButton />
-          <span className="hint" style={{ textAlign: "center" }}>Forgot your usercode? Ask the Admin, the Manager or the Supervisor to reset it.</span>
+          <span className="hint" style={{ textAlign: "center" }}>Forgot your usercode? Ask the Admin to reset it.</span>
         </form>
       </section>
     </div>

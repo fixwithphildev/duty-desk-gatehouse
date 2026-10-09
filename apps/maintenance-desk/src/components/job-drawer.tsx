@@ -73,7 +73,8 @@ export function JobDrawer({
 
   if (!job) return null;
   const crew = team[job.unit] ?? [];
-  const mineToWork = canWorkAny && (canManage || (me.isTechnician && me.unit === job.unit));
+  // Any technician can work any unit's job; the Manager and Head of Operations only look.
+  const mineToWork = canWorkAny;
   const si = ["Reported", "In Progress", "Resolved"].indexOf(job.status);
 
   const openStep = (s: "start" | "resolve") => {
@@ -116,7 +117,7 @@ export function JobDrawer({
       {canManage && !job.void ? <button type="button" className="btn btn-ghost" onClick={() => { setReason(""); setStep("void"); }}><Ban size={15} /> Void</button> : null}
       <span style={{ flex: 1 }} />
       {job.void ? <Badge tone="neu" dot={false}>Voided</Badge>
-        : !mineToWork ? <span className="hint">{canWorkAny ? `Only ${job.unit}, the Manager or the Supervisor can work on this.` : `View only · ${job.status === "Resolved" ? "finished" : job.status === "In Progress" ? "being worked on" : "not started yet"}`}</span>
+        : !mineToWork ? <span className="hint">{`View only · ${job.status === "Resolved" ? "finished" : job.status === "In Progress" ? "being worked on" : "not started yet"}`}</span>
         : step ? null
         : (
           <>
@@ -147,7 +148,7 @@ export function JobDrawer({
       ) : null}
 
       {job.needsUnit ? (
-        <div className="pill-note t-warn"><Wrench size={16} /><span>This job was filed under “{job.unit}” before the units existed. {canManage ? "Choose the unit that will do it:" : "The Manager or Supervisor will choose the unit that does it."}</span></div>
+        <div className="pill-note t-warn"><Wrench size={16} /><span>This job was filed under “{job.unit}” before the units existed. {canManage ? "Choose the unit that will do it:" : "The Supervisor will choose the unit that does it."}</span></div>
       ) : null}
       {canManage && !job.void && job.status !== "Resolved" ? (
         <div className="field">

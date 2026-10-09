@@ -3,10 +3,9 @@
 import { guarded } from "@/lib/action";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
-import { isUnit, MD_MANAGE_ROLES, MD_PRIORITIES, MD_WORK_ROLES, REQUEST_ROLES, type TicketPriority } from "@/lib/types";
+import { isUnit, MD_MANAGE_ROLES, MD_PRIORITIES, MD_REQUEST_ROLES, MD_WORK_ROLES, REQUEST_ROLES, type TicketPriority } from "@/lib/types";
 import { assignUnit, createRequest, fillStartIfMissing, getTicket, getTicketPhotoUrls, recordWork, uploadTicketPhoto, voidTicket } from "@/lib/data/tickets";
 import { addPurchase, markNoPurchase } from "@/lib/data/expenses";
-import { getMyUnit } from "@/lib/data/desk";
 import { findApartment } from "@/lib/apartments";
 
 const refresh = () => {
@@ -26,10 +25,7 @@ async function jobForWork(id: string) {
   const session = await requireRole(MD_WORK_ROLES);
   const job = await getTicket(id);
   if (!job || job.void) throw new Error("That job isn’t there any more.");
-  if (session.role === "maintenance_technician") {
-    const unit = await getMyUnit(session.staffId);
-    if (!unit || unit !== job.assigned_to) throw new Error(`This job belongs to ${job.assigned_to}. Only that unit, the Manager or the Supervisor can work on it.`);
-  }
+  // Any technician can work any unit's job (the user's decision, 9 Oct 2026).
   return { session, job };
 }
 
@@ -119,7 +115,7 @@ async function createRequestAction__run(input: {
   unit: string;
   priority: string;
 }): Promise<{ id: string }> {
-  const session = await requireRole(MD_MANAGE_ROLES);
+  const session = await requireRole(MD_REQUEST_ROLES);
   const name = input.name.trim(), what = input.what.trim(), rawArea = input.area.trim();
   if (!name) throw new Error(input.fromMaintenance ? "Choose who in Maintenance is asking." : "Say who is asking.");
   if (!rawArea) throw new Error("Say where the work is.");

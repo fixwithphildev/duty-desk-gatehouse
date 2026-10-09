@@ -219,7 +219,7 @@ export function FundingClient({ jobs, officers, canManage, today, initialJob }: 
             </div>
           </section>
         ) : (
-          <div className="pill-note t-info"><Banknote size={16} /><span>View only. The Manager, Supervisor or Admin records money from Finance.</span></div>
+          <div className="pill-note t-info"><Banknote size={16} /><span>View only. The Supervisor or Admin records money from Finance.</span></div>
         )}
         <section className="card">
           <div className="card-h"><h3>How it works</h3></div>

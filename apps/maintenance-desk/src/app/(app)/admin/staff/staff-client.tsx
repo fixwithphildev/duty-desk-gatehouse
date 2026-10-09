@@ -94,7 +94,7 @@ export function StaffClient({ accounts, loginEvents, lastSeen, actorRole, me }: 
 
       <div className="pill-note t-info">
         <ShieldCheck size={16} />
-        <span>{actorRole === "super_admin" ? "As Admin you add every account, and can reset a code or switch off any account." : canReset.length ? <>Only the Admin adds new accounts. You can reset a code, unlock or switch off: <b>{canReset.join(", ")}</b>.</> : "You can see every account. Only the Admin adds accounts."}</span>
+        <span>{actorRole === "super_admin" ? "As Admin you add every account, and can reset a code or switch off any account." : canReset.length ? <>Only the Admin adds new accounts. You can reset a code, unlock or switch off: <b>{canReset.join(", ")}</b>.</> : "You can see every account. Only the Admin adds accounts, resets a code or switches an account off."}</span>
       </div>
       {actError ? <div className="err-note" role="alert">{actError}</div> : null}
 

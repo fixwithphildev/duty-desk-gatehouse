@@ -24,11 +24,11 @@ export const MD_NAV: NavItem[] = [
 const WORK = ["/dashboard", "/board", "/requests", "/tickets", "/account"];
 const MONEY = ["/costs", "/funding", "/spending"];
 
-// Technicians work the jobs; the money pages are for the Manager, Supervisor,
-// Admin and (view only) Head of Operations.
+// Technicians work the jobs; the money pages are for the Supervisor and Admin,
+// and (to look only) the Manager and Head of Operations.
 export const MD_ROLE_ALLOWED_PREFIXES: Record<MDRole, string[]> = {
   maintenance_technician: WORK,
-  head_of_operations: [...WORK, ...MONEY],
+  head_of_operations: [...WORK, ...MONEY, "/admin"],
   maintenance_supervisor: [...WORK, ...MONEY, "/admin"],
   maintenance_manager: [...WORK, ...MONEY, "/admin"],
   super_admin: [...WORK, ...MONEY, "/admin"],
