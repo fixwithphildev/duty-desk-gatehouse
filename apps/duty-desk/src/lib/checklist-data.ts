@@ -101,6 +101,9 @@ export const DD_TICKET_DEPTS = [...DD_MAINTENANCE_UNITS, "ICT", "Housekeeping"];
 // Teams a complaint can be assigned to: the Resident Officers themselves, or a maintenance department.
 export const DD_COMPLAINT_TEAMS = ["Resident Officers", ...DD_TICKET_DEPTS];
 export const DD_TICKET_STATUSES = ["Reported", "In Progress", "Resolved"] as const;
+// Most reasons an officer gives at once when putting an apartment under maintenance; the
+// photos all travel in one upload.
+export const DD_MAX_MAINTENANCE_REASONS = 6;
 
 // Which department a flagged checklist item usually goes to (the officer can
 // choose another on the item). Fixed equipment goes to the maintenance unit

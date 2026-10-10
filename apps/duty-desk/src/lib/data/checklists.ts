@@ -43,23 +43,23 @@ export interface ChecklistItemRow {
 
 // Submitted checklists only. Inspections still in progress are a separate
 // list (getChecklistsInProgress below) so they never count towards an
-// apartment's Ready/Not Ready status, reports or exports.
-export async function getAllChecklists(): Promise<ChecklistRow[]> {
+// apartment's Ready/Not Ready status, reports or exports. With sinceDays,
+// only those submitted in the last that many days (the dashboard's chart).
+export async function getAllChecklists(sinceDays?: number): Promise<ChecklistRow[]> {
   // Explicit FK names — apartment_checklists has foreign keys into
   // staff_accounts for prepared_by, voided_by and taken_over_from, so a bare
   // "staff_accounts(display_name)" is ambiguous to PostgREST.
-  const rows = await allRows((from, to) =>
-    supabaseAdmin
+  const rows = await allRows((from, to) => {
+    let q = supabaseAdmin
       .from("apartment_checklists")
       .select(
         "id, apartment, type, prepared_by, status, overall_ready, created_at, void, void_reason, voided_at, " +
           "staff_accounts!apartment_checklists_prepared_by_fkey(display_name), voider:staff_accounts!apartment_checklists_voided_by_fkey(display_name)"
       )
-      .eq("status", "submitted")
-      .order("created_at", { ascending: false })
-      .order("id")
-      .range(from, to)
-  );
+      .eq("status", "submitted");
+    if (sinceDays) q = q.gte("created_at", daysAgoIso(sinceDays));
+    return q.order("created_at", { ascending: false }).order("id").range(from, to);
+  });
   return rows.map((row) => ({
     id: row.id as string,
     apartment: row.apartment as string,

@@ -8,7 +8,8 @@ import { getComplaints, getComplaintsDailyTrend } from "@/lib/data/complaints";
 import { getMaintenanceTickets, getTicketsDailyTrend } from "@/lib/data/maintenance";
 import { getTasks } from "@/lib/data/tasks";
 import { getDutyLog, getLastHandover } from "@/lib/data/dutylog";
-import { getReadiness, countByStatus, leavingToday, todoList } from "@/lib/data/readiness";
+import { getReadiness, countByStatus, leavingToday, openReasons, todoList, todoNote } from "@/lib/data/readiness";
+import { STATUS_LABEL, STATUS_TONE } from "@/lib/status";
 import { aptShort } from "@/lib/apartments";
 import { byDue, taskState } from "@/lib/tasks";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -26,7 +27,8 @@ export default async function DashboardPage() {
 
   const [readiness, checklists, complaints, tickets, tasks, handover, log, complaintTrend, ticketTrend] = await Promise.all([
     getReadiness(),
-    getAllChecklists(),
+    // Only the chart's 14 days (and a day's margin), not every checklist ever submitted.
+    getAllChecklists(15),
     getComplaints(),
     getMaintenanceTickets(),
     getTasks(),
@@ -38,7 +40,7 @@ export default async function DashboardPage() {
 
   const c = countByStatus(readiness), todo = todoList(readiness), empty = readiness.length - c.occupied;
   const inspecting = readiness.filter((r) => r.status === "inspecting");
-  const repairs = readiness.filter((r) => r.status === "notready");
+  const repairs = readiness.filter((r) => r.status === "maintenance");
   const leaving = leavingToday(readiness);
   const myDraft = readiness.find((r) => r.draft?.prepared_by === session.staffId);
   const openComplaints = complaints.filter((x) => !x.void && x.status !== "Resolved");
@@ -96,7 +98,7 @@ export default async function DashboardPage() {
 
       <div className="kpis">
         <Kpi icon={DoorOpen} label="Ready to sell" value={c.ready} unit={`/ ${empty} empty`} ctx={c.recheck ? `${c.recheck} re-check due` : "front desk can sell these"} data={readyTrend} sparkTone="ok" />
-        <Kpi icon={ClipboardList} label="Checklists to do" value={todo.length} ctx={`${c.unchecked} need checklist · ${c.recheck} re-check`} data={prepTrend} tile={todo.length ? "warn" : ""} />
+        <Kpi icon={ClipboardList} label="Checklists to do" value={todo.length} ctx={`${c.repaired ? `${c.repaired} repaired · ` : ""}${c.unchecked} need checklist · ${c.recheck} re-check`} data={prepTrend} tile={todo.length ? "warn" : ""} />
         <Kpi icon={MessageSquareWarning} label="Open complaints" value={openComplaints.length} ctx={oldestComplaint ? `oldest ${ageText(oldestComplaint.created_at)}${oldestComplaint.room ? " · " + oldestComplaint.room : ""}` : "none open"} data={complaintTrend.map((x) => x.value)} tile={openComplaints.length ? "warn" : ""} />
         <Kpi icon={Wrench} label="Open maintenance" value={openTickets.length} ctx={`${openTickets.filter((t) => t.priority === "High").length} high priority`} data={ticketTrend.map((x) => x.value)} />
         <Kpi icon={ListTodo} label="Tasks to do" value={pendingTasks.length} unit={`/ ${liveTasks.length}`} ctx={late.length ? `${late.length} overdue` : nextTask ? `next ${nextTask.due_time} · ${nextTask.description}` : "nothing due"} tile={late.length ? "bad" : ""} />
@@ -112,8 +114,8 @@ export default async function DashboardPage() {
               return (
                 <div key={label} className="bldg">
                   <div><b>{label}</b><span>{list.length} {label === "Main Building" ? "apartments" : "studios"}</span></div>
-                  <div className="sbar" role="img" aria-label={`${label}: ${k.ready} ready to sell, ${k.recheck} re-check due, ${k.notready} not ready, ${k.inspecting} inspecting, ${k.unchecked} need a checklist, ${k.occupied} occupied`}>
-                    {seg(k.ready, "s-ok", "ready to sell")}{seg(k.recheck, "s-warn", "re-check due")}{seg(k.notready, "s-bad", "not ready")}{seg(k.inspecting, "s-info", "inspecting")}{seg(k.unchecked, "s-un", "need a checklist")}{seg(k.occupied, "s-neu", "occupied")}
+                  <div className="sbar" role="img" aria-label={`${label}: ${k.ready} ready to sell, ${k.recheck} re-check due, ${k.maintenance} under maintenance, ${k.repaired} repairs done, ${k.notready} not ready, ${k.inspecting} inspecting, ${k.unchecked} need a checklist, ${k.occupied} occupied`}>
+                    {seg(k.ready, "s-ok", "ready to sell")}{seg(k.recheck, "s-warn", "re-check due")}{seg(k.maintenance, "s-maint", "under maintenance")}{seg(k.repaired, "s-maint2", "repairs done")}{seg(k.notready, "s-bad", "not ready")}{seg(k.inspecting, "s-info", "inspecting")}{seg(k.unchecked, "s-un", "need a checklist")}{seg(k.occupied, "s-neu", "occupied")}
                   </div>
                   <span className="muted">{k.ready} of {list.length - k.occupied} empty ready</span>
                 </div>
@@ -121,7 +123,8 @@ export default async function DashboardPage() {
             })}
             <div className="legend">
               <span><i style={{ background: "var(--ok)" }} />Ready to sell {c.ready}</span><span><i style={{ background: "var(--warn)" }} />Re-check {c.recheck}</span>
-              <span><i style={{ background: "var(--bad)" }} />Not ready {c.notready}</span><span><i style={{ background: "var(--info)" }} />Inspecting {c.inspecting}</span>
+              <span><i style={{ background: "var(--maint)" }} />Under maintenance {c.maintenance}</span><span><i className="s-maint2" />Repairs done {c.repaired}</span>
+              {c.notready ? <span><i style={{ background: "var(--bad)" }} />Not ready {c.notready}</span> : null}<span><i style={{ background: "var(--info)" }} />Inspecting {c.inspecting}</span>
               <span><i style={{ border: "1px dashed var(--line-strong)" }} />Needs checklist {c.unchecked}</span><span><i style={{ background: "var(--neu)" }} />Occupied {c.occupied}</span>
             </div>
             <hr className="sep" />
@@ -147,29 +150,33 @@ export default async function DashboardPage() {
               {todo.slice(0, 6).map((r) => (
                 <li key={r.apartment.name}>
                   <Link href={`/board?apt=${encodeURIComponent(r.apartment.name)}`} className="row click" style={{ padding: "9px 0", textDecoration: "none", color: "inherit" }}>
-                    <span className={`stripe ${r.status === "recheck" ? "s-warn" : "s-neu"}`} />
-                    <div className="m"><b>{r.apartment.name}</b><span>{r.status === "recheck" ? "Ready check expired, still unsold" : r.lastCheckout ? `Guest checked out ${whenText(r.lastCheckout.at)}` : "No check-in prep yet"}</span></div>
+                    <span className={`stripe s-${STATUS_TONE[r.status]}`} />
+                    <div className="m"><b>{r.apartment.name}</b><span>{todoNote(r)}</span></div>
                     <span className="age">{aptShort(r.apartment)}</span>
-                    <Badge tone={r.status === "recheck" ? "warn" : "neu"} dot={r.status === "recheck"}>{r.status === "recheck" ? "Re-check" : "Needs checklist"}</Badge>
+                    <Badge tone={STATUS_TONE[r.status]} dot={r.status !== "unchecked"}>{r.status === "recheck" ? "Re-check" : STATUS_LABEL[r.status]}</Badge>
                   </Link>
                 </li>
               ))}
               {todo.length > 6 ? <li className="hint" style={{ padding: "6px 0" }}><Link href="/board" className="link">and {todo.length - 6} more on the board <ArrowRight size={12} /></Link></li> : null}
               {todo.length === 0 ? <li className="empty" style={{ padding: "10px 0" }}>Nothing waiting for a check-in prep.</li> : null}
             </ul>
-            <span className="over">Waiting on repairs · {repairs.length}</span>
+            <span className="over">Under maintenance · {repairs.length}</span>
             <ul className="list">
-              {repairs.slice(0, 6).map((r) => (
-                <li key={r.apartment.name}>
-                  <Link href={`/board?apt=${encodeURIComponent(r.apartment.name)}`} className="row click" style={{ padding: "9px 0", textDecoration: "none", color: "inherit" }}>
-                    <span className="stripe s-bad" />
-                    <div className="m"><b>{r.apartment.name}</b><span>{r.flags.length ? r.flags.map((f) => `${f.item} ${f.problem.toLowerCase()}`).join(", ") : r.lastPrep ? `Not ready since ${whenText(r.lastPrep.at)}` : "Problem reported"}</span></div>
-                    <span className="age">{aptShort(r.apartment)}</span>
-                    <Badge tone="bad">{plural(r.flags.length, "flag")}</Badge>
-                  </Link>
-                </li>
-              ))}
-              {repairs.length === 0 ? <li className="empty" style={{ padding: "10px 0" }}>Nothing waiting on repairs.</li> : null}
+              {repairs.slice(0, 6).map((r) => {
+                const open = openReasons(r);
+                return (
+                  <li key={r.apartment.name}>
+                    <Link href={`/board?apt=${encodeURIComponent(r.apartment.name)}`} className="row click" style={{ padding: "9px 0", textDecoration: "none", color: "inherit" }}>
+                      <span className="stripe s-maint" />
+                      <div className="m"><b>{r.apartment.name}</b><span>{open.map((x) => x.item).join(", ")} · since {whenText(r.reasons[r.reasons.length - 1].at)}</span></div>
+                      <span className="age">{aptShort(r.apartment)}</span>
+                      <Badge tone="maint">{plural(open.length, "repair")} open</Badge>
+                    </Link>
+                  </li>
+                );
+              })}
+              {repairs.length > 6 ? <li className="hint" style={{ padding: "6px 0" }}><Link href="/board" className="link">and {repairs.length - 6} more on the board <ArrowRight size={12} /></Link></li> : null}
+              {repairs.length === 0 ? <li className="empty" style={{ padding: "10px 0" }}>No apartment is under maintenance.</li> : null}
             </ul>
             {inspecting.length ? (
               <div className="hstack"><span className="over">Inspecting now</span>{inspecting.map((r) => <span key={r.apartment.name} className="badge t-info"><span className="d" />{r.apartment.name} · {r.draft!.prepared_by_name}</span>)}</div>

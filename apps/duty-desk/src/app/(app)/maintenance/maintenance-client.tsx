@@ -172,7 +172,7 @@ export function MaintenanceClient({
 
   const tabN = (k: Tab) => tickets.filter((t) => inTab(t, k)).length;
   const si = sel ? STAGES.indexOf(sel.status) : 0;
-  const blocked = !!sel && !sel.void && apt?.status === "notready";
+  const blocked = !!sel && !sel.void && (apt?.status === "maintenance" || apt?.status === "repaired" || apt?.status === "notready");
 
   return (
     <>
@@ -224,7 +224,7 @@ export function MaintenanceClient({
                 <div className="hstack">
                   <Badge tone={priTone(sel.priority)}>{sel.priority} priority</Badge>
                   {sel.void ? <Badge tone="neu" dot={false}>Voided</Badge> : <Badge tone={stTone(sel.status)}>{stLabel(sel.status)}</Badge>}
-                  {blocked ? <Badge tone="bad">{sel.apartment} can’t be sold</Badge> : null}
+                  {blocked ? <Badge tone={apt?.status === "notready" ? "bad" : "maint"}>{apt?.status === "maintenance" ? `${sel.apartment} under maintenance` : `${sel.apartment} can’t be sold`}</Badge> : null}
                 </div>
               </div>
             </div>
@@ -272,7 +272,7 @@ export function MaintenanceClient({
 
               {sel.status === "Resolved" && !sel.void && apt?.repairsDone && sel.apartment ? (
                 <>
-                  <div className="pill-note t-info"><ClipboardCheck size={16} /><span>All repairs in {sel.apartment} are done. It stays Not ready until a Resident Officer submits a check-in prep as Ready.</span></div>
+                  <div className="pill-note t-info"><ClipboardCheck size={16} /><span>All repairs in {sel.apartment} are done. It shows Repairs done, and can’t be sold until a Resident Officer submits a check-in prep as Ready.</span></div>
                   {canPrep ? <div><StartPrepButton apartment={sel.apartment} draft={apt.draft} primary /></div> : null}
                 </>
               ) : null}
@@ -333,7 +333,7 @@ export function MaintenanceClient({
           <Camera size={15} /><span>{photo ? photo.name : "Add photo"}</span>
           <input type="file" accept="image/*" capture="environment" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
         </label>
-        {formApt ? <label className="chk"><input type="checkbox" checked={form.blocksSale} onChange={(e) => setForm({ ...form, blocksSale: e.target.checked })} /> If {formApt.name} is empty, stop it being sold until it’s fixed and checked again</label> : null}
+        {formApt ? <label className="chk"><input type="checkbox" checked={form.blocksSale} onChange={(e) => setForm({ ...form, blocksSale: e.target.checked })} /> Put {formApt.name} under maintenance, so it can’t be sold until it’s fixed and checked again</label> : null}
         {error ? <div className="err-note" role="alert">{error}</div> : null}
         <span className="hint">Logged by {me}</span>
       </Drawer>

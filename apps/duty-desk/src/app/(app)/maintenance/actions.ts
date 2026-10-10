@@ -1,11 +1,12 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { guarded } from "@/lib/action";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { DD_CAN_EDIT_TICKETS, DD_CAN_VOID } from "@/lib/types";
-import { DD_PRIORITIES, DD_TICKET_DEPTS } from "@/lib/checklist-data";
+import { DD_MAX_MAINTENANCE_REASONS, DD_PRIORITIES, DD_TICKET_DEPTS } from "@/lib/checklist-data";
 import { findApartment } from "@/lib/apartments";
 import { getTicketPhotoUrls, uploadTicketPhoto } from "@/lib/data/maintenance";
 
@@ -13,12 +14,64 @@ const refresh = () => {
   revalidatePath("/maintenance");
   revalidatePath("/dashboard");
   revalidatePath("/board");
+  revalidatePath("/frontdesk");
   revalidateTag("checklists");
 };
 
-// A new repair ticket. When the area is an apartment and "stop selling it"
-// is ticked (a problem reported on the Readiness Board), the apartment shows
-// Not ready until it's fixed and a new check-in prep is submitted Ready.
+// Puts an apartment under maintenance from the Readiness Board, for one or more reasons. Each
+// reason is its own repair ticket for its team, and stops front desk selling the apartment
+// until it's fixed and a new check-in prep is submitted Ready. Who and when come from the ticket.
+async function putUnderMaintenanceAction__run(formData: FormData): Promise<{ ids: string[]; photosFailed: number }> {
+  const session = await requireRole(DD_CAN_EDIT_TICKETS);
+  const apt = findApartment(String(formData.get("apartment") ?? ""));
+  if (!apt) throw new Error("Choose the apartment from the list.");
+  let reasons: { issue?: unknown; dept?: unknown; priority?: unknown; notes?: unknown }[];
+  try {
+    reasons = JSON.parse(String(formData.get("reasons") ?? "[]"));
+  } catch {
+    reasons = [];
+  }
+  if (!Array.isArray(reasons) || !reasons.length) throw new Error("Say what’s wrong.");
+  if (reasons.length > DD_MAX_MAINTENANCE_REASONS) throw new Error(`Give at most ${DD_MAX_MAINTENANCE_REASONS} reasons at a time.`);
+  const rows = reasons.map((r, i) => {
+    const issue = String(r.issue ?? "").trim(), dept = String(r.dept ?? ""), priority = String(r.priority ?? "") as (typeof DD_PRIORITIES)[number];
+    const which = reasons.length > 1 ? ` for reason ${i + 1}` : "";
+    if (!issue) throw new Error(`Say what’s wrong${which}.`);
+    if (!DD_TICKET_DEPTS.includes(dept)) throw new Error(`Choose who it goes to${which}.`);
+    if (!DD_PRIORITIES.includes(priority)) throw new Error(`Choose a priority${which}.`);
+    return {
+      id: randomUUID(),
+      area: `Apartment ${apt.name}`,
+      issue_type: issue,
+      assigned_to: dept,
+      priority,
+      status: "Reported",
+      source: "report",
+      notes: String(r.notes ?? "").trim() || null,
+      blocks_sale: true,
+      created_by: session.staffId,
+      logged_by_name: session.displayName,
+    };
+  });
+
+  // All the tickets in one go, so it's every reason or none.
+  const { error } = await supabaseAdmin.from("maintenance_tickets").insert(rows);
+  if (error) throw new Error(error.message);
+
+  // A photo that fails doesn't undo the tickets; the officer is told and can add it on the ticket.
+  const uploads = await Promise.allSettled(
+    rows.map(async (row, i) => {
+      const photo = formData.get(`photo${i}`) as File | null;
+      if (photo && photo.size > 0) await uploadTicketPhoto(row.id, session.staffId, photo);
+    })
+  );
+  refresh();
+  return { ids: rows.map((r) => r.id), photosFailed: uploads.filter((u) => u.status === "rejected").length };
+}
+
+// A new repair ticket. When the area is an apartment and "put it under
+// maintenance" is ticked, the apartment shows Under maintenance until it's
+// fixed and a new check-in prep is submitted Ready.
 async function createTicketAction__run(formData: FormData): Promise<{ id: string }> {
   const session = await requireRole(DD_CAN_EDIT_TICKETS);
   const rawArea = String(formData.get("area") ?? "").trim();
@@ -111,6 +164,10 @@ async function voidTicketAction__run(id: string, reason: string) {
 
 export async function createTicketAction(...args: Parameters<typeof createTicketAction__run>) {
   return guarded(() => createTicketAction__run(...args));
+}
+
+export async function putUnderMaintenanceAction(...args: Parameters<typeof putUnderMaintenanceAction__run>) {
+  return guarded(() => putUnderMaintenanceAction__run(...args));
 }
 
 export async function updateTicketStatusAction(...args: Parameters<typeof updateTicketStatusAction__run>) {

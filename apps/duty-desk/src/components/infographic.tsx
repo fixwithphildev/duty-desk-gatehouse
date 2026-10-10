@@ -9,6 +9,8 @@ export const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0)
 export const STATUS_COLOR: Record<string, string> = {
   ready: "var(--ok)",
   recheck: "var(--warn)",
+  maintenance: "var(--maint)",
+  repaired: "color-mix(in srgb, var(--maint) 45%, transparent)",
   notready: "var(--bad)",
   inspecting: "var(--info)",
   unchecked: "var(--line-strong)",
@@ -163,7 +165,7 @@ export function DotMatrix({ apts }: { apts: BoardApt[] }) {
 }
 
 export function StatusLegend({ counts }: { counts: Record<string, number> }) {
-  const items: [string, string][] = [["ready", "Ready to sell"], ["recheck", "Re-check"], ["notready", "Not ready"], ["inspecting", "Inspecting"], ["unchecked", "Needs checklist"], ["occupied", "Occupied"]];
+  const items: [string, string][] = [["ready", "Ready to sell"], ["recheck", "Re-check"], ["maintenance", "Under maintenance"], ["repaired", "Repairs done"], ["notready", "Not ready"], ["inspecting", "Inspecting"], ["unchecked", "Needs checklist"], ["occupied", "Occupied"]];
   return (
     <div className="legend">
       {items.map(([k, l]) => <span key={k}><i style={k === "unchecked" ? { border: "1px dashed var(--line-strong)" } : { background: STATUS_COLOR[k] }} />{l} {counts[k] ?? 0}</span>)}

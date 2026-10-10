@@ -3,7 +3,8 @@ import { Plus } from "lucide-react";
 import { requirePageAccess } from "@/lib/auth";
 import { DD_CAN_EDIT_CHECKLISTS } from "@/lib/types";
 import { getAllChecklists, getChecklistIssues, getChecklistsInProgress } from "@/lib/data/checklists";
-import { getReadiness, todoList } from "@/lib/data/readiness";
+import { getReadiness, todoList, todoNote } from "@/lib/data/readiness";
+import { STATUS_TONE } from "@/lib/status";
 import { aptShort, findApartment } from "@/lib/apartments";
 import { DD_ALL_ITEMS } from "@/lib/checklist-data";
 import { whenText, clockTime, lagosDayKey } from "@/lib/time";
@@ -54,8 +55,8 @@ export default async function ChecklistsPage({ searchParams }: { searchParams: R
             ))}
             {todo.slice(0, 8).map((r) => (
               <li key={r.apartment.name} className="row">
-                <span className={`stripe ${r.status === "recheck" ? "s-warn" : "s-neu"}`} />
-                <div className="m"><b>{r.apartment.name}</b><span>{r.status === "recheck" ? "Ready check expired, still unsold" : r.lastCheckout ? `Guest checked out ${whenText(r.lastCheckout.at)}` : "No check-in prep yet"} · {aptShort(r.apartment)}</span></div>
+                <span className={`stripe s-${STATUS_TONE[r.status]}`} />
+                <div className="m"><b>{r.apartment.name}</b><span>{todoNote(r)} · {aptShort(r.apartment)}</span></div>
                 {canCreate ? <StartPrepButton apartment={r.apartment.name} draft={null} /> : null}
               </li>
             ))}

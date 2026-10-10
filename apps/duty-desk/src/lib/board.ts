@@ -1,9 +1,25 @@
 import "server-only";
 import { aptShort, aptWhere } from "@/lib/apartments";
 import { DD_ALL_ITEMS } from "@/lib/checklist-data";
-import { STATUS_LABEL, READY_DAYS, type Readiness, type ReadyStatus } from "@/lib/data/readiness";
+import { STATUS_LABEL, READY_DAYS, openReasons, type Readiness, type Reason, type ReadyStatus } from "@/lib/data/readiness";
 import { clockTime, dayText, daysAgo, lagosDayKey, shortName, whenText } from "@/lib/time";
 import type { DraftInfo } from "@/components/start-prep-button";
+
+// One reason it can't be sold, as the board and the front desk page show it.
+export interface BoardReason {
+  item: string;
+  problem: string; // "Reported", "Damaged", "Missing", "Not available"
+  note: string | null;
+  from: "report" | "prep";
+  by: string;
+  when: string;
+  prepId: string | null;
+  ticketId: string | null;
+  ref: string | null;
+  team: string | null;
+  repair: "open" | "progress" | "fixed" | "none";
+  repairText: string; // "Waiting for Plumbing & Building", "Being fixed · Musa", "Fixed by Musa · today 14:20"
+}
 
 // One apartment as the Readiness Board, the front desk page and search show it.
 export interface BoardApt {
@@ -17,7 +33,7 @@ export interface BoardApt {
   label: string;
   meta: string; // the small line on the tile
   detail: string; // the sentence in the lookup result
-  flags: { item: string; problem: string; ticketStatus: string | null }[];
+  reasons: BoardReason[];
   draft: DraftInfo | null;
   lastPrepId: string | null;
   // The guest staying, when it's Occupied.
@@ -25,6 +41,17 @@ export interface BoardApt {
 }
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+function toBoardReason(r: Reason): BoardReason {
+  const t = r.ticket;
+  const repair = !t ? "none" : t.status === "Resolved" ? "fixed" : t.status === "In Progress" ? "progress" : "open";
+  const repairText =
+    !t ? "No repair ticket"
+      : t.status === "Resolved" ? `Fixed${t.fixedBy ? ` by ${t.fixedBy}` : ""}${t.fixedAt ? ` · ${whenText(t.fixedAt)}` : ""}`
+      : t.status === "In Progress" ? `Being fixed${t.startedBy ? ` · ${t.startedBy}` : ""}`
+      : `Waiting for ${t.team}`;
+  return { item: r.item, problem: r.problem, note: r.note, from: r.from, by: r.by, when: whenText(r.at), prepId: r.prepId, ticketId: t?.id ?? null, ref: t?.ref ?? null, team: t?.team ?? null, repair, repairText };
+}
 
 export function toBoardApt(r: Readiness, staffId: string): BoardApt {
   const total = DD_ALL_ITEMS.length, p = r.lastPrep, d = r.draft;
@@ -38,12 +65,22 @@ export function toBoardApt(r: Readiness, staffId: string): BoardApt {
       meta = `Ready ${plural(daysAgo(p!.at), "day")} ago`;
       detail = `Submitted Ready ${plural(daysAgo(p!.at), "day")} ago and still unsold. A Ready check-in prep lasts ${READY_DAYS} days; check it again before front desk sells it.`;
       break;
-    case "notready": {
-      const fromPrep = p && !p.ready;
-      meta = r.flags.length ? `${plural(r.flags.length, "flag")}${fromPrep ? ` · ${whenText(p.at)}` : ""}` : fromPrep ? whenText(p.at) : "Problem reported";
-      detail = `${fromPrep ? `Problem found ${whenText(p.at)} by ${p.by}` : "A problem was reported since the last check-in prep"}. Sellable again once repaired and a new check-in prep is submitted Ready.`;
+    case "maintenance": {
+      const open = openReasons(r).length, first = r.reasons[r.reasons.length - 1];
+      meta = `${plural(open, "repair")} open`;
+      detail = `${first.from === "report" ? `Put under maintenance ${whenText(first.at)} by ${first.by}` : `Check-in prep found problems ${whenText(first.at)} (${first.by})`}. Front desk can’t sell it until every repair is fixed and a check-in prep is submitted Ready.`;
       break;
     }
+    case "repaired": {
+      const last = r.reasons.map((x) => x.ticket).filter((t) => t?.fixedAt).sort((x, y) => y!.fixedAt!.localeCompare(x!.fixedAt!))[0];
+      meta = "Needs re-check";
+      detail = `All repairs are done${last ? `, the last ${whenText(last.fixedAt!)}${last.fixedBy ? ` by ${last.fixedBy}` : ""}` : ""}. A Resident Officer needs to do a check-in prep before front desk can sell it.`;
+      break;
+    }
+    case "notready":
+      meta = whenText(p!.at);
+      detail = `Check-in prep submitted Not ready ${whenText(p!.at)} by ${p!.by}, with no repair to wait for. Do a new check-in prep once it’s sorted.`;
+      break;
     case "occupied": {
       const s = r.stay!, gone = s.until ? s.until <= lagosDayKey(new Date().toISOString()) : false;
       meta = s.until ? (gone ? "Leaves today" : `Out ${dayText(s.until)}`) : shortName(s.guest);
@@ -69,10 +106,9 @@ export function toBoardApt(r: Readiness, staffId: string): BoardApt {
     label: STATUS_LABEL[r.status],
     meta,
     detail,
-    flags: r.flags.map((f) => ({ item: f.item, problem: f.problem, ticketStatus: f.ticketStatus })),
+    reasons: r.reasons.map(toBoardReason),
     draft: d ? { id: d.id, by: d.prepared_by_name, mine: d.prepared_by === staffId } : null,
     lastPrepId: p?.id ?? null,
     stay: r.stay ? { id: r.stay.id, guest: r.stay.guest, until: r.stay.until, leavesToday: !!r.stay.until && r.stay.until <= lagosDayKey(new Date().toISOString()) } : null,
   };
 }
-

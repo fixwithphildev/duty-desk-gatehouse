@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 
 // Small Operations Suite building blocks. No hooks, so Server Components can use them directly.
 
-export type Tone = "ok" | "warn" | "bad" | "info" | "neu" | "acc";
+export type Tone = "ok" | "warn" | "bad" | "info" | "neu" | "acc" | "maint";
 
 export function Badge({ tone = "neu", dot = true, children }: { tone?: Tone; dot?: boolean; children: ReactNode }) {
   return <span className={`badge t-${tone}`}>{dot ? <span className="d" /> : null}{children}</span>;

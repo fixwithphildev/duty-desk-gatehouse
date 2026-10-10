@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Search, DoorOpen, DoorClosed, Lock, Bell } from "lucide-react";
+import { Search, DoorOpen, DoorClosed, Lock, Bell, Wrench } from "lucide-react";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { ReasonList } from "@/components/reason-list";
 import { suggestApartments, findApartment } from "@/lib/apartments";
 import type { BoardApt } from "@/lib/board";
 
@@ -20,13 +21,16 @@ export function FrontDeskClient({ apts, justReady, readyDays, initialApt, damage
   const byName = useMemo(() => new Map(apts.map((a) => [a.name, a])), [apts]);
   const ready = apts.filter((a) => a.status === "ready");
   const occupied = apts.filter((a) => a.status === "occupied").length;
+  const maint = apts.filter((a) => a.status === "maintenance").length;
   const typed = q.trim(), found = findApartment(typed), a = found ? byName.get(found.name) : undefined;
   const sugg = typed && !found ? suggestApartments(typed) : [];
   const pick = (name: string) => { setQ(name); setFocus(false); document.getElementById("fd-lookup")?.scrollIntoView({ behavior: "smooth", block: "center" }); };
 
   const why = (x: BoardApt) =>
     x.status === "occupied" ? "A guest is staying"
-      : x.status === "notready" ? "Repair in progress"
+      : x.status === "maintenance" ? "It’s under maintenance until these are fixed and it’s checked again"
+      : x.status === "repaired" ? "The repairs are done, but a Resident Officer needs to check it first"
+      : x.status === "notready" ? "A Resident Officer found it not ready"
       : x.status === "recheck" ? "Its Ready check has expired; it needs checking again"
       : x.status === "inspecting" ? "Being checked by a Resident Officer right now"
       : "Being prepared by the Resident Officer";
@@ -86,7 +90,16 @@ export function FrontDeskClient({ apts, justReady, readyDays, initialApt, damage
           ) : a.status === "ready" ? (
             <div className="res ok"><div className="ri"><DoorOpen size={26} /></div><div className="vstack" style={{ gap: 4 }}><div className="verdict">Yes · ready to sell</div><h3>{a.name}</h3><span style={{ fontSize: 13, color: "var(--text-2)" }}>{a.where}</span><span className="hint">{a.detail.split(". You don’t")[0]}.</span></div></div>
           ) : (
-            <div className="res bad"><div className="ri"><DoorClosed size={26} /></div><div className="vstack" style={{ gap: 4 }}><div className="verdict">No · don’t sell</div><h3>{a.name}</h3><span style={{ fontSize: 13, color: "var(--text-2)" }}>{a.where}</span><span style={{ fontSize: 13, color: "var(--text-2)" }}>{why(a)}. If a guest needs it, call the Resident Officer on duty.</span></div></div>
+            <div className={`res ${a.status === "maintenance" || a.status === "repaired" ? "maint" : "bad"}`}>
+              <div className="ri">{a.status === "maintenance" || a.status === "repaired" ? <Wrench size={26} /> : <DoorClosed size={26} />}</div>
+              <div className="vstack" style={{ gap: 4, flex: 1, minWidth: 0 }}>
+                <div className="verdict">{a.status === "maintenance" ? "No · under maintenance" : "No · don’t sell"}</div>
+                <h3>{a.name}</h3>
+                <span style={{ fontSize: 13, color: "var(--text-2)" }}>{a.where}</span>
+                <span style={{ fontSize: 13, color: "var(--text-2)" }}>{why(a)}. If a guest needs it, call the Resident Officer on duty.</span>
+                {a.status === "maintenance" && a.reasons.length ? <ReasonList reasons={a.reasons} links={false} brief /> : null}
+              </div>
+            </div>
           )}
         </div>
       </section>
@@ -107,7 +120,7 @@ export function FrontDeskClient({ apts, justReady, readyDays, initialApt, damage
 
       <div className="pill-note" style={{ background: "var(--subtle)", border: "1px solid var(--line)" }}>
         <Lock size={16} />
-        <span>{apts.length - ready.length} apartments can’t be sold right now{occupied ? `: ${occupied} occupied and ${apts.length - ready.length - occupied} being checked or repaired` : ""}. If a guest needs one of them, call the Resident Officer on duty.</span>
+        <span>{apts.length - ready.length} apartments can’t be sold right now{occupied || maint ? `: ${[occupied ? `${occupied} occupied` : "", maint ? `${maint} under maintenance` : "", `${apts.length - ready.length - occupied - maint} being checked`].filter(Boolean).join(", ")}` : ""}. If a guest needs one of them, call the Resident Officer on duty.</span>
       </div>
     </>
   );

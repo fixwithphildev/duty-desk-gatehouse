@@ -2,16 +2,16 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Camera, Check, KeyRound, LogOut, Plus, Trash2, Users } from "lucide-react";
+import { Camera, Check, KeyRound, LogOut, Plus, Trash2, Users, Wrench } from "lucide-react";
 import { Drawer } from "@/components/drawer";
 import { Field } from "@/components/ui";
-import { DD_PRIORITIES, DD_TICKET_DEPTS } from "@/lib/checklist-data";
+import { DD_MAX_MAINTENANCE_REASONS, DD_PRIORITIES, DD_TICKET_DEPTS } from "@/lib/checklist-data";
 import { naira, damageTotal } from "@/lib/money";
 import { shrinkPhoto } from "@/lib/photo";
 import { isRedirectError, errorMessage } from "@/lib/utils";
 import { callAction } from "@/lib/action";
 import { checkInAction, checkOutAction } from "@/app/(app)/residents/actions";
-import { createTicketAction } from "@/app/(app)/maintenance/actions";
+import { putUnderMaintenanceAction } from "@/app/(app)/maintenance/actions";
 
 // "2026-10-08T10:15" in the browser's own time, for datetime-local inputs.
 const localInput = (d = new Date()) => {
@@ -180,40 +180,52 @@ export function CheckOutDrawer({ open, onClose, stay, onDone }: { open: boolean;
   );
 }
 
-// Report a problem from the board: opens a repair ticket and stops the apartment being sold.
-export function ReportProblemDrawer({ open, onClose, apartment, occupied, onDone }: { open: boolean; onClose: () => void; apartment: AptOption | null; occupied: boolean; onDone?: (id: string) => void }) {
+type ReasonRow = { issue: string; dept: string; priority: (typeof DD_PRIORITIES)[number]; notes: string; photo: File | null };
+const newReason = (): ReasonRow => ({ issue: "", dept: "General Maintenance", priority: "Medium", notes: "", photo: null });
+// The photos all go in one upload, which the server caps at 4 MB.
+const MAX_PHOTO_BYTES = 3.5 * 1024 * 1024;
+
+// Put an apartment under maintenance from the board, for one or more reasons. Each reason opens
+// a repair ticket for its team, and the apartment can't be sold until they're all fixed and a new
+// check-in prep is submitted Ready. "add" is for one already under maintenance; "occupied" for one
+// with a guest in it (it goes under maintenance once they leave, if the repairs aren't done).
+export function MaintenanceDrawer({ open, onClose, apartment, mode, onDone }: { open: boolean; onClose: () => void; apartment: AptOption | null; mode: "put" | "add" | "occupied"; onDone?: (ids: string[]) => void }) {
   const router = useRouter();
-  const [issue, setIssue] = useState("");
-  const [dept, setDept] = useState("General Maintenance");
-  const [priority, setPriority] = useState<(typeof DD_PRIORITIES)[number]>("Medium");
-  const [notes, setNotes] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [rows, setRows] = useState<ReasonRow[]>([newReason()]);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!open) return;
-    setIssue(""); setDept("General Maintenance"); setPriority("Medium"); setNotes(""); setPhoto(null); setError(null);
+    setRows([newReason()]); setError(null); setSaved(null);
   }, [open]);
+
+  const setRow = (i: number, patch: Partial<ReasonRow>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  // Rows left completely empty are ignored; a row with anything in it needs to say what's wrong.
+  const filled = rows.filter((r) => r.issue.trim() || r.notes.trim() || r.photo);
+  const n = filled.length || 1;
+  const apt = apartment?.name ?? "";
 
   const submit = () => {
     if (!apartment) return;
-    if (!issue.trim()) return setError("Say what’s wrong.");
+    if (!filled.length) return setError("Say what’s wrong.");
+    const blank = filled.findIndex((r) => !r.issue.trim());
+    if (blank >= 0) return setError(filled.length > 1 ? `Say what’s wrong for reason ${blank + 1}.` : "Say what’s wrong.");
     setError(null);
     startTransition(async () => {
       try {
+        const photos = await Promise.all(filled.map((r) => (r.photo ? shrinkPhoto(r.photo) : null)));
+        if (photos.reduce((s, p) => s + (p?.size ?? 0), 0) > MAX_PHOTO_BYTES) return setError("The photos are too big to send together. Send fewer now and add the rest on the tickets in Maintenance.");
         const fd = new FormData();
-        fd.set("area", apartment.name);
-        fd.set("issueType", issue.trim());
-        fd.set("assignedTo", dept);
-        fd.set("priority", priority);
-        fd.set("notes", notes);
-        fd.set("blocksSale", "on");
-        if (photo) fd.set("photo", await shrinkPhoto(photo));
-        const r = await callAction(createTicketAction)(fd);
-        onClose();
-        onDone?.(r.id);
+        fd.set("apartment", apartment.name);
+        fd.set("reasons", JSON.stringify(filled.map((r) => ({ issue: r.issue.trim(), dept: r.dept, priority: r.priority, notes: r.notes.trim() }))));
+        photos.forEach((p, i) => { if (p) fd.set(`photo${i}`, p); });
+        const r = await callAction(putUnderMaintenanceAction)(fd);
+        onDone?.(r.ids);
         router.refresh();
+        if (r.photosFailed) return setSaved(`${r.photosFailed === 1 ? "One photo" : `${r.photosFailed} photos`} didn’t upload. Add ${r.photosFailed === 1 ? "it" : "them"} on the ticket in Maintenance.`);
+        onClose();
       } catch (e) {
         if (isRedirectError(e)) throw e;
         setError(errorMessage(e));
@@ -221,25 +233,50 @@ export function ReportProblemDrawer({ open, onClose, apartment, occupied, onDone
     });
   };
 
+  const go = mode === "put" ? "Put under maintenance" : mode === "add" ? (n > 1 ? "Add reasons" : "Add reason") : n > 1 ? "Report problems" : "Report problem";
   return (
     <Drawer
       open={open && !!apartment}
       onClose={onClose}
-      over="Report a problem"
-      title={apartment?.name ?? ""}
+      over={mode === "put" ? "Put under maintenance" : mode === "add" ? "Under maintenance · add a reason" : "Report a problem"}
+      title={apt}
       sub={apartment?.where}
-      footer={<><button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button><button type="button" className="btn btn-primary" disabled={pending} onClick={submit}><AlertTriangle size={15} /> {pending ? "Sending…" : occupied ? "Report problem" : "Report and stop sale"}</button></>}
+      footer={saved
+        ? <button type="button" className="btn btn-primary" onClick={onClose}><Check size={15} /> Close</button>
+        : <><button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button><button type="button" className="btn btn-primary" disabled={pending} onClick={submit}><Wrench size={15} /> {pending ? "Sending…" : go}</button></>}
     >
-      <Field label="What’s wrong"><input className="input" value={issue} onChange={(e) => setIssue(e.target.value)} placeholder="e.g. Bathroom tap leaking" /></Field>
-      <div className="field"><span className="flabel">Send to</span><div className="seg" role="group" aria-label="Send to" style={{ flexWrap: "wrap" }}>{DD_TICKET_DEPTS.map((d) => <button key={d} type="button" aria-pressed={dept === d} onClick={() => setDept(d)}>{d}</button>)}</div></div>
-      <div className="field"><span className="flabel">Priority</span><div className="seg" role="group" aria-label="Priority">{DD_PRIORITIES.map((p) => <button key={p} type="button" aria-pressed={priority === p} onClick={() => setPriority(p)}>{p}</button>)}</div></div>
-      <Field label="Notes (optional)"><textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
-      <label className="photo-add" style={{ alignSelf: "flex-start", width: "auto", height: "auto", padding: "8px 12px", flexDirection: "row" }}>
-        <Camera size={15} /><span>{photo ? photo.name : "Add photo"}</span>
-        <input type="file" accept="image/*" capture="environment" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
-      </label>
-      <div className="pill-note t-warn"><AlertTriangle size={16} /><span>{occupied ? `A guest is staying in ${apartment?.name}. The ticket goes to ${dept} now, and once the guest leaves the apartment stays Not ready until it’s fixed and checked again.` : `${apartment?.name} turns red (Not ready) straight away, so front desk can’t sell it. After the repair, do a new check-in prep.`}</span></div>
-      {error ? <div className="err-note" role="alert">{error}</div> : null}
+      {saved ? (
+        <>
+          <div className="pill-note t-ok"><Check size={16} /><span>{mode === "occupied" ? "The problem is reported." : `${apt} is under maintenance.`} Each reason went to its team as a repair ticket.</span></div>
+          <div className="err-note" role="alert">{saved}</div>
+        </>
+      ) : (
+        <>
+          {rows.map((r, i) => (
+            <div key={i} className="reason-form">
+              {rows.length > 1 ? (
+                <div className="hstack" style={{ justifyContent: "space-between" }}>
+                  <span className="over">Reason {i + 1}</span>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRows(rows.filter((_, j) => j !== i))}><Trash2 size={14} /> Remove</button>
+                </div>
+              ) : null}
+              <div className="field"><label htmlFor={`um-issue-${i}`}>What’s wrong</label><input className="input" id={`um-issue-${i}`} value={r.issue} onChange={(e) => setRow(i, { issue: e.target.value })} placeholder="e.g. Bathroom tap leaking" autoComplete="off" /></div>
+              <div className="field"><span className="flabel">Send to</span><div className="seg" role="group" aria-label={`Send reason ${i + 1} to`} style={{ flexWrap: "wrap" }}>{DD_TICKET_DEPTS.map((d) => <button key={d} type="button" aria-pressed={r.dept === d} onClick={() => setRow(i, { dept: d })}>{d}</button>)}</div></div>
+              <div className="field"><span className="flabel">Priority</span><div className="seg" role="group" aria-label={`Priority of reason ${i + 1}`}>{DD_PRIORITIES.map((p) => <button key={p} type="button" aria-pressed={r.priority === p} onClick={() => setRow(i, { priority: p })}>{p}</button>)}</div></div>
+              <div className="field"><label htmlFor={`um-notes-${i}`}>Details (optional)</label><textarea className="input" id={`um-notes-${i}`} rows={2} value={r.notes} onChange={(e) => setRow(i, { notes: e.target.value })} placeholder="Where exactly, what you saw" /></div>
+              <label className="photo-add" style={{ alignSelf: "flex-start", width: "auto", height: "auto", padding: "8px 12px", flexDirection: "row" }}>
+                <Camera size={15} /><span>{r.photo ? r.photo.name : "Add photo"}</span>
+                <input type="file" accept="image/*" capture="environment" onChange={(e) => setRow(i, { photo: e.target.files?.[0] ?? null })} />
+              </label>
+            </div>
+          ))}
+          {rows.length < DD_MAX_MAINTENANCE_REASONS ? <button type="button" className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setRows([...rows, newReason()])}><Plus size={15} /> Another reason</button> : null}
+          <div className="pill-note t-maint"><Wrench size={16} /><span>{mode === "occupied"
+            ? `A guest is staying in ${apt}. The ${n > 1 ? "tickets go to their teams" : "ticket goes to the team"} now. Once the guest leaves, ${apt} stays under maintenance until it’s fixed and checked again.`
+            : `${mode === "put" ? `${apt} goes under maintenance straight away, so front desk can’t sell it. ` : ""}Each reason goes to its team as a repair ticket, with your name and the time. When every repair is fixed it shows Repairs done, and a check-in prep submitted Ready makes it sellable again.`}</span></div>
+          {error ? <div className="err-note" role="alert">{error}</div> : null}
+        </>
+      )}
     </Drawer>
   );
 }

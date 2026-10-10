@@ -1,5 +1,5 @@
 import "server-only";
-import { getReadiness, countByStatus, leavingToday, todoList } from "@/lib/data/readiness";
+import { getReadiness, countByStatus, leavingToday, openReasons, todoList } from "@/lib/data/readiness";
 import { getComplaints } from "@/lib/data/complaints";
 import { getMaintenanceTickets } from "@/lib/data/maintenance";
 import { getTasks } from "@/lib/data/tasks";
@@ -12,7 +12,7 @@ const some = (xs: string[], n = 8) => (xs.length > n ? `${xs.slice(0, n).join(",
 export async function draftHandover(): Promise<string> {
   const [readiness, complaints, tickets, tasks] = await Promise.all([getReadiness(), getComplaints(), getMaintenanceTickets(), getTasks()]);
   const c = countByStatus(readiness);
-  const notReady = readiness.filter((r) => r.status === "notready").map((r) => r.apartment.name);
+  const maint = readiness.filter((r) => r.status === "maintenance").map((r) => `${r.apartment.name} (${openReasons(r).map((x) => x.item).join(", ")})`);
   const todo = todoList(readiness).map((r) => r.apartment.name);
   const inspecting = readiness.filter((r) => r.draft).map((r) => `${r.apartment.name} (${r.draft!.prepared_by_name})`);
   const leaving = leavingToday(readiness).map((r) => `${r.apartment.name} (${r.stay!.guest})`);
@@ -22,7 +22,7 @@ export async function draftHandover(): Promise<string> {
   const open = tasks.filter((t) => !t.void && t.status === "Pending").map((t) => ({ ...t, state: taskState(t) })).sort(byDue);
 
   return [
-    `Apartments: ${c.ready} ready to sell, ${c.notready} not ready${notReady.length ? ` (${some(notReady)})` : ""}, ${todo.length} still need a check-in prep${todo.length ? ` (${some(todo)})` : ""}.`,
+    `Apartments: ${c.ready} ready to sell, ${c.maintenance} under maintenance${maint.length ? ` (${some(maint, 5)})` : ""}, ${todo.length} still need a check-in prep${todo.length ? ` (${some(todo)})` : ""}.`,
     inspecting.length ? `Inspections not finished: ${some(inspecting)}.` : "",
     leaving.length ? `Check-outs still to record today: ${some(leaving)}.` : "",
     `Complaints open: ${oc.length}${oc.length ? ` (${oc.slice(0, 6).map((x) => `${findApartment(x.room)?.name ?? x.room ?? "?"}: ${x.category.toLowerCase()}`).join("; ")}${oc.length > 6 ? `; and ${oc.length - 6} more` : ""})` : ""}.`,

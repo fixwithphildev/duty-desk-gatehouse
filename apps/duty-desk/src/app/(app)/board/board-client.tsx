@@ -2,25 +2,25 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { Search, DoorOpen, DoorClosed, ClipboardCheck, History, Users, KeyRound, LogOut, AlertTriangle } from "lucide-react";
+import { Search, DoorOpen, DoorClosed, ClipboardCheck, History, Users, KeyRound, LogOut, Wrench } from "lucide-react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { StartPrepButton } from "@/components/start-prep-button";
-import { CheckInDrawer, CheckOutDrawer, ReportProblemDrawer } from "@/components/stay-drawers";
+import { CheckInDrawer, CheckOutDrawer, MaintenanceDrawer } from "@/components/stay-drawers";
+import { ReasonList } from "@/components/reason-list";
 import { MAIN_FLOORS, STUDIO_FLOORS, WINGS, suggestApartments, findApartment } from "@/lib/apartments";
 import type { BoardApt } from "@/lib/board";
-import type { ReadyStatus } from "@/lib/data/readiness";
+import { STATUS_TONE, isTodo, todoRank, type ReadyStatus } from "@/lib/status";
 
 type Filter = "all" | ReadyStatus;
 type Bld = "both" | "main" | "studio";
 
-const FILTERS: [Filter, string][] = [["all", "All"], ["ready", "Ready to sell"], ["recheck", "Re-check"], ["notready", "Not ready"], ["unchecked", "Needs checklist"], ["inspecting", "Inspecting"], ["occupied", "Occupied"]];
-const TICKET_TONE: Record<string, string> = { Reported: "t-warn", "In Progress": "t-info", Resolved: "t-ok" };
+const FILTERS: [Filter, string][] = [["all", "All"], ["ready", "Ready to sell"], ["recheck", "Re-check"], ["maintenance", "Under maintenance"], ["repaired", "Repairs done"], ["notready", "Not ready"], ["unchecked", "Needs checklist"], ["inspecting", "Inspecting"], ["occupied", "Occupied"]];
 
-type Act = { kind: "in" | "out" | "report"; apt: BoardApt } | null;
+type Act = { kind: "in" | "out" | "maint"; apt: BoardApt } | null;
 
 export type AptTask = { id: string; description: string; who: string; due: string | null; overdue: boolean };
 
-export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, initialApt, readyDays, totalChecks }: { apts: BoardApt[]; openTasks: Record<string, AptTask[]>; canPrep: boolean; canStay: boolean; canReport: boolean; initialApt: string; readyDays: number; totalChecks: number }) {
+export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, ticketLinks, initialApt, readyDays, totalChecks }: { apts: BoardApt[]; openTasks: Record<string, AptTask[]>; canPrep: boolean; canStay: boolean; canReport: boolean; ticketLinks: boolean; initialApt: string; readyDays: number; totalChecks: number }) {
   const [act, setAct] = useState<Act>(null);
   const [q, setQ] = useState(initialApt);
   const [focus, setFocus] = useState(false);
@@ -29,7 +29,7 @@ export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, init
   const byName = useMemo(() => new Map(apts.map((a) => [a.name, a])), [apts]);
   const isMain = (a: BoardApt) => a.building === "Main Building";
   const count = (f: Filter, list = apts) => (f === "all" ? list.length : list.filter((a) => a.status === f).length);
-  const todo = apts.filter((a) => a.status === "unchecked" || a.status === "recheck").sort((a, b) => (a.status === "unchecked" ? 0 : 1) - (b.status === "unchecked" ? 0 : 1) || a.name.localeCompare(b.name));
+  const todo = apts.filter((a) => isTodo(a.status)).sort((a, b) => todoRank(a.status) - todoRank(b.status) || a.name.localeCompare(b.name));
   const leaving = apts.filter((a) => a.stay?.leavesToday).sort((a, b) => a.name.localeCompare(b.name));
   const mine = apts.find((a) => a.draft?.mine);
   const headStart = mine ?? todo[0];
@@ -50,7 +50,8 @@ export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, init
     return (
       <button key={name} type="button" className={`tile ${a.status} ${selected?.name === name ? "sel" : ""}`} onClick={() => pick(name)} title={`${name} · ${a.where}`} aria-label={`${name}: ${a.label}`}>
         <div className="u"><span>{name}</span><i /></div>
-        <div><div className="st">{a.label}</div><div className="mt">{a.meta}</div></div>
+        {/* "Under maintenance" doesn't fit a tile on small phones or laptops; the lookup says it in full. */}
+        <div><div className="st">{a.status === "maintenance" ? "Maintenance" : a.label}</div><div className="mt">{a.meta}</div></div>
       </button>
     );
   };
@@ -60,6 +61,8 @@ export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, init
       <h3>{title}</h3><span className="sub">{sub}</span><span className="sp" />
       <span className="badge t-ok"><span className="d" />{count("ready", list)} ready to sell</span>
       {count("recheck", list) ? <span className="badge t-warn"><span className="d" />{count("recheck", list)} re-check</span> : null}
+      {count("maintenance", list) ? <span className="badge t-maint"><span className="d" />{count("maintenance", list)} under maintenance</span> : null}
+      {count("repaired", list) ? <span className="badge t-maint">{count("repaired", list)} repairs done</span> : null}
       {count("notready", list) ? <span className="badge t-bad"><span className="d" />{count("notready", list)} not ready</span> : null}
       {count("unchecked", list) ? <span className="badge t-neu">{count("unchecked", list)} need checklist</span> : null}
       {count("occupied", list) ? <span className="badge t-neu">{count("occupied", list)} occupied</span> : null}
@@ -109,14 +112,14 @@ export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, init
               {todo.length === 0 ? <li className="empty">Nothing waiting for a check-in prep.</li> : null}
               {todo.map((a) => (
                 <li key={a.name} className="row" style={{ padding: "10px 0" }}>
-                  <span className={`stripe ${a.status === "recheck" ? "s-warn" : "s-neu"}`} />
-                  <div className="m"><b>{a.name}</b><span>{a.meta} · {a.short}</span></div>
-                  {canPrep ? <StartPrepButton apartment={a.name} draft={a.draft} /> : <span className={`badge ${a.status === "recheck" ? "t-warn" : "t-neu"}`}>{a.label}</span>}
+                  <span className={`stripe s-${STATUS_TONE[a.status]}`} />
+                  <div className="m"><b>{a.name}</b><span>{a.status === "repaired" ? "Repairs done" : a.meta} · {a.short}</span></div>
+                  {canPrep ? <StartPrepButton apartment={a.name} draft={a.draft} /> : <span className={`badge t-${STATUS_TONE[a.status]}`}>{a.label}</span>}
                 </li>
               ))}
             </ul>
           </div>
-          <p className="hint" style={{ padding: "10px 20px 16px", margin: 0 }}>Green apartments need nothing from you until they’re sold. Apartments in red wait for repairs, then a new check-in prep.</p>
+          <p className="hint" style={{ padding: "10px 20px 16px", margin: 0 }}>Green apartments need nothing from you until they’re sold. Purple ones are under maintenance; when the repairs are done they come onto this list for a new check-in prep.</p>
         </section>
 
         <section className="card gate v" id="board-lookup">
@@ -152,7 +155,7 @@ export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, init
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <LookupResult a={selected} tasks={selected ? openTasks[selected.name] ?? [] : []} typed={typed} matches={sugg.length} canPrep={canPrep} canStay={canStay} canReport={canReport} onAct={(kind, apt) => setAct({ kind, apt })} readyDays={readyDays} totalChecks={totalChecks} />
+            <LookupResult a={selected} tasks={selected ? openTasks[selected.name] ?? [] : []} typed={typed} matches={sugg.length} canPrep={canPrep} canStay={canStay} canReport={canReport} ticketLinks={ticketLinks} onAct={(kind, apt) => setAct({ kind, apt })} readyDays={readyDays} totalChecks={totalChecks} />
           </div>
         </section>
       </div>
@@ -214,12 +217,12 @@ export function BoardClient({ apts, openTasks, canPrep, canStay, canReport, init
 
       <CheckInDrawer open={act?.kind === "in"} onClose={() => setAct(null)} apartment={act?.kind === "in" ? { name: act.apt.name, where: act.apt.where } : null} readyApts={[]} />
       <CheckOutDrawer open={act?.kind === "out"} onClose={() => setAct(null)} stay={act?.kind === "out" && act.apt.stay ? { id: act.apt.stay.id, guest: act.apt.stay.guest, apartment: act.apt.name, where: act.apt.where } : null} />
-      <ReportProblemDrawer open={act?.kind === "report"} onClose={() => setAct(null)} apartment={act?.kind === "report" ? { name: act.apt.name, where: act.apt.where } : null} occupied={act?.apt.status === "occupied"} />
+      <MaintenanceDrawer open={act?.kind === "maint"} onClose={() => setAct(null)} apartment={act?.kind === "maint" ? { name: act.apt.name, where: act.apt.where } : null} mode={act?.apt.status === "occupied" ? "occupied" : act?.apt.status === "maintenance" ? "add" : "put"} />
     </>
   );
 }
 
-function LookupResult({ a, tasks, typed, matches, canPrep, canStay, canReport, onAct, readyDays, totalChecks }: { a: BoardApt | undefined; tasks: AptTask[]; typed: string; matches: number; canPrep: boolean; canStay: boolean; canReport: boolean; onAct: (kind: "in" | "out" | "report", a: BoardApt) => void; readyDays: number; totalChecks: number }) {
+function LookupResult({ a, tasks, typed, matches, canPrep, canStay, canReport, ticketLinks, onAct, readyDays, totalChecks }: { a: BoardApt | undefined; tasks: AptTask[]; typed: string; matches: number; canPrep: boolean; canStay: boolean; canReport: boolean; ticketLinks: boolean; onAct: (kind: "in" | "out" | "maint", a: BoardApt) => void; readyDays: number; totalChecks: number }) {
   if (!typed) {
     return (
       <div className="res neu">
@@ -243,8 +246,8 @@ function LookupResult({ a, tasks, typed, matches, canPrep, canStay, canReport, o
   const where = <span style={{ fontSize: 13, color: "var(--text-2)" }}>{a.where}</span>;
   const history = a.lastPrepId ? <Link href={`/checklists/${a.lastPrepId}`} className="btn btn-ghost btn-sm"><History size={14} /> Last check-in prep</Link> : null;
   const start = (label?: string) => (canPrep ? <StartPrepButton apartment={a.name} draft={a.draft} label={label} /> : null);
-  const tone = { ready: "ok", notready: "bad" } as Record<string, string>;
-  const Icon = a.status === "ready" ? DoorOpen : a.status === "occupied" ? Users : a.status === "inspecting" || a.status === "unchecked" ? ClipboardCheck : DoorClosed;
+  const tone = { ready: "ok", notready: "bad", maintenance: "maint", repaired: "maint" } as Record<string, string>;
+  const Icon = a.status === "ready" ? DoorOpen : a.status === "occupied" ? Users : a.status === "maintenance" || a.status === "repaired" ? Wrench : a.status === "inspecting" || a.status === "unchecked" ? ClipboardCheck : DoorClosed;
   const style: Record<string, { bg?: string; ri?: CSSProperties; verdict?: string }> = {
     recheck: { bg: "var(--warn-bg)", ri: { background: "var(--warn)", color: "#1B1A17" }, verdict: "var(--warn-fg)" },
     inspecting: { bg: "var(--info-bg)", ri: { background: "var(--info)", color: "#fff" }, verdict: "var(--info-fg)" },
@@ -253,6 +256,8 @@ function LookupResult({ a, tasks, typed, matches, canPrep, canStay, canReport, o
   const verdict = {
     ready: "Ready to sell",
     recheck: "Re-check due · don’t sell yet",
+    maintenance: "Under maintenance · don’t sell",
+    repaired: "Repairs done · check it before selling",
     notready: `Not ready · don’t sell`,
     inspecting: "Being checked now · don’t sell yet",
     unchecked: "Needs checklist · don’t sell yet",
@@ -263,18 +268,13 @@ function LookupResult({ a, tasks, typed, matches, canPrep, canStay, canReport, o
       <div className="ri" style={s.ri}><Icon size={26} /></div>
       <div className="vstack" style={{ gap: 4, flex: 1, minWidth: 0 }}>
         <div className={`verdict ${tone[a.status] ? "" : "muted"}`} style={s.verdict ? { color: s.verdict } : undefined}>{verdict}</div>
-        <h3>{a.name}{a.status === "notready" && a.flags.length ? ` · ${a.flags.length} item${a.flags.length > 1 ? "s" : ""} flagged` : ""}</h3>
+        <h3>{a.name}{a.reasons.length && (a.status === "maintenance" || a.status === "repaired") ? ` · ${a.reasons.length} reason${a.reasons.length > 1 ? "s" : ""}` : ""}</h3>
         {where}
         <span style={{ fontSize: 13.5, color: "var(--text-2)" }}>{a.detail}</span>
-        {a.status === "notready" && a.flags.length ? (
+        {a.reasons.length ? (
           <div className="vstack" style={{ gap: 6, marginTop: 8 }}>
-            {a.flags.map((f) => (
-              <div key={f.item} className="hstack" style={{ fontSize: 13 }}>
-                <span className="badge t-bad"><span className="d" />{f.problem}</span>
-                <b style={{ fontWeight: 500 }}>{f.item}</b>
-                {f.ticketStatus ? <span className={`badge ${TICKET_TONE[f.ticketStatus] ?? "t-neu"}`}>{f.ticketStatus}</span> : null}
-              </div>
-            ))}
+            <span className="over">{a.status === "maintenance" ? "Why it’s under maintenance" : a.status === "repaired" ? "What was repaired" : a.status === "occupied" ? "Problems reported during the stay" : "Problems reported"}</span>
+            <ReasonList reasons={a.reasons} links={ticketLinks} occupied={a.status === "occupied"} />
           </div>
         ) : null}
         {tasks.length ? (
@@ -293,7 +293,7 @@ function LookupResult({ a, tasks, typed, matches, canPrep, canStay, canReport, o
           {a.status === "ready" && canStay ? <button type="button" className="btn btn-primary btn-sm" onClick={() => onAct("in", a)}><KeyRound size={14} /> Record check-in</button> : null}
           {a.status === "occupied" && canStay && a.stay ? <button type="button" className="btn btn-primary btn-sm" onClick={() => onAct("out", a)}><LogOut size={14} /> Record check-out</button> : null}
           {a.status === "ready" ? start("Check again") : a.status === "occupied" ? null : start()}
-          {canReport && a.status !== "inspecting" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAct("report", a)}><AlertTriangle size={14} /> Report a problem</button> : null}
+          {canReport && a.status !== "inspecting" ? <button type="button" className={`btn btn-sm ${a.status === "maintenance" ? "btn-secondary" : "btn-ghost"}`} onClick={() => onAct("maint", a)}><Wrench size={14} /> {a.status === "maintenance" ? "Add a reason" : a.status === "occupied" ? "Report a problem" : "Put under maintenance"}</button> : null}
           {history}
         </div>
         {a.status === "ready" ? <span className="hint">Ready lasts {readyDays} days from the check-in prep. Every apartment uses the same {totalChecks} checks.</span> : null}

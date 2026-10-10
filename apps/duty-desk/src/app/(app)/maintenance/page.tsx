@@ -47,7 +47,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
     if (!withTickets.has(r.apartment.name)) continue;
     apts[aptKey(r.apartment.name)] = {
       status: r.status,
-      repairsDone: r.status === "notready" && r.flags.every((f) => !f.ticketId || f.ticketStatus === "Resolved"),
+      repairsDone: r.status === "repaired",
       draft: r.draft ? { id: r.draft.id, by: r.draft.prepared_by_name, mine: r.draft.prepared_by === session.staffId } : null,
     };
   }

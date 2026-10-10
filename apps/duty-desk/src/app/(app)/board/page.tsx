@@ -1,4 +1,5 @@
 import { requirePageAccess } from "@/lib/auth";
+import { navForRole } from "@/lib/nav";
 import { DD_CAN_EDIT_CHECKLISTS, DD_CAN_EDIT_RESIDENTS, DD_CAN_EDIT_TICKETS } from "@/lib/types";
 import { DD_ALL_ITEMS } from "@/lib/checklist-data";
 import { getReadiness, READY_DAYS } from "@/lib/data/readiness";
@@ -25,6 +26,7 @@ export default async function BoardPage({ searchParams }: { searchParams: { apt?
       canPrep={DD_CAN_EDIT_CHECKLISTS.includes(session.role)}
       canStay={DD_CAN_EDIT_RESIDENTS.includes(session.role)}
       canReport={DD_CAN_EDIT_TICKETS.includes(session.role)}
+      ticketLinks={navForRole(session.role).some((i) => i.href === "/maintenance")}
       initialApt={searchParams.apt ?? ""}
       readyDays={READY_DAYS}
       totalChecks={DD_ALL_ITEMS.length}

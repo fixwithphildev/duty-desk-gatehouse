@@ -3,6 +3,7 @@ import { ArrowRight, Download } from "lucide-react";
 import { requirePageAccess } from "@/lib/auth";
 import { buildAnalytics, parsePeriod, PERIODS, type Ranked } from "@/lib/reports/analytics";
 import { getReadiness, countByStatus } from "@/lib/data/readiness";
+import { STATUS_LABEL, STATUS_ORDER } from "@/lib/status";
 import { toBoardApt } from "@/lib/board";
 import { lagosDayKey } from "@/lib/time";
 import { Columns, DonutCard, DotMatrix, PrepBars, RingTile, STATUS_COLOR, StatusLegend, pct } from "@/components/infographic";
@@ -96,11 +97,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: { da
         <section className="card">
           <div className="card-h"><h3>Apartment status</h3><span className="sp" /><Link href="/board" className="link">Open board <ArrowRight size={13} /></Link></div>
           <DonutCard
-            parts={([["ready", "Ready to sell"], ["recheck", "Re-check due"], ["notready", "Not ready"], ["inspecting", "Inspecting"], ["unchecked", "Needs checklist"], ["occupied", "Occupied"]] as const).map(([k, l]) => ({ label: l, v: c[k], color: STATUS_COLOR[k], dashed: k === "unchecked" }))}
+            parts={STATUS_ORDER.map((k) => ({ label: STATUS_LABEL[k], v: c[k], color: STATUS_COLOR[k], dashed: k === "unchecked" }))}
             centre={c.ready}
             sub="ready to sell"
           />
-          <p className="ig-note">{c.notready + c.unchecked + c.recheck + c.inspecting} empty apartments can’t be sold yet: {c.notready} waiting on repairs, {c.unchecked + c.recheck} waiting for a check-in prep, {c.inspecting} being checked now.</p>
+          <p className="ig-note">{empty - c.ready} empty apartments can’t be sold yet: {c.maintenance} under maintenance, {c.repaired + c.notready + c.unchecked + c.recheck} waiting for a check-in prep{c.repaired ? ` (${c.repaired} with repairs done)` : ""}, {c.inspecting} being checked now.</p>
         </section>
       </div>
 
