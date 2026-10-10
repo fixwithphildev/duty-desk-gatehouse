@@ -181,7 +181,7 @@ export function Portal({ platforms }: { platforms: Platform[] }) {
           </nav>
         </main>
 
-        <footer className="foot"><span>Forgot your usercode? Ask your supervisor.</span></footer>
+        <footer className="foot"><span>Forgot your usercode? Ask the Admin to reset it.</span></footer>
       </div>
     </>
   );
